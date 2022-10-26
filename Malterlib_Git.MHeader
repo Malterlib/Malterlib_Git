@@ -1,0 +1,65 @@
+// Copyright © 2022 Favro Holding AB
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+Import "../Core/Lib_Malterlib.MTarget"
+
+%Group "{Malterlib}/{Lib_Malterlib_Git}"
+{
+	Property
+	{
+		MalterlibNoShortcuts false
+		AddIncludePaths_p4api true
+	}
+	%Group "Git"
+	{
+		%Group "Include"
+		{
+			Compile.Type "C++"
+			{
+				!!DocumentationEnabled true
+			}
+			%File "Include/Mib/Git/^*"
+		}
+		%File "Source/^*"
+		%Group "Documentation"
+		{
+			%File "Documentation/*"
+		}
+	}
+	%Dependency "Lib_Malterlib_Web"
+	{
+		Dependency.Indirect true
+	}
+}
+
+Property
+{
+	MalterlibLibrary_Git define bool = MalterlibLibrary_All
+	MalterlibSubLibraries =+ "Git"
+	{
+		!!MalterlibLibrary_Git true
+	}
+	MalterlibLibrarySeparate_Lib_Malterlib_Git define bool = true
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Git define bool = true
+	MalterlibIncludeRoots =+ "Include"->MakeAbsolute()
+	{
+		!!MalterlibLibrary_Git true
+	}
+}
+
+%Group "{Test}/{Malterlib_Git}"
+{
+	Property
+	{
+	}
+}
+
+Property
+{
+	!!MalterlibEnableInternalTests true
+	
+	MalterlibTests =+ "Malterlib_Git"
+	MalterlibTestFiles_Malterlib_Git define [type(CEntity)] = ["Test/*"->MakeAbsolute()]
+	MalterlibTestDependencies_Malterlib_Git define [type(CEntity)] = ["Lib_Malterlib_Git"]
+	MalterlibTestExtraGroups_Malterlib_Git define [string] = ["{Test}/{Malterlib_Git}"]
+}
