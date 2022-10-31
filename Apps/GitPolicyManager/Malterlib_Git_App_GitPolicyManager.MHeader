@@ -1,0 +1,76 @@
+// Copyright © 2022 Favro Holding AB
+// Distributed under the MIT license, see license text in LICENSE.Malterlib
+
+%Target "Lib_Malterlib_Git_GitPolicyManager"
+{
+	Property
+	{
+		MalterlibConcurrency_DistributedActors true
+		MalterlibCloudTargetLibrary true
+	}
+	Compile.PrefixHeader undefined
+	{
+		&
+		{
+			PlatformFamily "Windows"
+			CompileDialect "C"
+		}
+	}
+	Target
+	{
+		Type "StaticLibrary"
+		BaseName "Malterlib_Git_GitPolicyManager"
+		Group "Apps"
+	}
+	%Group "Source"
+	{
+		%File "Source/Malterlib_Git_App_*"
+	}
+
+	%Dependency "Lib_Malterlib_Git"
+	{
+		Dependency.Indirect true
+	}
+	%Dependency "Lib_Malterlib_Web"
+	{
+		Dependency.Indirect true
+	}
+	%Dependency "Lib_Malterlib_Cloud"
+	{
+		Dependency.Indirect true
+	}
+	%Dependency "Lib_Malterlib"
+	{
+		Dependency.Indirect true
+	}
+}
+
+%Target "Malterlib_Git_GitPolicyManager"
+{
+	Property
+	{
+		ProductName "Malterlib Git Policy Manager"
+		MalterlibTestApp true
+		MalterlibPostCopyProject "Malterlib_Git_GitPolicyManager"
+		{
+			!!MalterlibPostCopyProject undefined
+		}
+		MalterlibConcurrency_DistributedActors true
+		MalterlibTargetNameType "Normal"
+		MalterlibCloudVersionInfo_RunAsUser "MalterlibGitPolicyManager"
+		MalterlibCloudVersionInfo_RunAsGroup "MalterlibGitPolicyManager"
+	}
+	Target
+	{
+		DebuggerCommandArguments ["--daemon-run-debug"]
+		BaseFileName "GitPolicyManager"
+		Group "Apps"
+	}
+	%Group "Source"
+	{
+		%File "Source/Malterlib_Git_AppLocal_*"
+	}
+	%Dependency "Lib_Malterlib_Git_GitPolicyManager"
+}
+
+Property.Malterlib_Git_App_Targets =+ "Malterlib_Git_GitPolicyManager"

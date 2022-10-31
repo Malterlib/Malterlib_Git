@@ -3,6 +3,8 @@
 
 Import "../Core/Lib_Malterlib.MTarget"
 
+Import "Apps/*/*.MHeader"
+
 %Group "{Malterlib}/{Lib_Malterlib_Git}"
 {
 	Property
@@ -62,4 +64,30 @@ Property
 	MalterlibTestFiles_Malterlib_Git define [type(CEntity)] = ["Test/*"->MakeAbsolute()]
 	MalterlibTestDependencies_Malterlib_Git define [type(CEntity)] = ["Lib_Malterlib_Git"]
 	MalterlibTestExtraGroups_Malterlib_Git define [string] = ["{Test}/{Malterlib_Git}"]
+}
+
+Property.Malterlib_Git_App_Targets define [type(CEntity)] = []
+
+%Workspace "Apps_Malterlib_Git"
+{
+	&
+	{
+		MalterlibEnableInternalWorkspaces true
+	}
+
+	Property
+	{
+		MalterlibCloud_EnableVersionUpload true
+		MalterlibPostCopyProject "Malterlib_Git"
+		{
+			!!TargetIsExecutable true
+		}
+
+		MalterlibLog_Severities ["Error", "Critical", "Warning", "Info"]
+		{
+			!!MalterlibLog_EnableVerboseDebugLog false
+		}
+	}
+
+	%Target Malterlib_Git_App_Targets
 }
