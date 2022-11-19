@@ -36,13 +36,13 @@ Import "Apps/*/*.MHeader"
 
 Property
 {
-	MalterlibLibrary_Git define bool = MalterlibLibrary_All
+	MalterlibLibrary_Git: bool = MalterlibLibrary_All
 	MalterlibSubLibraries =+ "Git"
 	{
 		!!MalterlibLibrary_Git true
 	}
-	MalterlibLibrarySeparate_Lib_Malterlib_Git define bool = true
-//	MalterlibSubLibrarySeparate_Lib_Malterlib_Git define bool = true
+	MalterlibLibrarySeparate_Lib_Malterlib_Git: bool = true
+//	MalterlibSubLibrarySeparate_Lib_Malterlib_Git: bool = true
 	MalterlibIncludeRoots =+ "Include"->MakeAbsolute()
 	{
 		!!MalterlibLibrary_Git true
@@ -61,12 +61,12 @@ Property
 	!!MalterlibEnableInternalTests true
 	
 	MalterlibTests =+ "Malterlib_Git"
-	MalterlibTestFiles_Malterlib_Git define [type(CEntity)] = ["Test/*"->MakeAbsolute()]
-	MalterlibTestDependencies_Malterlib_Git define [type(CEntity)] = ["Lib_Malterlib_Git"]
-	MalterlibTestExtraGroups_Malterlib_Git define [string] = ["{Test}/{Malterlib_Git}"]
+	MalterlibTestFiles_Malterlib_Git: [type(CEntity)] = ["Test/*"->MakeAbsolute()]
+	MalterlibTestDependencies_Malterlib_Git: [type(CEntity)] = ["Lib_Malterlib_Git"]
+	MalterlibTestExtraGroups_Malterlib_Git: [string] = ["{Test}/{Malterlib_Git}"]
 }
 
-Property.Malterlib_Git_App_Targets define [type(CEntity)] = []
+Property.Malterlib_Git_App_Targets: [type(CEntity)] = []
 
 %Workspace "Apps_Malterlib_Git"
 {

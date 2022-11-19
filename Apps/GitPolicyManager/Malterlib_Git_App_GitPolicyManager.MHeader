@@ -5,8 +5,6 @@
 {
 	Property
 	{
-		MalterlibConcurrency_DistributedActors true
-		MalterlibCloudTargetLibrary true
 	}
 	Compile.PrefixHeader undefined
 	{
@@ -26,7 +24,6 @@
 	{
 		%File "Source/Malterlib_Git_App_*"
 	}
-
 	%Dependency "Lib_Malterlib_Git"
 	{
 		Dependency.Indirect true
@@ -55,7 +52,6 @@
 		{
 			!!MalterlibPostCopyProject undefined
 		}
-		MalterlibConcurrency_DistributedActors true
 		MalterlibTargetNameType "Normal"
 		MalterlibCloudVersionInfo_RunAsUser "MalterlibGitPolicyManager"
 		MalterlibCloudVersionInfo_RunAsGroup "MalterlibGitPolicyManager"
