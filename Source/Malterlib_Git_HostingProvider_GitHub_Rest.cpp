@@ -113,9 +113,9 @@ namespace NMib::NGit
 					}
 				}
 			}
-			catch (CException const &_Exception)
+			catch (CException const &)
 			{
-				co_return _Exception.f_ExceptionPointer();
+				co_return NException::fg_CurrentException();
 			}
 		}
 
