@@ -294,7 +294,7 @@ namespace NMib::NGit
 	}
 
 	TCFuture<CJSON> CGitHostingProvider_GitHub::fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule)
- 	{
+	{
 		CJSON Output;
 
 		auto fAddOptional = [&](CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
