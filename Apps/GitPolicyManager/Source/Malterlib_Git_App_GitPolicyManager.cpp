@@ -17,11 +17,15 @@ namespace NMib::NGit::NGitPolicyManager
 
 	TCFuture<void> CGitPolicyManagerActor::fp_StartApp(NEncoding::CEJSON const &_Params)
 	{
-		auto OnResume = g_OnResume / [&]
-			{
-				if (mp_State.m_bStoppingApp || f_IsDestroyed())
-					DMibError("Startup aborted");
-			}
+		auto OnResume = co_await fg_OnResume
+			(
+				[&]() -> NException::CExceptionPointer
+				{
+					if (mp_State.m_bStoppingApp || f_IsDestroyed())
+						return DMibErrorInstance("Startup aborted");
+					return {};
+				}
+			)
 		;
 
 		co_await fp_RegisterSensors();
