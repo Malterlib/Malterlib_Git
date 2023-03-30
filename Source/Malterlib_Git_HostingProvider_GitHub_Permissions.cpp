@@ -30,7 +30,7 @@ namespace NMib::NGit
 
 	auto CGitHostingProvider_GitHub::f_GetRepositoryPermissions(CStr const &_Repository) -> TCFuture<CRepositoryPermissions>
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		CRepositoryPermissions OutPermissions;
 
@@ -53,7 +53,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitHostingProvider_GitHub::f_AddRepositoryPermissions(NStr::CStr const &_Repository, CRepositoryPermissions const &_Permissions)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -84,7 +84,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitHostingProvider_GitHub::f_RemoveRepositoryPermissions(CStr const &_Repository, TCSet<CStr> const &_Teams, TCSet<CStr> const &_Users)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

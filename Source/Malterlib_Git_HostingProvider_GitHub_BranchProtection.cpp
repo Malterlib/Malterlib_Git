@@ -216,78 +216,73 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		try
+		auto CaptureScope = co_await g_CaptureExceptions;
+
+		auto const Data = co_await
+			(
+				fp_GraphQlApi(g_pGraphQl_GetBranchProtection, {"owner"__= RepositorySlug.m_Owner, "name"__= RepositorySlug.m_Name})
+				% ("Failed to get branch protection rules for repository '{}'"_f << _Repository)
+			)
+		;
+
+		auto &Rules = Data["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array();
+
+		for (auto &Rule : Rules)
 		{
-			auto const Data = co_await
-				(
-					fp_GraphQlApi(g_pGraphQl_GetBranchProtection, {"owner"__= RepositorySlug.m_Owner, "name"__= RepositorySlug.m_Name})
-					% ("Failed to get branch protection rules for repository '{}'"_f << _Repository)
-				)
-			;
+			auto &OutRule = OutRules[Rule["id"].f_String()];
 
-			auto &Rules = Data["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array();
+			OutRule.m_Pattern = Rule["pattern"].f_String();
+			OutRule.m_Creator = Rule["creator"]["login"].f_String();
 
-			for (auto &Rule : Rules)
+			OutRule.m_PushAllowances = fg_ParseActorList(Rule["pushAllowances"]);
+			OutRule.m_ReviewDismissalAllowances = fg_ParseActorList(Rule["reviewDismissalAllowances"]);
+			OutRule.m_BypassForcePushAllowances = fg_ParseActorList(Rule["bypassForcePushAllowances"]);
+			OutRule.m_BypassPullRequestAllowances = fg_ParseActorList(Rule["bypassPullRequestAllowances"]);
+
 			{
-				auto &OutRule = OutRules[Rule["id"].f_String()];
-
-				OutRule.m_Pattern = Rule["pattern"].f_String();
-				OutRule.m_Creator = Rule["creator"]["login"].f_String();
-
-				OutRule.m_PushAllowances = fg_ParseActorList(Rule["pushAllowances"]);
-				OutRule.m_ReviewDismissalAllowances = fg_ParseActorList(Rule["reviewDismissalAllowances"]);
-				OutRule.m_BypassForcePushAllowances = fg_ParseActorList(Rule["bypassForcePushAllowances"]);
-				OutRule.m_BypassPullRequestAllowances = fg_ParseActorList(Rule["bypassPullRequestAllowances"]);
-
-				{
-					auto Value = Rule["requiredStatusCheckContexts"].f_StringArray();
-					Value.f_Sort();
-					OutRule.m_RequiredStatusCheckContexts = fg_Move(Value);
-				}
-
-				{
-					TCVector<CRequiredStatusCheck> RequiredChecks;
-					for (auto &Check : Rule["requiredStatusChecks"].f_Array())
-					{
-						auto &OutCheck = RequiredChecks.f_Insert();
-						OutCheck.m_Context = Check["context"].f_String();
-
-						auto &App = Check["app"];
-						if (!App.f_IsNull())
-						{
-							CApp OutApp;
-							OutApp.m_ID = App["id"].f_String();
-							OutApp.m_Slug = App["slug"].f_String();
-							OutApp.m_Name = App["name"].f_String();
-							OutCheck.m_App = OutApp;
-						}
-					}
-					RequiredChecks.f_Sort();
-					OutRule.m_RequiredStatusChecks = fg_Move(RequiredChecks);
-				}
-
-				if (auto pValue = Rule.f_GetMember("requiredApprovingReviewCount", EJSONType_Integer))
-					OutRule.m_RequiredApprovingReviewCount = pValue->f_Integer();
-
-				OutRule.m_AllowsForcePushes = Rule["allowsForcePushes"].f_Boolean();
-				OutRule.m_AllowsDeletions = Rule["allowsDeletions"].f_Boolean();
-				OutRule.m_BlocksCreations = Rule["blocksCreations"].f_Boolean();
-				OutRule.m_DismissesStaleReviews = Rule["dismissesStaleReviews"].f_Boolean();
-				OutRule.m_IsAdminEnforced = Rule["isAdminEnforced"].f_Boolean();
-				OutRule.m_RequiresApprovingReviews = Rule["requiresApprovingReviews"].f_Boolean();
-				OutRule.m_RequiresCodeOwnerReviews = Rule["requiresCodeOwnerReviews"].f_Boolean();
-				OutRule.m_RequiresCommitSignatures = Rule["requiresCommitSignatures"].f_Boolean();
-				OutRule.m_RequiresConversationResolution = Rule["requiresConversationResolution"].f_Boolean();
-				OutRule.m_RequiresLinearHistory = Rule["requiresLinearHistory"].f_Boolean();
-				OutRule.m_RequiresStatusChecks = Rule["requiresStatusChecks"].f_Boolean();
-				OutRule.m_RequiresStrictStatusChecks = Rule["requiresStrictStatusChecks"].f_Boolean();
-				OutRule.m_RestrictsPushes = Rule["restrictsPushes"].f_Boolean();
-				OutRule.m_RestrictsReviewDismissals = Rule["restrictsReviewDismissals"].f_Boolean();
+				auto Value = Rule["requiredStatusCheckContexts"].f_StringArray();
+				Value.f_Sort();
+				OutRule.m_RequiredStatusCheckContexts = fg_Move(Value);
 			}
-		}
-		catch (CException const &)
-		{
-			co_return NException::fg_CurrentException();
+
+			{
+				TCVector<CRequiredStatusCheck> RequiredChecks;
+				for (auto &Check : Rule["requiredStatusChecks"].f_Array())
+				{
+					auto &OutCheck = RequiredChecks.f_Insert();
+					OutCheck.m_Context = Check["context"].f_String();
+
+					auto &App = Check["app"];
+					if (!App.f_IsNull())
+					{
+						CApp OutApp;
+						OutApp.m_ID = App["id"].f_String();
+						OutApp.m_Slug = App["slug"].f_String();
+						OutApp.m_Name = App["name"].f_String();
+						OutCheck.m_App = OutApp;
+					}
+				}
+				RequiredChecks.f_Sort();
+				OutRule.m_RequiredStatusChecks = fg_Move(RequiredChecks);
+			}
+
+			if (auto pValue = Rule.f_GetMember("requiredApprovingReviewCount", EJSONType_Integer))
+				OutRule.m_RequiredApprovingReviewCount = pValue->f_Integer();
+
+			OutRule.m_AllowsForcePushes = Rule["allowsForcePushes"].f_Boolean();
+			OutRule.m_AllowsDeletions = Rule["allowsDeletions"].f_Boolean();
+			OutRule.m_BlocksCreations = Rule["blocksCreations"].f_Boolean();
+			OutRule.m_DismissesStaleReviews = Rule["dismissesStaleReviews"].f_Boolean();
+			OutRule.m_IsAdminEnforced = Rule["isAdminEnforced"].f_Boolean();
+			OutRule.m_RequiresApprovingReviews = Rule["requiresApprovingReviews"].f_Boolean();
+			OutRule.m_RequiresCodeOwnerReviews = Rule["requiresCodeOwnerReviews"].f_Boolean();
+			OutRule.m_RequiresCommitSignatures = Rule["requiresCommitSignatures"].f_Boolean();
+			OutRule.m_RequiresConversationResolution = Rule["requiresConversationResolution"].f_Boolean();
+			OutRule.m_RequiresLinearHistory = Rule["requiresLinearHistory"].f_Boolean();
+			OutRule.m_RequiresStatusChecks = Rule["requiresStatusChecks"].f_Boolean();
+			OutRule.m_RequiresStrictStatusChecks = Rule["requiresStrictStatusChecks"].f_Boolean();
+			OutRule.m_RestrictsPushes = Rule["restrictsPushes"].f_Boolean();
+			OutRule.m_RestrictsReviewDismissals = Rule["restrictsReviewDismissals"].f_Boolean();
 		}
 
 		co_return fg_Move(OutRules);
@@ -376,7 +371,7 @@ namespace NMib::NGit
 
 	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateBranchProtectionRule(CStr const &_Repository, CBranchProtectionRule const &_Rule)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -416,7 +411,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -453,7 +448,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		co_await
 			(

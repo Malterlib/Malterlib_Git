@@ -63,8 +63,9 @@ namespace NMib::NGit
 				co_return DMibErrorInstance("GitHub request failed with status {} ({}): {}"_f << Result.m_StatusCode << Result.m_StatusMessage << Error);
 			}
 
-			try
 			{
+				auto CaptureScope = co_await g_CaptureExceptions;
+
 				auto PageJson = CJSON::fs_FromString(Result.m_Body);
 				if (!ReturnJson.f_IsValid())
 					ReturnJson = fg_Move(PageJson);
@@ -112,10 +113,6 @@ namespace NMib::NGit
 							break;
 					}
 				}
-			}
-			catch (CException const &)
-			{
-				co_return NException::fg_CurrentException();
 			}
 		}
 

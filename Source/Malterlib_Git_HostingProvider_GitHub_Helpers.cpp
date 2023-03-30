@@ -18,7 +18,7 @@ namespace NMib::NGit
 
 	TCFuture<CStr> CGitHostingProvider_GitHub::fp_GetAppID(CGitHostingProvider::CApp _App)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		if (_App.m_ID)
 			co_return _App.m_ID;
@@ -33,7 +33,7 @@ namespace NMib::NGit
 
 	TCFuture<CStr> CGitHostingProvider_GitHub::fp_GetActorID(CStr _Organization, CGitHostingProvider::CGitActor _Actor)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		if (_Actor.f_IsOfType<CGitHostingProvider::CUser>())
 		{
@@ -123,7 +123,7 @@ namespace NMib::NGit
 
 	TCFuture<CStr> CGitHostingProvider_GitHub::fp_GetRepositoryID(CStr _Repository)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

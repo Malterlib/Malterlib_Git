@@ -7,7 +7,7 @@ namespace NMib::NGit
 {
 	auto CGitHostingProvider_GitHub::f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) -> TCFuture<TCVector<CRepository>>
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 		
 		TCVector<CRepository> OutRepositories;
 		auto fAddRepository = [&](CJSON const &_RepositoryJson)
