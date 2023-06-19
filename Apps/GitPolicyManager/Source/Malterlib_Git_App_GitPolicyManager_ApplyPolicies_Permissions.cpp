@@ -49,7 +49,7 @@ namespace NMib::NGit::NGitPolicyManager
 		}
 	}
 
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJSON _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJSONSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

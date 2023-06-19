@@ -14,7 +14,7 @@ namespace NMib::NGit::NGitPolicyManager
 	{
 		struct CNameFilter
 		{
-			CNameFilter(CEJSON const &_Config, CStr const &_ConfigName)
+			CNameFilter(CEJSONSorted const &_Config, CStr const &_ConfigName)
 			{
 				if (auto pValue = _Config.f_GetMember("Exclude{}"_f << _ConfigName))
 					m_Exclude = pValue->f_StringArray();
@@ -64,7 +64,7 @@ namespace NMib::NGit::NGitPolicyManager
 			TCVector<CStr> m_IncludeWildcards;
 		};
 
-		TCVector<CGitHostingProvider::CRepository> fg_FilterRepositories(TCVector<CGitHostingProvider::CRepository> const &_Array, CEJSON const &_Policy)
+		TCVector<CGitHostingProvider::CRepository> fg_FilterRepositories(TCVector<CGitHostingProvider::CRepository> const &_Array, CEJSONSorted const &_Policy)
 		{
 			CNameFilter RepositoryNameFilter(_Policy, "Repository");
 			CNameFilter DefaultBranchFilter(_Policy, "DefaultBranch");
@@ -199,7 +199,7 @@ namespace NMib::NGit::NGitPolicyManager
 		co_return {};
 	}
 
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJSON _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJSONSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

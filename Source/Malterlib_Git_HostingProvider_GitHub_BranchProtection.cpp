@@ -168,7 +168,7 @@ namespace NMib::NGit
 			)-----"
 		;
 
-		TCOptional<TCVector<CGitHostingProvider::CGitActor>> fg_ParseActorList(CJSON const &_JSON)
+		TCOptional<TCVector<CGitHostingProvider::CGitActor>> fg_ParseActorList(CJSONSorted const &_JSON)
 		{
 			TCVector<CGitHostingProvider::CGitActor> OutActors;
 			for (auto &ActorNode : _JSON["nodes"].f_Array())
@@ -288,9 +288,9 @@ namespace NMib::NGit
 		co_return fg_Move(OutRules);
 	}
 
-	TCFuture<CJSON> CGitHostingProvider_GitHub::fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule)
+	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule)
 	{
-		CJSON Output;
+		CJSONSorted Output;
 
 		auto fAddOptional = [&](CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
 			{
@@ -321,11 +321,11 @@ namespace NMib::NGit
 				}
 				else if constexpr (TCIsSame<CType, TCVector<CRequiredStatusCheck>>::mc_Value)
 				{
-					TCVector<CJSON> OutValues;
+					TCVector<CJSONSorted> OutValues;
 
 					for (auto &Actor : Value)
 					{
-						CJSON Value;
+						CJSONSorted Value;
 						Value["context"] = Actor.m_Context;
 						if (Actor.m_App)
 							Value["appId"] = co_await fp_GetAppID(*Actor.m_App);
@@ -375,7 +375,7 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSON Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
+		CJSONSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
 		Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository);
 
 		auto const Data = co_await
@@ -415,7 +415,7 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSON Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
+		CJSONSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
 		Values["branchProtectionRuleId"] = _RuleID;
 
 		co_await

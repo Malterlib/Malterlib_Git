@@ -9,7 +9,7 @@ namespace NMib::NGit
 {
 	struct CGitHostingProvider_GitHub : public CGitHostingProvider
 	{
-		TCFuture<void> f_Login(CEJSON const &_LoginDetails) override;
+		TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) override;
 		TCFuture<TCVector<CRepository>> f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) override;
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr const &_Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule) override;
@@ -26,11 +26,11 @@ namespace NMib::NGit
 			CStr m_Name;
 		};
 
-		TCFuture<CJSON> fp_GraphQlApi(CStr _Query, CJSON _Variables);
-		TCFuture<CJSON> fp_RestApi(CStr _Path, TCMap<CStr, CStr> _QueryParams = {}, uint32 _ExpectedStatus = 200);
-		TCFuture<void> fp_RestApiPut(CStr _Path, CJSON _Value, uint32 _ExpectedStatus = 204);
+		TCFuture<CJSONSorted> fp_GraphQlApi(CStr _Query, CJSONSorted _Variables);
+		TCFuture<CJSONSorted> fp_RestApi(CStr _Path, TCMap<CStr, CStr> _QueryParams = {}, uint32 _ExpectedStatus = 200);
+		TCFuture<void> fp_RestApiPut(CStr _Path, CJSONSorted _Value, uint32 _ExpectedStatus = 204);
 		TCFuture<void> fp_RestApiDelete(CStr _Path, uint32 _ExpectedStatus = 204);
-		TCFuture<CJSON> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
+		TCFuture<CJSONSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
 		TCFuture<CStr> fp_GetActorID(CStr _Organization, CGitHostingProvider::CGitActor _Actor);
 		TCFuture<CStr> fp_GetAppID(CGitHostingProvider::CApp _App);
 		TCFuture<CStr> fp_GetRepositoryID(CStr _Repository);

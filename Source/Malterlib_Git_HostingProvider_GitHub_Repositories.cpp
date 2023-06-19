@@ -10,7 +10,7 @@ namespace NMib::NGit
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 		
 		TCVector<CRepository> OutRepositories;
-		auto fAddRepository = [&](CJSON const &_RepositoryJson)
+		auto fAddRepository = [&](CJSONSorted const &_RepositoryJson)
 			{
 				auto &NewRepo = OutRepositories.f_Insert();
 				NewRepo.m_Name = _RepositoryJson["full_name"].f_String();

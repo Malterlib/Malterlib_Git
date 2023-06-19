@@ -7,11 +7,11 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CJSON> CGitHostingProvider_GitHub::fp_RestApi(CStr _Path, TCMap<CStr, CStr> _QueryParams, uint32 _ExpectedStatus)
+	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_RestApi(CStr _Path, TCMap<CStr, CStr> _QueryParams, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		CJSON ReturnJson;
+		CJSONSorted ReturnJson;
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
@@ -52,7 +52,7 @@ namespace NMib::NGit
 				CStr Error = Result.m_Body;
 				try
 				{
-					CJSON ErrorJson = CJSON::fs_FromString(Error);
+					CJSONSorted ErrorJson = CJSONSorted::fs_FromString(Error);
 					if (auto pMember = ErrorJson.f_GetMember("message", EJSONType_String))
 						Error = pMember->f_String();
 				}
@@ -66,7 +66,7 @@ namespace NMib::NGit
 			{
 				auto CaptureScope = co_await g_CaptureExceptions;
 
-				auto PageJson = CJSON::fs_FromString(Result.m_Body);
+				auto PageJson = CJSONSorted::fs_FromString(Result.m_Body);
 				if (!ReturnJson.f_IsValid())
 					ReturnJson = fg_Move(PageJson);
 				else
@@ -119,7 +119,7 @@ namespace NMib::NGit
 		co_return fg_Move(ReturnJson);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiPut(CStr _Path, CJSON _Value, uint32 _ExpectedStatus)
+	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiPut(CStr _Path, CJSONSorted _Value, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -150,7 +150,7 @@ namespace NMib::NGit
 			CStr Error = Result.m_Body;
 			try
 			{
-				CJSON ErrorJson = CJSON::fs_FromString(Error);
+				CJSONSorted ErrorJson = CJSONSorted::fs_FromString(Error);
 				if (auto pMember = ErrorJson.f_GetMember("message", EJSONType_String))
 					Error = pMember->f_String();
 			}
@@ -193,7 +193,7 @@ namespace NMib::NGit
 			CStr Error = Result.m_Body;
 			try
 			{
-				CJSON ErrorJson = CJSON::fs_FromString(Error);
+				CJSONSorted ErrorJson = CJSONSorted::fs_FromString(Error);
 				if (auto pMember = ErrorJson.f_GetMember("message", EJSONType_String))
 					Error = pMember->f_String();
 			}

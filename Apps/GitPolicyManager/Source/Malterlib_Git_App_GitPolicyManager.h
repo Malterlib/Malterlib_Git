@@ -27,15 +27,15 @@ namespace NMib::NGit::NGitPolicyManager
 
 		void fp_BuildCommandLine(CDistributedAppCommandLineSpecification &o_CommandLine) override;
 
-		TCFuture<void> fp_StartApp(NEncoding::CEJSON const &_Params) override;
+		TCFuture<void> fp_StartApp(NEncoding::CEJSONSorted const &_Params) override;
 		TCFuture<void> fp_StopApp() override;
 		TCFuture<void> fp_RegisterSensors();
 
 		TCFuture<void> fp_PeriodicUpdate();
 		TCFuture<void> fp_ApplyPolicies();
-		TCFuture<void> fp_ApplyPolicies_Repository(CEJSON _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
-		TCFuture<void> fp_ApplyPolicies_Permissions(CEJSON _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
-		TCFuture<void> fp_ApplyPolicies_BranchProtection(CEJSON _BranchProtection, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		TCFuture<void> fp_ApplyPolicies_Repository(CEJSONSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		TCFuture<void> fp_ApplyPolicies_Permissions(CEJSONSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		TCFuture<void> fp_ApplyPolicies_BranchProtection(CEJSONSorted _BranchProtection, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 
 		CStr fp_PretendDescription() const;
 

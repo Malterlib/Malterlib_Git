@@ -12,7 +12,7 @@ namespace NMib::NGit::NGitPolicyManager
 {
 	namespace
 	{
-		TCFuture<void> fg_ParseRuleSetting(CEJSON const &_Rule, CStr const &_Name, auto &o_Value)
+		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value)
 		{
 			co_await ECoroutineFlag_CaptureExceptions;
 
@@ -87,7 +87,7 @@ namespace NMib::NGit::NGitPolicyManager
 			co_return {};
 		}
 
-		TCFuture<TCMap<CStr, CGitHostingProvider::CBranchProtectionRule>> fg_ParseBranchProtectionRules(CEJSON const &_BranchProtection)
+		TCFuture<TCMap<CStr, CGitHostingProvider::CBranchProtectionRule>> fg_ParseBranchProtectionRules(CEJSONSorted const &_BranchProtection)
 		{
 			TCMap<CStr, CGitHostingProvider::CBranchProtectionRule> OutRules;
 
@@ -133,7 +133,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_BranchProtection
 		(
-			CEJSON _BranchProtection
+			CEJSONSorted _BranchProtection
 			, CStr _Repository
 			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
 			, CStr _PolicyName

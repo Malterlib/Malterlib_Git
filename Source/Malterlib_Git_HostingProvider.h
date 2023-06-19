@@ -124,7 +124,7 @@ namespace NMib::NGit
 
 		CGitHostingProvider();
 
-		virtual NConcurrency::TCFuture<void> f_Login(CEJSON const &_LoginDetails) = 0;
+		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr const &_Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID, CBranchProtectionRule const &_Rule) = 0;

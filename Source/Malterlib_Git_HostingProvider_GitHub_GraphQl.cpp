@@ -7,9 +7,9 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CJSON> CGitHostingProvider_GitHub::fp_GraphQlApi(CStr _Query, CJSON _Variables)
+	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_GraphQlApi(CStr _Query, CJSONSorted _Variables)
 	{
-		CJSON QueryJson;
+		CJSONSorted QueryJson;
 		QueryJson["query"] = fg_Move(_Query);
 		QueryJson["variables"] = fg_Move(_Variables);
 
@@ -37,7 +37,7 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		auto ResultJson = CJSON::fs_FromString(Result.m_Body);
+		auto ResultJson = CJSONSorted::fs_FromString(Result.m_Body);
 
 		if (auto pErrors = ResultJson.f_GetMember("errors", EJSONType_Array))
 		{
