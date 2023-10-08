@@ -62,7 +62,7 @@ namespace NMib::NGit
 			auto &Team = _Permissions.m_TeamPermissions.fs_GetKey(Permission);
 			co_await
 				(
-					fp_RestApiPut("orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository, {"permission"__= fg_RoleToPermission(Permission)})
+					fp_RestApiPut("orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository, {"permission"_j= fg_RoleToPermission(Permission)})
 					% ("Failed to grant team '{}' access to repository '{}'"_f << Team << _Repository)
 				)
 			;
@@ -73,7 +73,7 @@ namespace NMib::NGit
 			auto &User = _Permissions.m_UserPermissions.fs_GetKey(Permission);
 			co_await
 				(
-					fp_RestApiPut("repos/{}/collaborators/{}"_f << _Repository << User, {"permission"__= fg_RoleToPermission(Permission)})
+					fp_RestApiPut("repos/{}/collaborators/{}"_f << _Repository << User, {"permission"_j= fg_RoleToPermission(Permission)})
 					% ("Failed to grant user '{}' acccess to repository '{}'"_f << User << _Repository)
 				)
 			;

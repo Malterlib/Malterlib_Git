@@ -57,7 +57,7 @@ namespace NMib::NGit
 							)-----"
 							,
 							{
-								"login"__= User.m_Login
+								"login"_j= User.m_Login
 							}
 						)
 						% ("Failed to get user node ID from user '{}'"_f << User.m_Login)
@@ -96,8 +96,8 @@ namespace NMib::NGit
 							)-----"
 							,
 							{
-								"login"__= _Organization
-								, "slug"__= Team.m_Slug
+								"login"_j= _Organization
+								, "slug"_j= Team.m_Slug
 							}
 						)
 						% ("Failed to get team node ID for team '{}' in organization '{}'"_f << Team.m_Slug << _Organization)
@@ -142,8 +142,8 @@ namespace NMib::NGit
 					)-----"
 					,
 					{
-						"owner"__= RepositorySlug.m_Owner
-						, "name"__= RepositorySlug.m_Name
+						"owner"_j= RepositorySlug.m_Owner
+						, "name"_j= RepositorySlug.m_Name
 					}
 				)
 				% ("Failed to get repository node ID for repository '{}'"_f << _Repository)

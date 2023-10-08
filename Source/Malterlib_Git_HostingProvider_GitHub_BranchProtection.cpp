@@ -220,7 +220,7 @@ namespace NMib::NGit
 
 		auto const Data = co_await
 			(
-				fp_GraphQlApi(g_pGraphQl_GetBranchProtection, {"owner"__= RepositorySlug.m_Owner, "name"__= RepositorySlug.m_Name})
+				fp_GraphQlApi(g_pGraphQl_GetBranchProtection, {"owner"_j= RepositorySlug.m_Owner, "name"_j= RepositorySlug.m_Name})
 				% ("Failed to get branch protection rules for repository '{}'"_f << _Repository)
 			)
 		;
@@ -399,7 +399,7 @@ namespace NMib::NGit
 					)-----"
 					,
 					{
-						"input"__= fg_Move(Values)
+						"input"_j= fg_Move(Values)
 					}
 				)
 				% ("Failed to create branch protection rule for repository '{}'"_f << _Repository)
@@ -436,7 +436,7 @@ namespace NMib::NGit
 					)-----"
 					,
 					{
-						"input"__= fg_Move(Values)
+						"input"_j= fg_Move(Values)
 					}
 				)
 				% ("Failed to update branch protection rule for repository '{}'"_f << _Repository)
@@ -465,7 +465,7 @@ namespace NMib::NGit
 					)-----"
 					,
 					{
-						"branchProtectionRuleId"__= _RuleID
+						"branchProtectionRuleId"_j= _RuleID
 					}
 				)
 				% ("Failed to delete branch protection rule for repository '{}'"_f << _Repository)
