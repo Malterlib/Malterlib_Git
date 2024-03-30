@@ -315,7 +315,7 @@ namespace NMib::NGit
 					TCVector<CStr> ActorIDs;
 
 					for (auto &Actor : Value)
-						ActorIDs.f_Insert(co_await fp_GetActorID(_Organization, Actor));
+						ActorIDs.f_Insert(co_await fp_GetActorID(_Organization, Actor, true, nullptr));
 
 					Output[_Name] = fg_Move(ActorIDs);
 				}
@@ -328,7 +328,7 @@ namespace NMib::NGit
 						CJSONSorted Value;
 						Value["context"] = Actor.m_Context;
 						if (Actor.m_App)
-							Value["appId"] = co_await fp_GetAppID(*Actor.m_App);
+							Value["appId"] = co_await fp_GetAppID(*Actor.m_App, true);
 						else
 							Value["appId"] = "any";
 						OutValues.f_Insert(fg_Move(Value));
@@ -376,7 +376,7 @@ namespace NMib::NGit
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
 		CJSONSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
-		Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository);
+		Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository, true);
 
 		auto const Data = co_await
 			(

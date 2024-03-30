@@ -36,34 +36,84 @@ namespace NMib::NGit
 		return false;
 	}
 
+	namespace
+	{
+		COrdering_Partial fg_CompareNameOrID(auto const &_LeftName, auto const &_RightName, auto const &_LeftID, auto const &_RightID)
+		{
+			bool bHasNameLeft = !!_LeftName;
+			bool bHasNameRight = !!_RightName;
+
+			if (auto Compare = bHasNameLeft <=> bHasNameRight; Compare != 0)
+				return Compare;
+
+			if (bHasNameLeft)
+			{
+				if (auto Compare = _LeftName <=> _RightName; Compare != 0)
+					return Compare;
+
+				return _LeftID <=> _RightID;
+			}
+			else
+			{
+				if (auto Compare = !!_LeftID <=> !!_RightID; Compare != 0)
+					return Compare;
+
+				if (auto Compare = _LeftID <=> _RightID; Compare != 0)
+					return Compare;
+
+				return _LeftName <=> _RightName;
+			}
+		}
+	}
+
 	COrdering_Partial CGitHostingProvider::CUser::operator <=> (CUser const &_Right) const
 	{
-		return m_Login <=> _Right.m_Login;
+		return fg_CompareNameOrID(m_Login, _Right.m_Login, m_ID, _Right.m_ID);
 	}
 
 	bool CGitHostingProvider::CUser::operator == (CUser const &_Right) const
 	{
-		return m_Login == _Right.m_Login;
+		return (m_Login && m_Login == _Right.m_Login) || (m_ID && m_ID == _Right.m_ID);
 	}
 
 	COrdering_Partial CGitHostingProvider::CApp::operator <=> (CApp const &_Right) const
 	{
-		return m_Slug <=> _Right.m_Slug;
+		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
 	}
 
 	bool CGitHostingProvider::CApp::operator == (CApp const &_Right) const
 	{
-		return m_Slug == _Right.m_Slug;
+		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
 	}
 
 	COrdering_Partial CGitHostingProvider::CTeam::operator <=> (CTeam const &_Right) const
 	{
-		return m_Slug <=> _Right.m_Slug;
+		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
 	}
 
 	bool CGitHostingProvider::CTeam::operator == (CTeam const &_Right) const
 	{
-		return m_Slug == _Right.m_Slug;
+		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
+	}
+
+	COrdering_Partial CGitHostingProvider::CRepositoryReference::operator <=> (CRepositoryReference const &_Right) const
+	{
+		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
+	}
+
+	bool CGitHostingProvider::CRepositoryReference::operator == (CRepositoryReference const &_Right) const
+	{
+		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
+	}
+
+	COrdering_Partial CGitHostingProvider::CRepositoryRole::operator <=> (CRepositoryRole const &_Right) const
+	{
+		return fg_CompareNameOrID(m_Name, _Right.m_Name, m_ID, _Right.m_ID);
+	}
+
+	bool CGitHostingProvider::CRepositoryRole::operator == (CRepositoryRole const &_Right) const
+	{
+		return (m_Name && m_Name == _Right.m_Name) || (m_ID && m_ID == _Right.m_ID);
 	}
 
 	NContainer::TCMap<NStr::CStr, NStr::CStr> CGitHostingProvider::fs_EnumHostingProviders()
@@ -107,64 +157,101 @@ namespace NMib::NGit
 		return {};
 	}
 
+	namespace
+	{
+		template <typename tf_CClass>
+		bool fg_IsUpdated(auto &_Wanted, auto &_Current, auto (tf_CClass::*_pMember), CStr const &_Name, CStr &o_UpdateValues)
+		{
+			auto &Wanted = _Wanted.*_pMember;
+			auto &Current = _Current.*_pMember;
+
+			if (!Wanted)
+				return false;
+
+			if (Wanted == Current)
+				return false;
+
+			CStr NewValue;
+			if constexpr
+				(
+					requires ()
+					{
+						fg_EnumToString(*Wanted);
+					}
+				)
+			{
+				NewValue = fg_EnumToString(*Wanted);
+			}
+			else
+				NewValue = "{}"_f << *Wanted;
+
+			if (Current)
+			{
+				CStr OldValue;
+				if constexpr
+					(
+						requires ()
+						{
+							fg_EnumToString(*Current);
+						}
+					)
+				{
+					OldValue = fg_EnumToString(*Current);
+				}
+				else
+					OldValue = "{}"_f << *Current;
+
+				if (OldValue.f_FindChar('\n') >= 0 || NewValue.f_FindChar('\n') >= 0)
+				{
+					fg_AddStrSep
+						(
+							o_UpdateValues
+							, "{}\n"
+							"    Old value:\n"
+							"{}\n"
+							"    New value:\n"
+							"{}"_f
+							<< _Name
+							<< OldValue.f_Indent("        ")
+							<< NewValue.f_Indent("        ")
+							, "\n"
+						)
+					;
+				}
+				else
+					fg_AddStrSep(o_UpdateValues, "{} ({} -> {})"_f << _Name << OldValue << NewValue, "\n");
+			}
+			else
+			{
+				if (NewValue.f_FindChar('\n') >= 0)
+				{
+					fg_AddStrSep
+						(
+							o_UpdateValues
+							, "{}\n"
+							"{}"_f
+							<< _Name
+							<< NewValue.f_Indent("        ")
+							, "\n"
+						)
+					;
+				}
+				else
+					fg_AddStrSep(o_UpdateValues, "{} ({})"_f << _Name << NewValue, "\n");
+			}
+
+			return true;
+		}
+	}
+
 	bool CGitHostingProvider::CBranchProtectionRule::f_IsUpdated(CGitHostingProvider::CBranchProtectionRule const &_Wanted, CStr &o_UpdateValues) const
 	{
 		bool bRet = false;
 
 		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CBranchProtectionRule::*_pMember), CStr const &_Name)
 			{
-				auto &Wanted = _Wanted.*_pMember;
-				auto &Current = _Current.*_pMember;
-				
-				if (!Wanted)
-					return;
-
-				if (Wanted != Current)
-				{
+				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
 					bRet = true;
-					CStr NewValue = "{}"_f << *Wanted;
-					if (Current)
-					{
-						CStr OldValue = "{}"_f << *Current;
-						if (OldValue.f_FindChar('\n') >= 0 || NewValue.f_FindChar('\n') >= 0)
-						{
-							fg_AddStrSep
-								(
-									o_UpdateValues
-									, "{}\n"
-									"    Old value:\n"
-									"{}\n"
-									"    New value:\n"
-									"{}"_f
-									<< _Name
-									<< OldValue.f_Indent("        ")
-									<< NewValue.f_Indent("        ")
-									, "\n"
-								)
-							;
-						}
-						else
-							fg_AddStrSep(o_UpdateValues, "{} ({} -> {})"_f << _Name << OldValue << NewValue, "\n");
-					}
-					else
-					{
-						if (NewValue.f_FindChar('\n') >= 0)
-						{
-							fg_AddStrSep
-								(
-									o_UpdateValues
-									, "{}\n"
-									"{}"_f
-									<< _Name
-									<< NewValue.f_Indent("        ")
-									, "\n"
-								)
-							;
-						}
-						else
-							fg_AddStrSep(o_UpdateValues, "{} ({})"_f << _Name << NewValue, "\n");
-					}
-				}
 			}
 		;
 
@@ -193,5 +280,74 @@ namespace NMib::NGit
 		fCheckValue(_Wanted, *this, &CBranchProtectionRule::m_RestrictsReviewDismissals, "RestrictsReviewDismissals");
 
 		return bRet;
+	}
+
+	bool CGitHostingProvider::CGenericRuleset::f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const
+	{
+		bool bRet = false;
+
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CGenericRuleset::*_pMember), CStr const &_Name)
+			{
+				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
+					bRet = true;
+			}
+		;
+
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_Name, "Name");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_BypassActors, "BypassActors");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_IncludeRefNames, "IncludeRefNames");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_ExcludeRefNames, "ExcludeRefNames");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_Rules, "Rules");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_Target, "Target");
+		fCheckValue(_Wanted, *this, &CGenericRuleset::m_Enforcement, "Enforcement");
+
+		return bRet;
+	}
+
+	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value)
+	{
+		switch (_Value)
+		{
+		case CGitHostingProvider::EGenericRuleTarget::mc_Branch: return gc_Str<"Branch">;
+		case CGitHostingProvider::EGenericRuleTarget::mc_Tag: return gc_Str<"Tag">;
+		}
+
+		return {};
+	}
+
+	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleEnforcement _Value)
+	{
+		switch (_Value)
+		{
+		case CGitHostingProvider::EGenericRuleEnforcement::mc_Disabled: return gc_Str<"Disabled">;
+		case CGitHostingProvider::EGenericRuleEnforcement::mc_Active: return gc_Str<"Active">;
+		case CGitHostingProvider::EGenericRuleEnforcement::mc_Evaluate: return gc_Str<"Evaluate">;
+		}
+
+		return {};
+	}
+
+	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleBypassMode _Value)
+	{
+		switch (_Value)
+		{
+		case CGitHostingProvider::EGenericRuleBypassMode::mc_Always: return gc_Str<"Always">;
+		case CGitHostingProvider::EGenericRuleBypassMode::mc_PullRequest: return gc_Str<"PullRequest">;
+		}
+
+		return {};
+	}
+
+	CStr fg_EnumToString(CGitHostingProvider::EStringMatchOperator _Value)
+	{
+		switch (_Value)
+		{
+		case CGitHostingProvider::EStringMatchOperator::mc_StartsWith: return gc_Str<"StartsWith">;
+		case CGitHostingProvider::EStringMatchOperator::mc_EndsWith: return gc_Str<"EndsWith">;
+		case CGitHostingProvider::EStringMatchOperator::mc_Contains: return gc_Str<"Contains">;
+		case CGitHostingProvider::EStringMatchOperator::mc_Regex: return gc_Str<"Regex">;
+		}
+
+		return {};
 	}
 }

@@ -109,6 +109,38 @@ namespace NMib::NGit
 			NStr::CStr m_Name;
 		};
 
+		struct CRepositoryReference
+		{
+			COrdering_Partial operator <=> (CRepositoryReference const &_Right) const;
+			bool operator == (CRepositoryReference const &_Right) const;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+			
+			NStr::CStr m_Slug;
+			NStr::CStr m_ID;
+		};
+
+		struct CRepositoryRole
+		{
+			COrdering_Partial operator <=> (CRepositoryRole const &_Right) const;
+			bool operator == (CRepositoryRole const &_Right) const;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			NStr::CStr m_ID;
+			NStr::CStr m_Name;
+		};
+
+		struct COrganizationAdmin
+		{
+			auto operator <=> (COrganizationAdmin const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
 		struct CRequiredStatusCheck
 		{
 			auto operator <=> (CRequiredStatusCheck const &_Right) const = default;
@@ -121,9 +153,12 @@ namespace NMib::NGit
 		};
 
 		using CGitActor = NStorage::TCVariant<CUser, CTeam, CApp>;
+		using CGenericRuleGitActor = NStorage::TCVariant<CTeam, CApp, CRepositoryRole, COrganizationAdmin>;
 
 		struct CBranchProtectionRule
 		{
+			bool f_IsUpdated(CBranchProtectionRule const &_Wanted, NStr::CStr &o_UpdateValues) const;
+
 			NStorage::TCOptional<NStr::CStr> m_Pattern;
 			NStorage::TCOptional<NStr::CStr> m_Creator;
 
@@ -151,8 +186,259 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_RequiresStrictStatusChecks;
 			NStorage::TCOptional<bool> m_RestrictsPushes;
 			NStorage::TCOptional<bool> m_RestrictsReviewDismissals;
+		};
 
-			bool f_IsUpdated(CBranchProtectionRule const &_Wanted, NStr::CStr &o_UpdateValues) const;
+		enum class EGenericRuleTarget : uint8
+		{
+			mc_Branch
+			, mc_Tag
+		};
+
+		enum class EGenericRuleEnforcement : uint8
+		{
+			mc_Disabled
+			, mc_Active
+			, mc_Evaluate
+		};
+
+		enum class EGenericRuleBypassMode : uint8
+		{
+			mc_Always
+			, mc_PullRequest
+		};
+
+		enum class EStringMatchOperator : uint8
+		{
+			mc_StartsWith
+			, mc_EndsWith
+			, mc_Contains
+			, mc_Regex
+		};
+
+		struct CGenericRuleBypassActor
+		{
+			auto operator <=> (CGenericRuleBypassActor const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+			
+			CGenericRuleGitActor m_Actor;
+			EGenericRuleBypassMode m_BypassMode = EGenericRuleBypassMode::mc_Always;
+		};
+
+		struct CGenericRule_Creation
+		{
+			auto operator <=> (CGenericRule_Creation const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CGenericRule_Update
+		{
+			auto operator <=> (CGenericRule_Update const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			bool m_bAllowFetchAndMerge = false;
+		};
+
+		struct CGenericRule_Deletion
+		{
+			auto operator <=> (CGenericRule_Deletion const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CGenericRule_LinearHistory
+		{
+			auto operator <=> (CGenericRule_LinearHistory const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CGenericRule_Deployments
+		{
+			auto operator <=> (CGenericRule_Deployments const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			NContainer::TCVector<NStr::CStr> m_RequiredDeploymentEnvironments;
+		};
+
+		struct CGenericRule_Signatures
+		{
+			auto operator <=> (CGenericRule_Signatures const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CGenericRule_PullRequest
+		{
+			auto operator <=> (CGenericRule_PullRequest const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			uint8 m_RequiredApprovingReviewCount = 0;
+			bool m_bDismissStaleReviewsOnPush = false;
+			bool m_bRequireCodeOwnerReview = false;
+			bool m_bRequireLastPushApproval = false;
+			bool m_bRequireReviewThreadResolution = false;
+		};
+
+		struct CGenericRule_StatusChecks
+		{
+			auto operator <=> (CGenericRule_StatusChecks const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			struct CRequiredStatusCheck
+			{
+				auto operator <=> (CRequiredStatusCheck const &_Right) const = default;
+				template <typename tf_CStr>
+				void f_Format(tf_CStr &o_Str) const;
+
+				NStr::CStr m_Context;
+				NStorage::TCOptional<CApp> m_App;
+			};
+
+			NContainer::TCVector<CRequiredStatusCheck> m_RequiredStatusChecks;
+			bool m_bPullRequestsMustBeTestedWithLatestCode = false;
+		};
+
+		struct CGenericRule_FastForwardOnly
+		{
+			auto operator <=> (CGenericRule_FastForwardOnly const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CStringMatch
+		{
+			auto operator <=> (CStringMatch const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			NStorage::TCOptional<NStr::CStr> m_Name;
+			NStorage::TCOptional<bool> m_Negate;
+			NStr::CStr m_Pattern;
+			EStringMatchOperator m_Operator = EStringMatchOperator::mc_Contains;
+		};
+
+		struct CGenericRule_CommitMessage
+		{
+			auto operator <=> (CGenericRule_CommitMessage const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			CStringMatch m_StringMatch;
+		};
+
+		struct CGenericRule_CommitAuthorEmail
+		{
+ 			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			CStringMatch m_StringMatch;
+		};
+
+		struct CGenericRule_CommitterEmail
+		{
+ 			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			CStringMatch m_StringMatch;
+		};
+
+		struct CGenericRule_BranchName
+		{
+ 			auto operator <=> (CGenericRule_BranchName const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			CStringMatch m_StringMatch;
+		};
+
+		struct CGenericRule_TagName
+		{
+ 			auto operator <=> (CGenericRule_TagName const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			CStringMatch m_StringMatch;
+		};
+
+		struct CGenericRule_Workflow
+		{
+ 			auto operator <=> (CGenericRule_Workflow const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			struct CRequiredWorkflow
+			{
+				auto operator <=> (CRequiredWorkflow const &_Right) const = default;
+
+				template <typename tf_CStr>
+				void f_Format(tf_CStr &o_Str) const;
+
+				NStr::CStr m_Path;
+				CRepositoryReference m_WorkflowRepository;
+				NStorage::TCOptional<NStr::CStr> m_Ref;
+				NStorage::TCOptional<NStr::CStr> m_Sha;
+			};
+
+			NContainer::TCVector<CRequiredWorkflow> m_Workflows;
+		};
+
+		using CGenericRule = TCVariant
+			<
+				CGenericRule_Creation
+				, CGenericRule_Update
+				, CGenericRule_Deletion
+				, CGenericRule_LinearHistory
+				, CGenericRule_Deployments
+				, CGenericRule_Signatures
+				, CGenericRule_PullRequest
+				, CGenericRule_StatusChecks
+				, CGenericRule_FastForwardOnly
+				, CGenericRule_CommitMessage
+				, CGenericRule_CommitAuthorEmail
+				, CGenericRule_CommitterEmail
+				, CGenericRule_BranchName
+				, CGenericRule_TagName
+				, CGenericRule_Workflow
+			>
+		;
+
+		struct CGenericRuleset
+		{
+ 			auto operator <=> (CGenericRuleset const &_Right) const = default;
+			bool f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const;
+
+			NStorage::TCOptional<NStr::CStr> m_Name;
+			NStorage::TCOptional<TCVector<CGenericRuleBypassActor>> m_BypassActors;
+			NStorage::TCOptional<TCVector<NStr::CStr>> m_IncludeRefNames;
+			NStorage::TCOptional<TCVector<NStr::CStr>> m_ExcludeRefNames;
+			NStorage::TCOptional<TCVector<CGenericRule>> m_Rules;
+			NStorage::TCOptional<EGenericRuleTarget> m_Target;
+			NStorage::TCOptional<EGenericRuleEnforcement> m_Enforcement;
 		};
 
 		struct CRepositoryPermissions
@@ -255,6 +541,12 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_DownloadPublicReleaseAsset(NStr::CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease) = 0;
 		virtual NConcurrency::TCFuture<void> f_DeleteReleaseAsset(NStr::CStr const &_Repository, NStr::CStr const &_Identifier) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetPublicReleaseAssetUrl(NStr::CStr const &_Repository, NStr::CStr const &_TagName, NStr::CStr const &_AssetName) = 0;
+
+		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>> f_GetGenericRulesets(NStr::CStr const &_Repository) = 0;
+		virtual NConcurrency::TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(NStr::CStr const &_Repository, CGenericRuleset &&_Ruleset) = 0;
+		virtual NConcurrency::TCFuture<void> f_UpdateGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID, CGenericRuleset const &_Ruleset) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateGenericRuleset(NStr::CStr const &_Repository, CGenericRuleset const &_Ruleset) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);

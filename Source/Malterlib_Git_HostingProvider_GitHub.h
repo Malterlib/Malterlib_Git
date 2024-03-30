@@ -54,11 +54,25 @@ namespace NMib::NGit
 		TCFuture<void> f_DeleteReleaseAsset(CStr const &_Repository, NStr::CStr const &_Identifier) override;
 		TCFuture<CStr> f_GetPublicReleaseAssetUrl(CStr const &_Repository, CStr const &_TagName, CStr const &_AssetName) override;
 
+		TCFuture<TCMap<CStr, CGenericRuleset>> f_GetGenericRulesets(CStr const &_Repository) override;
+		TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(CStr const &_Repository, CGenericRuleset &&_Ruleset) override;
+		TCFuture<void> f_UpdateGenericRuleset(CStr const &_Repository, CStr const &_ID, CGenericRuleset const &_Ruleset) override;
+		TCFuture<CStr> f_CreateGenericRuleset(CStr const &_Repository, CGenericRuleset const &_Ruleset) override;
+		TCFuture<void> f_DeleteGenericRuleset(CStr const &_Repository, CStr const &_ID) override;
+
 	private:
 		struct CRepositorySlug
 		{
 			CStr m_Owner;
 			CStr m_Name;
+		};
+
+		struct CCustomRepositoryRoleCache
+		{
+			CCustomRepositoryRoleCache();
+
+			TCMap<CStr, CStr> m_NameToID;
+			bool m_bCustomGotten = false;
 		};
 
 		struct CFieldTranslations
@@ -111,9 +125,15 @@ namespace NMib::NGit
 		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 
 		TCFuture<CJSONSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
-		TCFuture<CStr> fp_GetActorID(CStr _Organization, CGitHostingProvider::CGitActor _Actor);
-		TCFuture<CStr> fp_GetAppID(CGitHostingProvider::CApp _App);
-		TCFuture<CStr> fp_GetRepositoryID(CStr _Repository);
+		TCFuture<CJSONSorted> fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset);
+
+		template <typename tf_CActor>
+		TCFuture<CStr> fp_GetActorIDGeneric(CStr _Organization, tf_CActor _Actor, bool _bGraphQL, TCSharedPointer<CCustomRepositoryRoleCache> _pRoleCache);
+		TCFuture<CStr> fp_GetActorID(CStr _Organization, CGitActor _Actor, bool _bGraphQL, TCSharedPointer<CCustomRepositoryRoleCache> _pRoleCache);
+		TCFuture<CStr> fp_GetActorID(CStr _Organization, CGenericRuleGitActor _Actor, bool _bGraphQL, TCSharedPointer<CCustomRepositoryRoleCache> _pRoleCache);
+		TCFuture<CStr> fp_GetAppID(CApp _App, bool _bGraphQL);
+		TCFuture<CStr> fp_GetRepositoryID(CStr _Repository, bool _bGraphQL);
+
 		TCFuture<CRepositorySlug> fp_SplitRepositorySlug(CStr _Repository);
 		TCMap<CStr, CStr> fp_GetRestHeaders(bool _bAuthorize = true);
 		CExceptionPointer fp_GetRestError(CStr const &_Description, CCurlActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
