@@ -32,6 +32,10 @@ Import "Apps/*/*.MHeader"
 	{
 		Dependency.Indirect true
 	}
+	%Dependency "Lib_libzstd_libzstd_static"
+	{
+		Dependency.Indirect true
+	}
 }
 
 Property
