@@ -79,7 +79,6 @@ namespace NMib::NGit::NGitPolicyManager
 		if (!Result)
 		{
 			CStr ErrorString = "Failed to apply Git hosting provider policies: {}"_f << Result.f_GetExceptionStr();
-			DMibLogWithCategory(Mib/Git/GitPolicyManager, Error, ErrorString);
 
 			Status.m_Severity = CDistributedAppSensorReporter::EStatusSeverity_Error;
 			Status.m_Description = ErrorString;
