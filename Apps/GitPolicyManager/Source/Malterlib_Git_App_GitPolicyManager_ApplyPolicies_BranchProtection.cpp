@@ -7,86 +7,12 @@
 #include <Mib/Git/HostingProvider>
 
 #include "Malterlib_Git_App_GitPolicyManager.h"
+#include "Malterlib_Git_App_GitPolicyManager_RuleParsing.hpp"
 
 namespace NMib::NGit::NGitPolicyManager
 {
 	namespace
 	{
-		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value)
-		{
-			co_await ECoroutineFlag_CaptureExceptions;
-
-			auto *pValue = _Rule.f_GetMember(_Name);
-			if (!pValue)
-				co_return {};
-
-			auto &OutValue = o_Value.template f_Set<1>();
-
-			using CType = typename TCRemoveReferenceAndQualifiers<decltype(OutValue)>::CType;
-
-			if constexpr (TCIsSame<CType, CStr>::mc_Value)
-				OutValue = pValue->f_String();
-			else if constexpr (TCIsSame<CType, uint32>::mc_Value)
-				OutValue = pValue->f_Integer();
-			else if constexpr (TCIsSame<CType, bool>::mc_Value)
-				OutValue = pValue->f_Boolean();
-			else if constexpr (TCIsSame<CType, TCVector<CStr>>::mc_Value)
-			{
-				OutValue = pValue->f_StringArray();
-				OutValue.f_Sort();
-			}
-			else if constexpr (TCIsSame<CType, TCVector<CGitHostingProvider::CGitActor>>::mc_Value)
-			{
-				for (auto &Actor : pValue->f_Array())
-				{
-					auto &Type = Actor["Type"].f_String();
-					if (Type == "User")
-					{
-						CGitHostingProvider::CUser User;
-						User.m_Login = Actor["Value"].f_String();
-						OutValue.f_Insert(fg_Move(User));
-					}
-					else if (Type == "Team")
-					{
-						CGitHostingProvider::CTeam Team;
-						Team.m_Slug = Actor["Value"].f_String();
-						OutValue.f_Insert(fg_Move(Team));
-					}
-					else if (Type == "App")
-					{
-						CGitHostingProvider::CApp App;
-						App.m_Slug = Actor["Value"].f_String();
-						OutValue.f_Insert(fg_Move(App));
-					}
-					else
-						co_return DMibErrorInstance("Invalid GitHub actor type: {}"_f << Type);
-				}
-
-				OutValue.f_Sort();
-			}
-			else if constexpr (TCIsSame<CType, TCVector<CGitHostingProvider::CRequiredStatusCheck>>::mc_Value)
-			{
-				for (auto &RequiredCheck : pValue->f_Array())
-				{
-					auto &OutCheck = OutValue.f_Insert();
-					OutCheck.m_Context = RequiredCheck["Context"].f_String();
-
-					if (auto pApp = RequiredCheck.f_GetMember("App"))
-					{
-						CGitHostingProvider::CApp App;
-						App.m_Slug = pApp->f_String();
-						OutCheck.m_App = fg_Move(App);
-					}
-				}
-
-				OutValue.f_Sort();
-			}
-			else
-				static_assert(TCIsSame<CType, void>::mc_Value, "Unsupported type");
-
-			co_return {};
-		}
-
 		TCFuture<TCMap<CStr, CGitHostingProvider::CBranchProtectionRule>> fg_ParseBranchProtectionRules(CEJSONSorted const &_BranchProtection)
 		{
 			TCMap<CStr, CGitHostingProvider::CBranchProtectionRule> OutRules;
@@ -96,7 +22,7 @@ namespace NMib::NGit::NGitPolicyManager
 				auto &RulePattern = Rule.f_Name();
 
 				if (RulePattern.f_IsEmpty())
-					DMibError("Branch protection patterns cannot be an empty string");
+					co_return DMibErrorInstance("Branch protection patterns cannot be an empty string");
 
 				auto &OutRule = OutRules[RulePattern];
 
