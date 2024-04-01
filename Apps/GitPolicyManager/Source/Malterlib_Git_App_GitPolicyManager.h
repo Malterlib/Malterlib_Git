@@ -32,7 +32,7 @@ namespace NMib::NGit::NGitPolicyManager
 		TCFuture<void> fp_RegisterSensors();
 
 		TCFuture<void> fp_PeriodicUpdate();
-		TCFuture<void> fp_ApplyPolicies();
+		TCFuture<mint> fp_ApplyPolicies();
 		TCFuture<void> fp_ApplyPolicies_Repository(CEJSONSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_Permissions(CEJSONSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_BranchProtection(CEJSONSorted _BranchProtection, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);

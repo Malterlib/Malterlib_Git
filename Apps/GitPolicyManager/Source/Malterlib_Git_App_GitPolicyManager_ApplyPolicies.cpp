@@ -119,7 +119,7 @@ namespace NMib::NGit::NGitPolicyManager
 			return "";
 	}
 
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies()
+	TCFuture<mint> CGitPolicyManagerActor::fp_ApplyPolicies()
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -134,7 +134,12 @@ namespace NMib::NGit::NGitPolicyManager
 
 		auto pConfigs = ConfigJson.f_GetMember("Configs");
 		if (!pConfigs)
-			co_return {};
+			co_return 0;
+
+		mint nReposWithoutPolicy = 0;
+
+		TCVector<CGitHostingProvider::CRepository> AllRepositories;
+		TCSet<CStr> AllMatchedRepositories;
 
 		for (auto &Config : pConfigs->f_Array())
 		{
@@ -169,34 +174,43 @@ namespace NMib::NGit::NGitPolicyManager
 				}
 			}
 
-			if (bWarnWithoutPolicies)
-			{
-				CStr WithoutPolicy;
-				for (auto &Repository : Repositories)
-				{
-					if (MatchedRepositories.f_FindEqual(Repository.m_Name))
-						continue;
-
-					fg_AddStrSep
-						(
-							WithoutPolicy
-							, "{}\n"
-							"    private       : {}\n"
-							"    default branch: {}"_f
-							<< Repository.m_Name
-							<< (Repository.m_IsPrivate && *Repository.m_IsPrivate ? "true" : "false")
-							<< (Repository.m_DefaultBranch ? *Repository.m_DefaultBranch : CStr("-"))
-							, "\n"
-						)
-					;
-				}
-
-				if (!WithoutPolicy.f_IsEmpty())
-					Auditor.f_Warning("The following repositories have no policy:\n{}"_f << WithoutPolicy);
-			}
+			AllMatchedRepositories += MatchedRepositories;
+			AllRepositories.f_Insert(Repositories);
 		}
 
-		co_return {};
+		if (bWarnWithoutPolicies)
+		{
+			TCSet<CStr> WarnedRepositories;
+			CStr WithoutPolicy;
+			for (auto &Repository : AllRepositories)
+			{
+				if (AllMatchedRepositories.f_FindEqual(Repository.m_Name))
+					continue;
+	
+				if (!WarnedRepositories(Repository.m_Name).f_WasCreated())
+					continue;
+
+				++nReposWithoutPolicy;
+				
+				fg_AddStrSep
+					(
+						WithoutPolicy
+						, "{}\n"
+						"    private       : {}\n"
+						"    default branch: {}"_f
+						<< Repository.m_Name
+						<< (Repository.m_IsPrivate && *Repository.m_IsPrivate ? "true" : "false")
+						<< (Repository.m_DefaultBranch ? *Repository.m_DefaultBranch : CStr("-"))
+						, "\n"
+					)
+				;
+			}
+
+			if (!WithoutPolicy.f_IsEmpty())
+				Auditor.f_Warning("The following repositories have no policy:\n{}"_f << WithoutPolicy);
+		}
+
+		co_return nReposWithoutPolicy;
 	}
 
 	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJSONSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)

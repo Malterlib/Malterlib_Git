@@ -87,10 +87,18 @@ namespace NMib::NGit::NGitPolicyManager
 		}
 		else
 		{
-			Status.m_Severity = CDistributedAppSensorReporter::EStatusSeverity_Ok;
-			Status.m_Description = "All policies applied successfully";
-
-			DMibLogWithCategory(Malterlib/Git/GitPolicyManager, Info, "{}", Status.m_Description);
+			if (*Result)
+			{
+				Status.m_Severity = CDistributedAppSensorReporter::EStatusSeverity_Warning;
+				Status.m_Description = "All policies applied successfully, but {} repositories have no policy configured"_f << *Result;
+				DMibLogWithCategory(Malterlib/Git/GitPolicyManager, Warning, "{}", Status.m_Description);
+			}
+			else
+			{
+				Status.m_Severity = CDistributedAppSensorReporter::EStatusSeverity_Ok;
+				Status.m_Description = "All policies applied successfully";
+				DMibLogWithCategory(Malterlib/Git/GitPolicyManager, Info, "{}", Status.m_Description);
+			}
 		}
 
 		TCVector<CDistributedAppSensorReporter::CSensorReading> SensorReadings;
