@@ -3,7 +3,7 @@
 
 #pragma once
 
-namespace NMib::NGit::NGitPolicyManager
+namespace NMib::NGit
 {
 	namespace
 	{

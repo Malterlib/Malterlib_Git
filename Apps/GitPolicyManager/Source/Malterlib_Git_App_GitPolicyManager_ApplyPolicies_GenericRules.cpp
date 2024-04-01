@@ -2,47 +2,15 @@
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
 #include <Mib/Core/Platform>
-
+#include <Mib/Concurrency/AsyncDestroy>
 #include <Mib/Encoding/JSONShortcuts>
 #include <Mib/Git/HostingProvider>
+#include <Mib/Git/Policy>
 
 #include "Malterlib_Git_App_GitPolicyManager.h"
-#include "Malterlib_Git_App_GitPolicyManager_RuleParsing.hpp"
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	namespace
-	{
-		TCFuture<TCMap<CStr, CGitHostingProvider::CGenericRuleset>> fg_ParseGenericRules(CEJSONSorted _Rules)
-		{
-			TCMap<CStr, CGitHostingProvider::CGenericRuleset> OutRules;
-
-			for (auto &Rule : _Rules.f_Object())
-			{
-				auto &Name = Rule.f_Name();
-
-				if (Name.f_IsEmpty())
-					co_return DMibErrorInstance("Generic rule name cannot be an empty string");
-
-				auto &OutRule = OutRules[Name];
-
-				auto &RuleValue = Rule.f_Value();
-
-				OutRule.m_Name = Name;
-
-				co_await fg_ParseRuleSetting(RuleValue, "Target", OutRule.m_Target);
-				co_await fg_ParseRuleSetting(RuleValue, "IncludeRefNames", OutRule.m_IncludeRefNames);
-				co_await fg_ParseRuleSetting(RuleValue, "ExcludeRefNames", OutRule.m_ExcludeRefNames);
-				co_await fg_ParseRuleSetting(RuleValue, "BypassActors", OutRule.m_BypassActors);
-				co_await fg_ParseRuleSetting(RuleValue, "Rules", OutRule.m_Rules);
-				co_await fg_ParseRuleSetting(RuleValue, "Enforcement", OutRule.m_Enforcement);
-
-			}
-
-			co_return fg_Move(OutRules);
-		};
-	}
-	
 	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules
 		(
 			CEJSONSorted _Rules
@@ -51,71 +19,49 @@ namespace NMib::NGit::NGitPolicyManager
 			, CStr _PolicyName
 		)
 	{
-		co_await ECoroutineFlag_CaptureExceptions;
-
 		auto Auditor = mp_State.f_Auditor();
 
-		auto WantedGenericRules = co_await fg_ParseGenericRules(_Rules);
+		TCActor<CGitPolicyActor> PolicyActor = fg_Construct();
+		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
 
-		auto CurrentRulesets = co_await _HostingProvider(&CGitHostingProvider::f_GetGenericRulesets, _Repository);
-
-		TCSet<CStr> AlreadyCreated;
-
-		for (auto &RulesetEntry : CurrentRulesets.f_Entries())
-		{
-			auto &RuleID = RulesetEntry.f_Key();
-			auto &Ruleset = RulesetEntry.f_Value();
-
-			if (!Ruleset.m_Name)
-				continue;;
-
-			auto &Name = *Ruleset.m_Name;
-			AlreadyCreated[Name];
-
-			if (auto *pWantedRuleset = WantedGenericRules.f_FindEqual(Name))
+		CGitPolicyActor::CApplyPolicyContext Context
 			{
-				*pWantedRuleset = co_await _HostingProvider(&CGitHostingProvider::f_PopulateGenericRulesetIDs, _Repository, fg_Move(*pWantedRuleset));
-
-				CStr UpdatedValues;
-				if (Ruleset.f_IsUpdated(*pWantedRuleset, UpdatedValues))
+				.m_Repository = _Repository
+				, .m_HostingProvider = _HostingProvider
+				, .m_fOnCreate = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_CreatedValues) -> TCFuture<void>
 				{
-					if (!mp_bPretend)
-						co_await _HostingProvider(&CGitHostingProvider::f_UpdateGenericRuleset, _Repository, RuleID, *pWantedRuleset);
+					Auditor.f_Info
+						(
+							"{}Appying policy '{}' resulted in created generic ruleset for branch pattern '{}' on '{}'"_f
+							<< fp_PretendDescription()
+							<< _PolicyName
+							<< _Name
+							<< _Repository
+						)
+					;
 
+					co_return {};
+				}
+				, .m_fOnUpdate = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_UpdatedValues) -> TCFuture<void>
+				{
 					Auditor.f_Warning
 						(
 							"{}Appying policy '{}' resulted in updated generic ruleset for branch pattern '{}' on '{}'. Updated values:\n{}"_f
 							<< fp_PretendDescription()
 							<< _PolicyName
-							<< Name
+							<< _Name
 							<< _Repository
-							<< UpdatedValues.f_Indent("    ")
+							<< _UpdatedValues.f_Indent("    ", true)
 						)
 					;
+
+					co_return {};
 				}
+				, .m_bPretend = mp_bPretend
 			}
-		}
+		;
 
-		for (auto &WantedRulesetEntry : WantedGenericRules.f_Entries())
-		{
-			if (AlreadyCreated.f_FindEqual(WantedRulesetEntry.f_Key()))
-				continue;
-
-			auto &WantedRuleset = WantedRulesetEntry.f_Value();
-
-			if (!mp_bPretend)
-				co_await _HostingProvider(&CGitHostingProvider::f_CreateGenericRuleset, _Repository, WantedRuleset);
-
-			Auditor.f_Info
-				(
-					"{}Appying policy '{}' resulted in created generic ruleset for branch pattern '{}' on '{}'"_f
-					<< fp_PretendDescription()
-					<< _PolicyName
-					<< WantedRulesetEntry.f_Key()
-					<< _Repository
-				)
-			;
-		}
+		co_await PolicyActor(&CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(_Rules));
 
 		co_return {};
 	}

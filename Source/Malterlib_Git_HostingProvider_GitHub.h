@@ -1,6 +1,8 @@
 // Copyright © 2022 Favro Holding AB
 // Distributed under the MIT license, see license text in LICENSE.Malterlib
 
+#pragma once
+
 #include "Malterlib_Git_HostingProvider.h"
 
 #include <Mib/Web/Curl>
