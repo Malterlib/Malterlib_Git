@@ -5,6 +5,22 @@
 
 namespace NMib::NGit
 {
+	namespace
+	{
+		CGitHostingProvider::CRepository fg_JsonToRepository(CJSONSorted const &_RepositoryJson)
+		{
+			CGitHostingProvider::CRepository NewRepo;
+			NewRepo.m_Name = _RepositoryJson["full_name"].f_String();
+			NewRepo.m_DefaultBranch = _RepositoryJson["default_branch"].f_String();
+			NewRepo.m_IsPrivate = _RepositoryJson["visibility"].f_String() == "private";
+
+			if (auto *pParent = _RepositoryJson.f_GetMember("parent"))
+				NewRepo.m_ForkedFromRepository = (*pParent)["full_name"].f_String();
+
+			return NewRepo;
+		}
+	}
+
 	auto CGitHostingProvider_GitHub::f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) -> TCFuture<TCVector<CRepository>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
@@ -12,10 +28,7 @@ namespace NMib::NGit
 		TCVector<CRepository> OutRepositories;
 		auto fAddRepository = [&](CJSONSorted const &_RepositoryJson)
 			{
-				auto &NewRepo = OutRepositories.f_Insert();
-				NewRepo.m_Name = _RepositoryJson["full_name"].f_String();
-				NewRepo.m_DefaultBranch = _RepositoryJson["default_branch"].f_String();
-				NewRepo.m_IsPrivate = _RepositoryJson["visibility"].f_String() == "private";
+				OutRepositories.f_Insert(fg_JsonToRepository(_RepositoryJson));
 			}
 		;
 
@@ -40,5 +53,16 @@ namespace NMib::NGit
 		}
 
 		co_return fg_Move(OutRepositories);
+	}
+
+	auto CGitHostingProvider_GitHub::f_GetRepository(CStr const &_Repository) -> TCFuture<CRepository>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto const Repository = co_await fp_RestApi("repos/{}/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name, "Failed to get repository '{}'"_f << _Repository);
+
+		co_return fg_JsonToRepository(Repository);
 	}
 }

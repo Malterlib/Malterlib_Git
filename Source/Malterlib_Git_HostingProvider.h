@@ -452,6 +452,7 @@ namespace NMib::NGit
 			NStr::CStr m_Name;
 			NStorage::TCOptional<NStr::CStr> m_DefaultBranch;
 			NStorage::TCOptional<bool> m_IsPrivate;
+			NStorage::TCOptional<CStr> m_ForkedFromRepository;
 		};
 
 		struct CReleaseAsset
@@ -515,6 +516,7 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
 
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
+		virtual NConcurrency::TCFuture<CRepository> f_GetRepository(NStr::CStr const &_Repository) = 0;
 
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr const &_Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID, CBranchProtectionRule const &_Rule) = 0;
