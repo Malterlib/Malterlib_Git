@@ -292,7 +292,7 @@ namespace NMib::NGit
 	{
 		CJSONSorted Output;
 
-		auto fAddOptional = [&](CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
+		auto fAddOptional = [&Output, this, &_Organization](CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
 			{
 				co_await ECoroutineFlag_AllowReferences;
 
