@@ -61,4 +61,12 @@
 	%Dependency "Lib_Malterlib_Git_GitPolicyManager"
 }
 
-Property.Malterlib_Git_App_Targets =+ "Malterlib_Git_GitPolicyManager"
+Property
+{
+	Malterlib_App_Enable_GitPolicyManager: bool = true
+
+	Malterlib_Git_App_Targets =+ "Malterlib_Git_GitPolicyManager"
+	{
+		!!Malterlib_App_Enable_GitPolicyManager true
+	}
+}
