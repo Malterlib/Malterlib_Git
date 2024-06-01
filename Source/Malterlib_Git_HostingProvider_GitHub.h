@@ -66,6 +66,9 @@ namespace NMib::NGit
 		TCFuture<CStr> f_CreateGenericRuleset(CStr const &_Repository, CGenericRuleset const &_Ruleset) override;
 		TCFuture<void> f_DeleteGenericRuleset(CStr const &_Repository, CStr const &_ID) override;
 
+		TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr const &_Repository) override;
+		TCFuture<void> f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) override;
+
 	private:
 		struct CRepositorySlug
 		{

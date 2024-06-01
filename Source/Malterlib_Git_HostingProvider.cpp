@@ -348,6 +348,26 @@ namespace NMib::NGit
 		return bRet;
 	}
 
+	bool CGitHostingProvider::CActionsSettings::f_IsUpdated(CActionsSettings const &_Wanted, NStr::CStr &o_UpdateValues) const
+	{
+		bool bRet = false;
+
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CActionsSettings::*_pMember), CStr const &_Name)
+			{
+				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
+					bRet = true;
+			}
+		;
+
+		fCheckValue(_Wanted, *this, &CActionsSettings::m_ActionsEnabled, "ActionsEnabled");
+		fCheckValue(_Wanted, *this, &CActionsSettings::m_AllowedActions, "AllowedActions");
+		fCheckValue(_Wanted, *this, &CActionsSettings::m_AccessOutsideOfRepository, "AccessOutsideOfRepository");
+		fCheckValue(_Wanted, *this, &CActionsSettings::m_DefaultPermissions, "DefaultPermissions");
+		fCheckValue(_Wanted, *this, &CActionsSettings::m_CanApprovePullRequestReviews, "CanApprovePullRequestReviews");
+
+		return bRet;
+	}
+
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value)
 	{
 		switch (_Value)

@@ -244,4 +244,22 @@ namespace NMib::NGit
 	{
 		o_Str += typename tf_CStr::CFormat("Path: {} WorkflowRepository: {} Ref: {} Sha: {}") << m_Path << m_WorkflowRepository << m_Ref << m_Sha;
 	}
+
+	template <typename tf_CStr>
+	void CGitHostingProvider::CAllowedAction_All::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += "All";
+	}
+
+	template <typename tf_CStr>
+	void CGitHostingProvider::CAllowedAction_LocalOnly::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += "LocalOnly";
+	}
+
+	template <typename tf_CStr>
+	void CGitHostingProvider::CAllowedAction_Selected::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += typename tf_CStr::CFormat("Selected: GithubOwnedAllowed: {} VerifiedAllowed: {} PatternsAllowed: {vs}") << m_bGithubOwnedAllowed << m_bVerifiedAllowed << m_PatternsAllowed;
+	}
 }

@@ -216,6 +216,26 @@ namespace NMib::NGit
 			, mc_Regex
 		};
 
+		enum class EAllowedActions : uint8
+		{
+			mc_All
+			, mc_LocalOnly
+			, mc_Selected
+		};
+
+		enum class EActionsAccessOutsideOfRepository : uint8
+		{
+			mc_None
+			, mc_User
+			, mc_Organization
+		};
+
+		enum class EActionsWorkflowPermissions : uint8
+		{
+			mc_Read
+			, mc_Write
+		};
+
 		struct CGenericRuleBypassActor
 		{
 			auto operator <=> (CGenericRuleBypassActor const &_Right) const = default;
@@ -603,6 +623,54 @@ namespace NMib::NGit
 			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
 		};
 
+		struct CAllowedAction_All
+		{
+			auto operator <=> (CAllowedAction_All const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CAllowedAction_LocalOnly
+		{
+			auto operator <=> (CAllowedAction_LocalOnly const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
+		struct CAllowedAction_Selected
+		{
+			auto operator <=> (CAllowedAction_Selected const &_Right) const = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+
+			bool m_bGithubOwnedAllowed = true;
+			bool m_bVerifiedAllowed = true;
+			TCVector<CStr> m_PatternsAllowed;
+		};
+
+		using CAllowedActions = NStorage::TCStreamableVariant
+			<
+				EAllowedActions
+				, NStorage::TCMember<CAllowedAction_All, EAllowedActions::mc_All>
+				, NStorage::TCMember<CAllowedAction_LocalOnly, EAllowedActions::mc_LocalOnly>
+				, NStorage::TCMember<CAllowedAction_Selected, EAllowedActions::mc_Selected>
+			>
+		;
+
+		struct CActionsSettings
+		{
+			bool f_IsUpdated(CActionsSettings const &_Wanted, NStr::CStr &o_UpdateValues) const;
+
+			NStorage::TCOptional<bool> m_ActionsEnabled;
+			NStorage::TCOptional<CAllowedActions> m_AllowedActions;
+			NStorage::TCOptional<EActionsAccessOutsideOfRepository> m_AccessOutsideOfRepository;
+			NStorage::TCOptional<EActionsWorkflowPermissions> m_DefaultPermissions;
+			NStorage::TCOptional<bool> m_CanApprovePullRequestReviews;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
@@ -644,6 +712,9 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_UpdateGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID, CGenericRuleset const &_Ruleset) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateGenericRuleset(NStr::CStr const &_Repository, CGenericRuleset const &_Ruleset) = 0;
 		virtual NConcurrency::TCFuture<void> f_DeleteGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID) = 0;
+
+		virtual NConcurrency::TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr const &_Repository) = 0;
+		virtual NConcurrency::TCFuture<void> f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);
