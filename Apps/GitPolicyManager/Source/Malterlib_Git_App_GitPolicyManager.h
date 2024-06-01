@@ -38,6 +38,7 @@ namespace NMib::NGit::NGitPolicyManager
 		TCFuture<void> fp_ApplyPolicies_BranchProtection(CEJSONSorted _BranchProtection, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_GenericRules(CEJSONSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_RepositorySettings(CEJSONSorted _Properties, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		TCFuture<void> fp_ApplyPolicies_ActionsSettings(CEJSONSorted _Settings, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 
 		CStr fp_PretendDescription() const;
 

@@ -232,6 +232,9 @@ namespace NMib::NGit::NGitPolicyManager
 		if (auto pGenericRules = _Policy.f_GetMember("GenericRules"))
 			co_await fp_ApplyPolicies_GenericRules(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
 
+		if (auto pGenericRules = _Policy.f_GetMember("ActionsSettings"))
+			co_await fp_ApplyPolicies_ActionsSettings(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
+
 		co_return {};
 	}
 }
