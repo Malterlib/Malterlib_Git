@@ -156,6 +156,30 @@ namespace NMib::NGit
 				else
 					co_return DMibErrorInstance("Invalid merge commit message in '{}': {}"_f << _Name << Value);
 			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::EActionsWorkflowPermissions>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "Read")
+					OutValue = CGitHostingProvider::EActionsWorkflowPermissions::mc_Read;
+				else if (Value == "Write")
+					OutValue = CGitHostingProvider::EActionsWorkflowPermissions::mc_Write;
+				else
+					co_return DMibErrorInstance("Invalid actions workflow permissions in '{}': {}"_f << _Name << Value);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::EActionsAccessOutsideOfRepository>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "None")
+					OutValue = CGitHostingProvider::EActionsAccessOutsideOfRepository::mc_None;
+				else if (Value == "User")
+					OutValue = CGitHostingProvider::EActionsAccessOutsideOfRepository::mc_User;
+				else if (Value == "Organization")
+					OutValue = CGitHostingProvider::EActionsAccessOutsideOfRepository::mc_Organization;
+				else
+					co_return DMibErrorInstance("Invalid actions access outside of repository in '{}': {}"_f << _Name << Value);
+			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGitActor>)
 			{
 				auto &Type = _JsonValue["Type"].f_String();
@@ -304,6 +328,30 @@ namespace NMib::NGit
 				}
 				else
 					co_return DMibErrorInstance("Invalid generic rule type in '{}': {}"_f << _Name << Type);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CAllowedActions>)
+			{
+				auto &Type = _JsonValue["Type"].f_String();
+				if (Type == "All")
+				{
+					CGitHostingProvider::CAllowedAction_All AllowedAction;
+					OutValue = fg_Move(AllowedAction);
+				}
+				else if (Type == "LocalOnly")
+				{
+					CGitHostingProvider::CAllowedAction_LocalOnly AllowedAction;
+					OutValue = fg_Move(AllowedAction);
+				}
+				else if (Type == "Selected")
+				{
+					CGitHostingProvider::CAllowedAction_Selected AllowedAction;
+					co_await fg_ParseRuleSetting(_JsonValue, "GithubOwnedAllowed", AllowedAction.m_bGithubOwnedAllowed);
+					co_await fg_ParseRuleSetting(_JsonValue, "VerifiedAllowed", AllowedAction.m_bVerifiedAllowed);
+					co_await fg_ParseRuleSetting(_JsonValue, "PatternsAllowed", AllowedAction.m_PatternsAllowed);
+					OutValue = fg_Move(AllowedAction);
+				}
+				else
+					co_return DMibErrorInstance("Invalid allowed action type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRuleBypassActor>)
 			{
