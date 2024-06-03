@@ -152,7 +152,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_RestrictsPushes;
 			NStorage::TCOptional<bool> m_RestrictsReviewDismissals;
 
-			bool f_IsUpdated(CBranchProtectionRule const &_Wanted, CStr &o_UpdateValues) const;
+			bool f_IsUpdated(CBranchProtectionRule const &_Wanted, NStr::CStr &o_UpdateValues) const;
 		};
 
 		struct CRepositoryPermissions
@@ -168,14 +168,73 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_IsPrivate;
 		};
 
+		struct CReleaseAsset
+		{
+			NStr::CStr m_Identifier;
+			NStr::CStr m_ContentType;
+			NStr::CStr m_Name;
+			NStr::CStr m_Label;
+			NStr::CStr m_State;
+			NStr::CStr m_DownloadUrl;
+			uint64 m_Size = 0;
+			uint64 m_DownloadCount = 0;
+		};
+
+		struct CRelease
+		{
+ 			NStr::CStr m_Identifier;
+			NStr::CStr m_TagName;
+			NContainer::TCVector<CReleaseAsset> m_Assets;
+			NStr::CStr m_Name;
+			NStorage::TCOptional<NStr::CStr> m_Description;
+			NStr::CStr m_TargetReference;
+			bool m_bPublished = false;
+			bool m_bPreRelease = false;
+		};
+
+		struct CCreateRelease
+		{
+			NStr::CStr m_TagName;
+			NStorage::TCOptional<NStr::CStr> m_Name;
+			NStorage::TCOptional<NStr::CStr> m_Description;
+			NStorage::TCOptional<NStr::CStr> m_TargetReference;
+			NStorage::TCOptional<bool> m_Published;
+			NStorage::TCOptional<bool> m_PreRelease;
+			NStorage::TCOptional<bool> m_GenerateReleaseNotes;
+			NStorage::TCOptional<bool> m_MakeLatest;
+		};
+
+		struct CUploadReleaseAsset
+		{
+			NStr::CStr m_Name;
+			NStorage::TCOptional<NStr::CStr> m_Label;
+			uint64 m_AssetSize = 0;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fReadData;
+		};
+
+		struct CDownloadPublicReleaseAsset
+		{
+			NStr::CStr m_Url;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
+		};
+
+		struct CDownloadReleaseAsset
+		{
+			NStr::CStr m_Identifier;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
+
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
+
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr const &_Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID, CBranchProtectionRule const &_Rule) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr const &_Repository, CBranchProtectionRule const &_Rule) = 0;
 		virtual NConcurrency::TCFuture<void> f_DeleteBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID) = 0;
+
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr const &_Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr const &_Repository, CRepositoryPermissions const &_Permissions) = 0;
 		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions
@@ -185,6 +244,17 @@ namespace NMib::NGit
 				, NContainer::TCSet<NStr::CStr> const &_Users
 			) = 0
 		;
+
+		virtual NConcurrency::TCFuture<CRelease> f_CreateRelease(NStr::CStr const &_Repository, CCreateRelease const &_CreateRelease) = 0;
+		virtual NConcurrency::TCFuture<NStorage::TCOptional<CRelease>> f_GetRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseTag) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CRelease>> f_GetReleases(NStr::CStr const &_Repository) = 0;
+
+		virtual NConcurrency::TCFuture<CReleaseAsset> f_UploadReleaseAsset(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseIdentifier, CUploadReleaseAsset &&_UploadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DownloadReleaseAsset(NStr::CStr const &_Repository, CDownloadReleaseAsset &&_DownloadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DownloadPublicReleaseAsset(NStr::CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteReleaseAsset(NStr::CStr const &_Repository, NStr::CStr const &_Identifier) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_GetPublicReleaseAssetUrl(NStr::CStr const &_Repository, NStr::CStr const &_TagName, NStr::CStr const &_AssetName) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);

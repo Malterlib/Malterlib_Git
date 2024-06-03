@@ -33,13 +33,26 @@ namespace NMib::NGit
 		
 		TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) override;
 		TCFuture<TCVector<CRepository>> f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) override;
+
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr const &_Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule) override;
 		TCFuture<CStr> f_CreateBranchProtectionRule(CStr const &_Repository, CBranchProtectionRule const &_Rule) override;
 		TCFuture<void> f_DeleteBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID) override;
+
 		TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(CStr const &_Repository) override;
-		TCFuture<void> f_AddRepositoryPermissions(NStr::CStr const &_Repository, CRepositoryPermissions const &_Permissions) override;
+		TCFuture<void> f_AddRepositoryPermissions(CStr const &_Repository, CRepositoryPermissions const &_Permissions) override;
 		TCFuture<void> f_RemoveRepositoryPermissions(CStr const &_Repository, TCSet<CStr> const &_Teams, TCSet<CStr> const &_Users) override;
+
+		TCFuture<CRelease> f_CreateRelease(CStr const &_Repository, CCreateRelease const &_CreateRelease) override;
+		TCFuture<TCOptional<CRelease>> f_GetRelease(CStr const &_Repository, CStr const &_ReleaseTag) override;
+		TCFuture<void> f_DeleteRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseID) override;
+		TCFuture<TCVector<CRelease>> f_GetReleases(CStr const &_Repository) override;
+
+		TCFuture<CReleaseAsset> f_UploadReleaseAsset(CStr const &_Repository, CStr const &_ReleaseIdentifier, CUploadReleaseAsset &&_UploadRelease) override;
+		TCFuture<void> f_DownloadReleaseAsset(CStr const &_Repository, CDownloadReleaseAsset &&_DownloadRelease) override;
+		TCFuture<void> f_DownloadPublicReleaseAsset(CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease) override;
+		TCFuture<void> f_DeleteReleaseAsset(CStr const &_Repository, NStr::CStr const &_Identifier) override;
+		TCFuture<CStr> f_GetPublicReleaseAssetUrl(CStr const &_Repository, CStr const &_TagName, CStr const &_AssetName) override;
 
 	private:
 		struct CRepositorySlug
