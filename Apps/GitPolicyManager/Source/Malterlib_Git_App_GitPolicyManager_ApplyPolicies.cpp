@@ -220,6 +220,9 @@ namespace NMib::NGit::NGitPolicyManager
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
+		if (auto pRepositorySettings = _Policy.f_GetMember("RepositorySettings"))
+			co_await fp_ApplyPolicies_RepositorySettings(*pRepositorySettings, _Repository, _HostingProvider, _PolicyName);
+
 		if (auto pPermissions = _Policy.f_GetMember("Permissions"))
 			co_await fp_ApplyPolicies_Permissions(*pPermissions, _Repository, _HostingProvider, _PolicyName);
 
