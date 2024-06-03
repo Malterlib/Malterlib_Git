@@ -5,6 +5,8 @@
 
 #include "Malterlib_Git_Policy_RuleParsing.hpp"
 
+#include <Mib/Web/Curl>
+
 namespace NMib::NGit
 {
 	namespace
@@ -47,12 +49,52 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings)
+	TCFuture<bool> CGitPolicyActor::f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
 		auto WantedProperties = co_await fg_ParseRepositorySettings(_RepositorySettings);
-		auto CurrentProperties = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetRepository, _Context.m_Repository);
+		auto CurrentPropertiesWrapped = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetRepository, _Context.m_Repository).f_Wrap();
+		
+		if (!CurrentPropertiesWrapped)
+		{
+			if (!_Context.m_bCreateMissing)
+				co_return CurrentPropertiesWrapped.f_GetException();
+
+			bool bIsMissing = false;
+			NException::fg_VisitException<CGitHostingProviderException>
+				(
+					CurrentPropertiesWrapped.f_GetException()
+					, [&](CGitHostingProviderException const &_Exception)
+					{
+						if (_Exception.f_GetSpecific().m_StatusCode == 404)
+							bIsMissing = true;
+					}
+				)
+			;
+
+			if (!bIsMissing)
+				co_return CurrentPropertiesWrapped.f_GetException();
+
+			if (!_Context.m_bPretend)
+			{
+				CGitHostingProvider::CCreateRepository CreateRepository;
+				static_cast<CGitHostingProvider::CRepository &>(CreateRepository) = WantedProperties;
+				CreateRepository.m_Organization = CFile::fs_GetPath(_Context.m_Repository);
+
+				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_CreateRepository, CreateRepository);
+				CurrentPropertiesWrapped = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetRepository, _Context.m_Repository).f_Wrap();
+				if (!CurrentPropertiesWrapped)
+					co_return CurrentPropertiesWrapped.f_GetException();
+			}
+
+			if (_Context.m_fOnCreate)
+				co_await _Context.m_fOnCreate(CStr(), _Context.m_Repository);
+
+			co_return true;
+		}
+
+		auto &CurrentProperties = *CurrentPropertiesWrapped;
 
 		CStr UpdatedValues;
 		if (CurrentProperties.f_IsUpdated(WantedProperties, UpdatedValues))
@@ -64,6 +106,6 @@ namespace NMib::NGit
 				co_await _Context.m_fOnUpdate(CStr(), UpdatedValues);
 		}
 
-		co_return {};
+		co_return false;
 	}
 }

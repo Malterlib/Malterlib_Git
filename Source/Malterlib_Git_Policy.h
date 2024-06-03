@@ -21,9 +21,10 @@ namespace NMib::NGit
 			NConcurrency::TCActorFunctor<TCFuture<void> (CStr &&_Name, CStr &&_UpdatedValues)> m_fOnUpdate;
 			NConcurrency::TCActorFunctor<TCFuture<void> (CStr &&_Name, CStr &&_DeletedValues)> m_fOnDelete;
 			bool m_bPretend = true;
+			bool m_bCreateMissing = false;
 		};
 
-		NConcurrency::TCFuture<void> f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings);
+		NConcurrency::TCFuture<bool> f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_Permissions(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_Permissions);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_BranchProtection(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_BranchProtection);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_GenericRules(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_Rules);
