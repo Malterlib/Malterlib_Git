@@ -34,8 +34,11 @@ namespace NMib::NGit
 		};
 		
 		TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) override;
-		TCFuture<TCVector<CRepository>> f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) override;
-		TCFuture<CRepository> f_GetRepository(CStr const &_Repository) override;
+		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository &&_CreateRepository) override;
+		TCFuture<CGetRepository> f_ForkRepository(CStr const &_Repository, CForkRepository &&_ForkRepository) override;
+		TCFuture<CGetRepository> f_UpdateRepository(CStr const &_Repository, CRepository &&_RepositorySettings) override;
+		TCFuture<TCVector<CGetRepository>> f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) override;
+		TCFuture<CGetRepository> f_GetRepository(CStr const &_Repository) override;
 
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr const &_Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule) override;

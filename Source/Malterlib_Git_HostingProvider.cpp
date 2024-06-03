@@ -304,6 +304,50 @@ namespace NMib::NGit
 		return bRet;
 	}
 
+	bool CGitHostingProvider::CRepository::f_IsUpdated(CRepository const &_Wanted, NStr::CStr &o_UpdateValues) const
+	{
+		bool bRet = false;
+
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CRepository::*_pMember), CStr const &_Name)
+			{
+				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
+					bRet = true;
+			}
+		;
+
+		fCheckValue(_Wanted, *this, &CRepository::m_Name, "Name");
+		fCheckValue(_Wanted, *this, &CRepository::m_Description, "Description");
+		fCheckValue(_Wanted, *this, &CRepository::m_Homepage, "Homepage");
+		fCheckValue(_Wanted, *this, &CRepository::m_DefaultBranch, "DefaultBranch");
+		fCheckValue(_Wanted, *this, &CRepository::m_IsPrivate, "IsPrivate");
+		fCheckValue(_Wanted, *this, &CRepository::m_IsTemplate, "IsTemplate");
+		fCheckValue(_Wanted, *this, &CRepository::m_HasIssues, "HasIssues");
+		fCheckValue(_Wanted, *this, &CRepository::m_HasProjects, "HasProjects");
+		fCheckValue(_Wanted, *this, &CRepository::m_HasWiki, "HasWiki");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowForking, "AllowForking");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowSquashMerge, "AllowSquashMerge");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowMergeCommit, "AllowMergeCommit");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowRebaseMerge, "AllowRebaseMerge");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowAutoMerge, "AllowAutoMerge");
+		fCheckValue(_Wanted, *this, &CRepository::m_AllowUpdateBranch, "AllowUpdateBranch");
+		fCheckValue(_Wanted, *this, &CRepository::m_WebCommitSignoffRequired, "WebCommitSignoffRequired");
+		fCheckValue(_Wanted, *this, &CRepository::m_DeleteBranchOnMerge, "DeleteBranchOnMerge");
+		fCheckValue(_Wanted, *this, &CRepository::m_UseSquashPrTitleAsDefault, "UseSquashPrTitleAsDefault");
+		fCheckValue(_Wanted, *this, &CRepository::m_Archived, "Archived");
+		fCheckValue(_Wanted, *this, &CRepository::m_SquashMergeCommitTitle, "SquashMergeCommitTitle");
+		fCheckValue(_Wanted, *this, &CRepository::m_SquashMergeCommitMessage, "SquashMergeCommitMessage");
+		fCheckValue(_Wanted, *this, &CRepository::m_MergeCommitTitle, "MergeCommitTitle");
+		fCheckValue(_Wanted, *this, &CRepository::m_MergeCommitMessage, "MergeCommitMessage");
+		fCheckValue(_Wanted, *this, &CRepository::m_Security_AdvancedEnable, "Security_AdvancedEnable");
+		fCheckValue(_Wanted, *this, &CRepository::m_Security_SecretScanning, "Security_SecretScanning");
+		fCheckValue(_Wanted, *this, &CRepository::m_Security_SecretScanningPushProtection, "Security_SecretScanningPushProtection");
+		fCheckValue(_Wanted, *this, &CRepository::m_HasDiscussions, "HasDiscussions");
+		fCheckValue(_Wanted, *this, &CRepository::m_HasDownloads, "HasDownloads");
+		fCheckValue(_Wanted, *this, &CRepository::m_CustomProperties, "CustomProperties");
+
+		return bRet;
+	}
+
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value)
 	{
 		switch (_Value)

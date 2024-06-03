@@ -84,6 +84,9 @@ namespace NMib::NGit::NGitPolicyManager
 
 			for (auto &Value : _Array)
 			{
+				if (!Value.m_Name)
+					continue;
+
 				if (FilterPrivate)
 				{
 					if (!Value.m_IsPrivate)
@@ -93,7 +96,7 @@ namespace NMib::NGit::NGitPolicyManager
 						continue;
 				}
 
-				if (!RepositoryNameFilter.f_Matches(Value.m_Name))
+				if (!RepositoryNameFilter.f_Matches(*Value.m_Name))
 					continue;
 
 				if (!Value.m_DefaultBranch)
@@ -167,10 +170,10 @@ namespace NMib::NGit::NGitPolicyManager
 				auto &PolicyName = Policy["Name"].f_String();
 				for (auto &Repository : fg_FilterRepositories(Repositories, Policy))
 				{
-					if (!MatchedRepositories(Repository.m_Name).f_WasCreated())
+					if (!MatchedRepositories(*Repository.m_Name).f_WasCreated())
 						continue;
 
-					co_await fp_ApplyPolicies_Repository(Policy, Repository.m_Name, HostingProvider, PolicyName);
+					co_await fp_ApplyPolicies_Repository(Policy, *Repository.m_Name, HostingProvider, PolicyName);
 				}
 			}
 
@@ -184,10 +187,10 @@ namespace NMib::NGit::NGitPolicyManager
 			CStr WithoutPolicy;
 			for (auto &Repository : AllRepositories)
 			{
-				if (AllMatchedRepositories.f_FindEqual(Repository.m_Name))
+				if (AllMatchedRepositories.f_FindEqual(*Repository.m_Name))
 					continue;
 	
-				if (!WarnedRepositories(Repository.m_Name).f_WasCreated())
+				if (!WarnedRepositories(*Repository.m_Name).f_WasCreated())
 					continue;
 
 				++nReposWithoutPolicy;
@@ -198,7 +201,7 @@ namespace NMib::NGit::NGitPolicyManager
 						, "{}\n"
 						"    private       : {}\n"
 						"    default branch: {}"_f
-						<< Repository.m_Name
+						<< *Repository.m_Name
 						<< (Repository.m_IsPrivate && *Repository.m_IsPrivate ? "true" : "false")
 						<< (Repository.m_DefaultBranch ? *Repository.m_DefaultBranch : CStr("-"))
 						, "\n"

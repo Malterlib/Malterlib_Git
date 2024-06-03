@@ -450,10 +450,101 @@ namespace NMib::NGit
 
 		struct CRepository
 		{
-			NStr::CStr m_Name;
+			enum class ESquashMergeCommitTitle : uint32
+			{
+				mc_PrTitle
+				, mc_CommitOrPrTitle
+			};
+
+			enum class ESquashMergeCommitMessage : uint32
+			{
+				mc_PrBody
+				, mc_CommitMessages
+				, mc_Blank
+			};
+
+			enum class EMergeCommitTitle : uint32
+			{
+				mc_PrTitle
+				, mc_MergeMessage
+			};
+
+			enum class EMergeCommitMessage : uint32
+			{
+				mc_PrBody
+				, mc_PrTitle
+				, mc_Blank
+			};
+
+			bool f_IsUpdated(CRepository const &_Wanted, NStr::CStr &o_UpdateValues) const;
+
+			NStorage::TCOptional<NStr::CStr> m_Name;
+			NStorage::TCOptional<NStr::CStr> m_Description;
+			NStorage::TCOptional<NStr::CStr> m_Homepage;
 			NStorage::TCOptional<NStr::CStr> m_DefaultBranch;
 			NStorage::TCOptional<bool> m_IsPrivate;
-			NStorage::TCOptional<CStr> m_ForkedFromRepository;
+			NStorage::TCOptional<bool> m_IsTemplate;
+			NStorage::TCOptional<bool> m_HasIssues;
+			NStorage::TCOptional<bool> m_HasProjects;
+			NStorage::TCOptional<bool> m_HasWiki;
+			NStorage::TCOptional<bool> m_HasDiscussions;
+			NStorage::TCOptional<bool> m_HasDownloads;
+			NStorage::TCOptional<bool> m_AllowForking;
+			NStorage::TCOptional<bool> m_AllowSquashMerge;
+ 			NStorage::TCOptional<bool> m_AllowMergeCommit;
+			NStorage::TCOptional<bool> m_AllowRebaseMerge;
+			NStorage::TCOptional<bool> m_AllowAutoMerge;
+			NStorage::TCOptional<bool> m_AllowUpdateBranch;
+			NStorage::TCOptional<bool> m_WebCommitSignoffRequired;
+			NStorage::TCOptional<bool> m_DeleteBranchOnMerge;
+			NStorage::TCOptional<bool> m_UseSquashPrTitleAsDefault;
+			NStorage::TCOptional<bool> m_Archived;
+
+			NStorage::TCOptional<ESquashMergeCommitTitle> m_SquashMergeCommitTitle;
+			NStorage::TCOptional<ESquashMergeCommitMessage> m_SquashMergeCommitMessage;
+			NStorage::TCOptional<EMergeCommitTitle> m_MergeCommitTitle;
+			NStorage::TCOptional<EMergeCommitMessage> m_MergeCommitMessage;
+
+			NStorage::TCOptional<bool> m_Security_AdvancedEnable;
+			NStorage::TCOptional<bool> m_Security_SecretScanning;
+			NStorage::TCOptional<bool> m_Security_SecretScanningPushProtection;
+
+			NStorage::TCOptional<TCMap<CStr, TCOptional<CStr>>> m_CustomProperties;
+		};
+
+		struct CRepositoryStats
+		{
+			uint32 m_ForksCount = 0;
+			uint32 m_StargazersCount = 0;
+			uint32 m_WatchersCount = 0;
+			uint32 m_OpenIssuesCount = 0;
+			uint32 m_SubscribersCount = 0;
+			uint32 m_NetworkCount = 0;
+			uint32 m_SizeKiloBytes = 0;
+		};
+
+		struct CGetRepository : public CRepository
+		{
+			NStorage::TCOptional<NStr::CStr> m_ForkedFromRepository;
+			NStorage::TCOptional<NStr::CStr> m_Language;
+			CRepositoryStats m_Stats;
+			bool m_bHasPages = false;
+			bool m_bDisabled = false;
+		};
+
+		struct CCreateRepository : public CRepository
+		{
+			NStorage::TCOptional<NStr::CStr> m_Organization;
+			NStorage::TCOptional<NStr::CStr> m_LicenseTemplate;
+			NStorage::TCOptional<NStr::CStr> m_GitIgnoreTemplate;
+			NStorage::TCOptional<bool> m_AutoInit;
+		};
+
+		struct CForkRepository
+		{
+			NStorage::TCOptional<NStr::CStr> m_Organization;
+			NStr::CStr m_Name;
+			bool m_bDefaultBranchOnly = true;
 		};
 
 		struct CReleaseAsset
@@ -516,8 +607,11 @@ namespace NMib::NGit
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
 
-		virtual NConcurrency::TCFuture<NContainer::TCVector<CRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
-		virtual NConcurrency::TCFuture<CRepository> f_GetRepository(NStr::CStr const &_Repository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository &&_CreateRepository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr const &_Repository, CForkRepository &&_ForkRepository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_UpdateRepository(NStr::CStr const &_Repository, CRepository &&_RepositorySettings) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CGetRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_GetRepository(NStr::CStr const &_Repository) = 0;
 
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr const &_Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID, CBranchProtectionRule const &_Rule) = 0;
