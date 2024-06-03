@@ -5,9 +5,55 @@
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/DistributedActorTrustManager>
 #include <Mib/Core/RuntimeType>
+#include <Mib/Web/Curl>
 
 namespace NMib::NGit
 {
+	enum class EGitHostingProviderErrorCode : uint32
+	{
+		mc_None
+		, mc_ResourceDoesNotExist
+		, mc_ResourceAlreadyExists
+		, mc_MissingRequiredParameter
+		, mc_InvalidParameter
+		, mc_ParametersInvalid
+		, mc_Custom
+
+	};
+
+	struct CGitHostingProviderError
+	{
+		template <typename tf_CStream>
+		void f_Stream(tf_CStream &_Stream);
+
+		template <typename tf_CStr>
+		void f_Format(tf_CStr &o_String) const
+		{
+			o_String += typename tf_CStr::CFormat("Code: {} Resource: {} Field: {} Message: {}") << m_Code << m_Resource << m_Field << m_Message;
+		}
+
+		CStr m_Resource;
+		CStr m_Field;
+		CStr m_Message;
+		EGitHostingProviderErrorCode m_Code = EGitHostingProviderErrorCode::mc_None;
+	};
+
+	struct CGitHostingProviderExceptionData : public CWebRequestExceptionData
+	{
+		template <typename tf_CStream>
+		void f_Stream(tf_CStream &_Stream);
+
+		bool f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource = {}, CStr const &_Message = {}) const;
+
+		CStr m_GitRawError;
+		TCVector<CGitHostingProviderError> m_GitErrors;
+	};
+	
+	DMibImpErrorSpecificClassDefine(CGitHostingProviderException, NMib::NException::CException, CGitHostingProviderExceptionData);
+
+#	define DMibErrorGitHostingProvider(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
+#	define DMibErrorInstanceGitHostingProvider(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
+	
 	struct CGitHostingProvider;
 
 	struct ICGitHostingProviderFactory

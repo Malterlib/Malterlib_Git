@@ -5,11 +5,35 @@
 
 namespace NMib::NGit
 {
+	DMibImpErrorClassImplement(CGitHostingProviderException);
+
 	DMibGitHostingProviderMakeActiveDefine(CGitHostingProvider_GitHub);
 
 	CGitHostingProvider::CGitHostingProvider()
 	{
 		DMibGitHostingProviderMakeActive(CGitHostingProvider_GitHub);
+	}
+
+	bool CGitHostingProviderExceptionData::f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource, CStr const &_Message) const
+	{
+		for (auto &Error : m_GitErrors)
+		{
+			if (Error.m_Code != _ErrorCode)
+				continue;
+
+			if (_Field && Error.m_Field != _Field)
+				continue;
+
+			if (_Resource && Error.m_Resource != _Resource)
+				continue;
+
+			if (_Message && Error.m_Message != _Message)
+				continue;
+
+			return true;
+		}
+
+		return false;
 	}
 
 	COrdering_Partial CGitHostingProvider::CUser::operator <=> (CUser const &_Right) const

@@ -21,19 +21,19 @@ namespace NMib::NGit
 
 		if (_bPersonal)
 		{
-			auto const User = co_await (fp_RestApi("user") % ("Failed to get user information for logged in GitHub user"));
+			auto const User = co_await fp_RestApi("user", "Failed to get user information for logged in GitHub user");
 
 			auto UserName = User["login"].f_String();
 			CStr UserURL = "users/{}"_f << UserName;
 
-			auto const UserRepositories = co_await (fp_RestApi(UserURL / "repos") % ("Failed to get repositories of user '{}'"_f << UserName));
+			auto const UserRepositories = co_await fp_RestApi(UserURL / "repos", "Failed to get repositories of user '{}'"_f << UserName);
 			for (auto &Repo : UserRepositories.f_Array())
 				fAddRepository(Repo);
 		}
 
 		for (auto &Organization : _Organizations)
 		{
-			auto const OrganizationRepositories = co_await (fp_RestApi("orgs/{}/repos"_f << Organization) % ("Failed to get repositories of organization '{}'"_f << Organization));
+			auto const OrganizationRepositories = co_await fp_RestApi("orgs/{}/repos"_f << Organization, "Failed to get repositories of organization '{}'"_f << Organization);
 
 			for (auto &Repo : OrganizationRepositories.f_Array())
 				fAddRepository(Repo);

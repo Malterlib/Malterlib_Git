@@ -24,7 +24,7 @@ namespace NMib::NGit
 			co_return _App.m_ID;
 		else if (_App.m_Slug)
 		{
-			auto const App = co_await (fp_RestApi("apps/{}"_f << _App.m_Slug) % ("Failed to get app '{}' by slug"_f << _App.m_Slug));
+			auto const App = co_await fp_RestApi("apps/{}"_f << _App.m_Slug, "Failed to get app '{}' by slug"_f << _App.m_Slug);
 			co_return App["node_id"].f_String();
 		}
 		else

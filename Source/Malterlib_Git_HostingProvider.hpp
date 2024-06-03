@@ -3,6 +3,23 @@
 
 namespace NMib::NGit
 {
+	template <typename tf_CStream>
+	void CGitHostingProviderError::f_Stream(tf_CStream &_Stream)
+	{
+		_Stream % m_Resource;
+		_Stream % m_Field;
+		_Stream % m_Message;
+		_Stream % m_Code;
+	}
+
+	template <typename tf_CStream>
+	void CGitHostingProviderExceptionData::f_Stream(tf_CStream &_Stream)
+	{
+		CWebRequestExceptionData::f_Stream(_Stream);
+		_Stream % m_GitRawError;
+		_Stream % m_GitErrors;
+	}
+
 	template <typename tf_CStr>
 	void CGitHostingProvider::CUser::f_Format(tf_CStr &o_Str) const
 	{

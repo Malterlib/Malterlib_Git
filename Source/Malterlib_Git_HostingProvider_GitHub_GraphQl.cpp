@@ -13,16 +13,17 @@ namespace NMib::NGit
 		QueryJson["query"] = fg_Move(_Query);
 		QueryJson["variables"] = fg_Move(_Variables);
 
+		TCMap<CStr, CStr> Headers = {{"User-Agent", "MalterlibGitHostingProvider"}};
+
+		if (mp_Token)
+			Headers["Authorization"] = "Bearer {}"_f << mp_Token;
+
 		auto Result = co_await mp_CurlActor
 			(
 				&CCurlActor::f_Request
 				, CCurlActor::EMethod_POST
 				, "https://api.github.com/graphql"
-				, TCMap<CStr, CStr>
-				{
-					{"User-Agent", "MalterlibGitHostingProvider"}
-					, {"Authorization", "Bearer {}"_f << mp_Token}
-				}
+				, fg_Move(Headers)
 				, CByteVector::fs_FromString(QueryJson.f_ToString())
 				, TCMap<CStr, CStr>{}
 			)

@@ -34,14 +34,14 @@ namespace NMib::NGit
 
 		CRepositoryPermissions OutPermissions;
 
-		auto const Teams = co_await (fp_RestApi("repos/{}/teams"_f << _Repository) % ("Failed to get teams from repository '{}'"_f << _Repository));
+		auto const Teams = co_await fp_RestApi("repos/{}/teams"_f << _Repository, "Failed to get teams from repository '{}'"_f << _Repository);
 
 		for (auto &Team : Teams.f_Array())
 			OutPermissions.m_TeamPermissions[Team["slug"].f_String()] = fg_PermissionToRole(Team["permission"].f_String());
 
 		auto const Users = co_await
 			(
-				fp_RestApi("repos/{}/collaborators"_f << _Repository, {{"affiliation", "direct"}}) % ("Failed to get collaborators from repository '{}'"_f << _Repository)
+				fp_RestApi("repos/{}/collaborators"_f << _Repository, "Failed to get collaborators from repository '{}'"_f << _Repository, {{"affiliation", "direct"}})
 			)
 		;
 
@@ -62,8 +62,13 @@ namespace NMib::NGit
 			auto &Team = _Permissions.m_TeamPermissions.fs_GetKey(Permission);
 			co_await
 				(
-					fp_RestApiPut("orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository, {"permission"_j= fg_RoleToPermission(Permission)})
-					% ("Failed to grant team '{}' access to repository '{}'"_f << Team << _Repository)
+					fp_RestApiPut
+					(
+						"orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository
+						, {"permission"_j= fg_RoleToPermission(Permission)}
+						, "Failed to grant team '{}' access to repository '{}'"_f << Team << _Repository
+						, {}
+					)
 				)
 			;
 		}
@@ -73,8 +78,13 @@ namespace NMib::NGit
 			auto &User = _Permissions.m_UserPermissions.fs_GetKey(Permission);
 			co_await
 				(
-					fp_RestApiPut("repos/{}/collaborators/{}"_f << _Repository << User, {"permission"_j= fg_RoleToPermission(Permission)})
-					% ("Failed to grant user '{}' acccess to repository '{}'"_f << User << _Repository)
+					fp_RestApiPut
+					(
+						"repos/{}/collaborators/{}"_f << _Repository << User
+						, {"permission"_j= fg_RoleToPermission(Permission)}
+						, "Failed to grant user '{}' acccess to repository '{}'"_f << User << _Repository
+						, {}
+					)
 				)
 			;
 		}
@@ -92,14 +102,17 @@ namespace NMib::NGit
 		{
 			co_await
 				(
-					fp_RestApiDelete("orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository)
-					% ("Failed to revoke team '{}' from repository '{}'"_f << Team << _Repository)
+					fp_RestApiDelete
+					(
+						"orgs/{}/teams/{}/repos/{}"_f << RepositorySlug.m_Owner << Team << _Repository
+						, "Failed to revoke team '{}' from repository '{}'"_f << Team << _Repository
+					)
 				)
 			;
 		}
 
 		for (auto &User : _Users)
-			co_await (fp_RestApiDelete("repos/{}/collaborators/{}"_f << _Repository << User) % ("Failed to revoke user '{}' from repository '{}'"_f << User << _Repository));
+			co_await fp_RestApiDelete("repos/{}/collaborators/{}"_f << _Repository << User, "Failed to revoke user '{}' from repository '{}'"_f << User << _Repository);
 
 		co_return {};
 	}
