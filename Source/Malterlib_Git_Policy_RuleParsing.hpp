@@ -9,7 +9,7 @@ namespace NMib::NGit
 	{
 		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value);
 
-		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_JsonValue, auto &o_Value)
+		TCFuture<void> fg_ParseRuleSettingValue(CEJSONSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
 		{
 			co_await (ECoroutineFlag_CaptureExceptions | ECoroutineFlag_AllowReferences);
 
@@ -24,23 +24,41 @@ namespace NMib::NGit
 
 			auto &OutValue = *pOutValue;
 
-			if constexpr (TCIsInteger<CType>::mc_Value)
-				OutValue = _JsonValue.f_Integer();
+			if constexpr (cIsSame<CType, CEJSONSorted>)
+				OutValue = _JsonValue;
+			else if constexpr (cIsSame<CType, CJSONSorted>)
+				OutValue = _JsonValue.f_ToJson();
 			else if constexpr (cIsSame<CType, CStr>)
 				OutValue = _JsonValue.f_String();
-			else if constexpr (cIsSame<CType, uint32>)
-				OutValue = _JsonValue.f_Integer();
 			else if constexpr (cIsSame<CType, bool>)
 				OutValue = _JsonValue.f_Boolean();
+			else if constexpr (TCIsInteger<CType>::mc_Value)
+				OutValue = _JsonValue.f_Integer();
 			else if constexpr (cIsSame<CType, TCVector<CStr>>)
 			{
 				OutValue = _JsonValue.f_StringArray();
 				OutValue.f_Sort();
 			}
+			else if constexpr (cIsSame<CType, TCMap<CStr, TCOptional<CStr>>>)
+			{
+				if (!_JsonValue.f_IsObject())
+					co_return DMibErrorInstance("Expected an object for '{}'"_f << _Name);
+
+				for (auto &Value : _JsonValue.f_Object())
+				{
+					if (Value.f_Value().f_IsNull())
+						OutValue[Value.f_Name()];
+					else if (Value.f_Value().f_IsString())
+						OutValue[Value.f_Name()] = Value.f_Value().f_String();
+					else
+						co_return DMibErrorInstance("Expected a string or null for '{}.{}'"_f << _Name << Value.f_Name());
+				}
+			}
 			else if constexpr (cIsVector<CType>)
 			{
+				CStr Name = "{}.[]"_f << _Name;
 				for (auto &Item : _JsonValue.f_Array())
-					co_await fg_ParseRuleSetting(Item, OutValue.f_Insert());
+					co_await fg_ParseRuleSettingValue(Item, Name, OutValue.f_Insert());
 
 				OutValue.f_Sort();
 			}
@@ -52,7 +70,7 @@ namespace NMib::NGit
 				else if (Value == "Tag")
 					OutValue = CGitHostingProvider::EGenericRuleTarget::mc_Tag;
 				else
-					co_return DMibErrorInstance("Invalid rule target: {}"_f << Value);
+					co_return DMibErrorInstance("Invalid rule target in '{}': {}"_f << _Name << Value);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::EGenericRuleBypassMode>)
 			{
@@ -62,7 +80,7 @@ namespace NMib::NGit
 				else if (Value == "PullRequest")
 					OutValue = CGitHostingProvider::EGenericRuleBypassMode::mc_PullRequest;
 				else
-					co_return DMibErrorInstance("Invalid rule bypass mode: {}"_f << Value);
+					co_return DMibErrorInstance("Invalid rule bypass mode in '{}': {}"_f << _Name << Value);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::EGenericRuleEnforcement>)
 			{
@@ -74,7 +92,7 @@ namespace NMib::NGit
 				else if (Value == "Evaluate")
 					OutValue = CGitHostingProvider::EGenericRuleEnforcement::mc_Evaluate;
 				else
-					co_return DMibErrorInstance("Invalid rule enforcement: {}"_f << Value);
+					co_return DMibErrorInstance("Invalid rule enforcement in '{}': {}"_f << _Name << Value);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::EStringMatchOperator>)
 			{
@@ -88,7 +106,55 @@ namespace NMib::NGit
 				else if (Value == "Regex")
 					OutValue = CGitHostingProvider::EStringMatchOperator::mc_Regex;
 				else
-					co_return DMibErrorInstance("Invalid string match operator: {}"_f << Value);
+					co_return DMibErrorInstance("Invalid string match operator in '{}': {}"_f << _Name << Value);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CRepository::ESquashMergeCommitTitle>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "PrTitle")
+					OutValue= CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_PrTitle;
+				else if (Value == "CommitOrPrTitle")
+					OutValue= CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_CommitOrPrTitle;
+				else
+					co_return DMibErrorInstance("Invalid squash merge commit title in '{}': {}"_f << _Name << Value);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CRepository::ESquashMergeCommitMessage>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "PrBody")
+					OutValue = CGitHostingProvider::CRepository::ESquashMergeCommitMessage::mc_PrBody;
+				else if (Value == "CommitMessages")
+					OutValue = CGitHostingProvider::CRepository::ESquashMergeCommitMessage::mc_CommitMessages;
+				else if (Value == "Blank")
+					OutValue = CGitHostingProvider::CRepository::ESquashMergeCommitMessage::mc_Blank;
+				else
+					co_return DMibErrorInstance("Invalid squash merge commit message in '{}': {}"_f << _Name << Value);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CRepository::EMergeCommitTitle>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "PrTitle")
+					OutValue = CGitHostingProvider::CRepository::EMergeCommitTitle::mc_PrTitle;
+				else if (Value == "MergeMessage")
+					OutValue = CGitHostingProvider::CRepository::EMergeCommitTitle::mc_MergeMessage;
+				else
+					co_return DMibErrorInstance("Invalid merge commit title in '{}': {}"_f << _Name << Value);
+			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CRepository::EMergeCommitMessage>)
+			{
+				auto &Value = _JsonValue.f_String();
+
+				if (Value == "PrBody")
+					OutValue = CGitHostingProvider::CRepository::EMergeCommitMessage::mc_PrBody;
+				else if (Value == "PrTitle")
+					OutValue = CGitHostingProvider::CRepository::EMergeCommitMessage::mc_PrTitle;
+				else if (Value == "Blank")
+					OutValue = CGitHostingProvider::CRepository::EMergeCommitMessage::mc_Blank;
+				else
+					co_return DMibErrorInstance("Invalid merge commit message in '{}': {}"_f << _Name << Value);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGitActor>)
 			{
@@ -112,7 +178,7 @@ namespace NMib::NGit
 					OutValue = fg_Move(App);
 				}
 				else
-					co_return DMibErrorInstance("Invalid actor type: {}"_f << Type);
+					co_return DMibErrorInstance("Invalid actor type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRuleGitActor>)
 			{
@@ -141,7 +207,7 @@ namespace NMib::NGit
 					OutValue = fg_Move(Admin);
 				}
 				else
-					co_return DMibErrorInstance("Invalid generic rule actor type: {}"_f << Type);
+					co_return DMibErrorInstance("Invalid generic rule actor type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRule>)
 			{
@@ -203,31 +269,31 @@ namespace NMib::NGit
 				else if (Type == "CommitMessage")
 				{
 					CGitHostingProvider::CGenericRule_CommitMessage Rule;
-					co_await fg_ParseRuleSetting(_JsonValue, Rule.m_StringMatch);
+					co_await fg_ParseRuleSettingValue(_JsonValue, _Name, Rule.m_StringMatch);
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "CommitAuthorEmail")
 				{
 					CGitHostingProvider::CGenericRule_CommitAuthorEmail Rule;
-					co_await fg_ParseRuleSetting(_JsonValue, Rule.m_StringMatch);
+					co_await fg_ParseRuleSettingValue(_JsonValue, _Name, Rule.m_StringMatch);
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "CommitterEmail")
 				{
 					CGitHostingProvider::CGenericRule_CommitterEmail Rule;
-					co_await fg_ParseRuleSetting(_JsonValue, Rule.m_StringMatch);
+					co_await fg_ParseRuleSettingValue(_JsonValue, _Name, Rule.m_StringMatch);
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "BranchName")
 				{
 					CGitHostingProvider::CGenericRule_BranchName Rule;
-					co_await fg_ParseRuleSetting(_JsonValue, Rule.m_StringMatch);
+					co_await fg_ParseRuleSettingValue(_JsonValue, _Name, Rule.m_StringMatch);
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "TagName")
 				{
 					CGitHostingProvider::CGenericRule_TagName Rule;
-					co_await fg_ParseRuleSetting(_JsonValue, Rule.m_StringMatch);
+					co_await fg_ParseRuleSettingValue(_JsonValue, _Name, Rule.m_StringMatch);
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "Workflow")
@@ -237,7 +303,7 @@ namespace NMib::NGit
 					OutValue = fg_Move(Rule);
 				}
 				else
-					co_return DMibErrorInstance("Invalid generic rule type: {}"_f << Type);
+					co_return DMibErrorInstance("Invalid generic rule type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRuleBypassActor>)
 			{
@@ -288,7 +354,7 @@ namespace NMib::NGit
 			if (!pValue)
 				co_return {};
 
-			co_await fg_ParseRuleSetting(*pValue, o_Value);
+			co_await fg_ParseRuleSettingValue(*pValue, _Name, o_Value);
 
 			co_return {};
 		}

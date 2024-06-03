@@ -23,6 +23,7 @@ namespace NMib::NGit
 			bool m_bPretend = true;
 		};
 
+		NConcurrency::TCFuture<void> f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_Permissions(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_Permissions);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_BranchProtection(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_BranchProtection);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_GenericRules(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_Rules);
