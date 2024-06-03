@@ -48,7 +48,9 @@ namespace NMib::NGit
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
-		bool bRemoveOther = _Permissions["RemoveOther"].f_Boolean();
+		bool bRemoveOther = false;
+		if (auto pValue = _Permissions.f_GetMember("RemoveOther"))
+			bRemoveOther = pValue->f_Boolean();
 
 		CGitHostingProvider::CRepositoryPermissions WantedPermissions;
 
