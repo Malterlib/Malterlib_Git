@@ -74,7 +74,7 @@ namespace NMib::NGit
 		{
 			auto Cleanup = g_OnScopeExit / [&]
 				{
-					delete pFactory;
+					fg_DeleteObject(NMemory::CDefaultAllocator(), pFactory);
 				}
 			;
 			return (*pFactory)();
