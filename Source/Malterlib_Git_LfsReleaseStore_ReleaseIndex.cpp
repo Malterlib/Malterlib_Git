@@ -87,7 +87,7 @@ namespace NMib::NGit
 					auto pRepository = co_await fp_GetCachedRepository(AssetRepository);
 					if (!pRepository->m_ForkedFromRepository)
 					{
-						co_return DMibErrorInstance("Could not find release for tag '{}' on any remote in the chain of forked repositories"_f << TagName);
+						co_return DMibErrorInstance("Could not find release for tag '{}' on any remote in the chain of forked repositories: {}"_f << TagName << _Remote);
 						break;
 					}
 
