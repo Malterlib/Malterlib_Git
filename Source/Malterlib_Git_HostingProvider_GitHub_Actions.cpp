@@ -168,7 +168,7 @@ namespace NMib::NGit
 					fp_RestApi
 					(
 						"repos/{}/{}/actions/permissions/selected-actions"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
-						, "Failed to get repository actions permissions selected actions '{}'"_f << _Repository
+						, "Failed to get repository actions permissions (selected actions) '{}'"_f << _Repository
 					)
 				)
 			;
@@ -179,10 +179,13 @@ namespace NMib::NGit
 				fp_RestApi
 				(
 					"repos/{}/{}/actions/permissions/access"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
-					, "Failed to get repository actions permissions selected actions '{}'"_f << _Repository
+					, "Failed to get repository actions permissions (level of access) '{}'"_f << _Repository
 				)
-			)
+			).f_Wrap()
 		;
+
+		if (!LevelOfAccess && LevelOfAccess.f_GetExceptionStr().f_Find("Access policy only applies to internal and private repositories.") < 0)
+			co_return LevelOfAccess.f_GetException();
 
 		auto const WorkflowPermissions = co_await
 			(
@@ -194,7 +197,7 @@ namespace NMib::NGit
 			)
 		;
 
-		co_return fg_ParseActionsSettings(Permissions, SelectedActions, LevelOfAccess, WorkflowPermissions);
+		co_return fg_ParseActionsSettings(Permissions, SelectedActions, LevelOfAccess ? *LevelOfAccess : CJSONSorted{}, WorkflowPermissions);
 	}
 
 	auto CGitHostingProvider_GitHub::f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) -> TCFuture<void>
