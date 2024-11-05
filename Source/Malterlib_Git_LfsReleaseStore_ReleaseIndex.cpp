@@ -20,14 +20,16 @@ namespace NMib::NGit
 
 	TCFuture<void> CLfsReleaseStoreService::f_UpdateReleaseIndex
 		(
-			CStr const &_Remote
+			CStr _Remote
 			, EUpdateReleaseIndexOption _Options
-			, TCFunction<void (CStr const &_Output)> const &_fOutputConsole
+			, TCFunction<void (CStr const &_Output)> _fOutputConsole
 		)
 	{
 		mp_fOutputConsole = _fOutputConsole;
 
 		co_await fp_Init(_Remote);
+
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
 		bool bPruneOrphanAssets = fg_IsSet(_Options, EUpdateReleaseIndexOption::mc_PruneOrphanedAssets);
 		bool bPretend = fg_IsSet(_Options, EUpdateReleaseIndexOption::mc_Pretend);
@@ -194,6 +196,8 @@ namespace NMib::NGit
 
 	TCFuture<TCSharedPointer<CByteVector>> CLfsReleaseStoreService::fp_DownloadReleaseIndexPublic(CStr _Repository)
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		auto PublicDownloadUrl = co_await mp_HostingProvider(&CGitHostingProvider::f_GetPublicReleaseAssetUrl, _Repository, gc_IndexTagName, gc_IndexAssetName);
 
 		TCSharedPointer<CByteVector> pReleaseData = fg_Construct();
@@ -204,7 +208,7 @@ namespace NMib::NGit
 				, CGitHostingProvider::CDownloadPublicReleaseAsset
 				{
 					.m_Url = PublicDownloadUrl
-					, .m_fWriteData = g_ActorFunctor / [pReleaseData](CByteVector &&_Data) mutable -> TCFuture<void>
+					, .m_fWriteData = g_ActorFunctor / [pReleaseData](CByteVector _Data) mutable -> TCFuture<void>
 					{
 						pReleaseData->f_Insert(fg_Move(_Data));
 
@@ -222,6 +226,8 @@ namespace NMib::NGit
 
 	auto CLfsReleaseStoreService::fp_DownloadReleaseIndexPrivate(CStr _Repository) -> TCFuture<CPrivateReleaseIndexDownload>
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		CPrivateReleaseIndexDownload Return;
 
 		auto Release = co_await fp_GetOrCreateRelease(_Repository, gc_IndexTagName, false);
@@ -247,7 +253,7 @@ namespace NMib::NGit
 				, CGitHostingProvider::CDownloadReleaseAsset
 				{
 					.m_Identifier = IndexAsset->m_Identifier
-					, .m_fWriteData = g_ActorFunctor / [pReleaseData](CByteVector &&_Data) mutable -> TCFuture<void>
+					, .m_fWriteData = g_ActorFunctor / [pReleaseData](CByteVector _Data) mutable -> TCFuture<void>
 					{
 						pReleaseData->f_Insert(fg_Move(_Data));
 

@@ -63,7 +63,7 @@ namespace NMib::NGit
 
 	}
 
-	auto CGitHostingProvider_GitHub::f_CreateRelease(CStr const &_Repository, CCreateRelease const &_CreateRelease) -> TCFuture<CRelease>
+	auto CGitHostingProvider_GitHub::f_CreateRelease(CStr _Repository, CCreateRelease _CreateRelease) -> TCFuture<CRelease>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -127,7 +127,7 @@ namespace NMib::NGit
 		co_return fg_ParseRelease(Data);
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetRelease(CStr const &_Repository, CStr const &_ReleaseTag) -> TCFuture<TCOptional<CRelease>>
+	auto CGitHostingProvider_GitHub::f_GetRelease(CStr _Repository, CStr _ReleaseTag) -> TCFuture<TCOptional<CRelease>>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -140,7 +140,7 @@ namespace NMib::NGit
 		co_return fg_ParseRelease(Data);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseID)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteRelease(NStr::CStr _Repository, NStr::CStr _ReleaseID)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -155,7 +155,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetReleases(CStr const &_Repository) -> TCFuture<TCVector<CRelease>>
+	auto CGitHostingProvider_GitHub::f_GetReleases(CStr _Repository) -> TCFuture<TCVector<CRelease>>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -173,7 +173,7 @@ namespace NMib::NGit
 		co_return fg_Move(OutReleases);
 	}
 
-	auto CGitHostingProvider_GitHub::f_UploadReleaseAsset(CStr const &_Repository, CStr const &_ReleaseIdentifier, CUploadReleaseAsset &&_UploadRelease) -> TCFuture<CReleaseAsset>
+	auto CGitHostingProvider_GitHub::f_UploadReleaseAsset(CStr _Repository, CStr _ReleaseIdentifier, CUploadReleaseAsset _UploadRelease) -> TCFuture<CReleaseAsset>
 	{
 		if (_ReleaseIdentifier.f_IsEmpty())
 			co_return DMibErrorInstance("Release identifier cannot be empty");
@@ -205,7 +205,7 @@ namespace NMib::NGit
 		co_return fg_ParseReleaseAsset(Data);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DownloadReleaseAsset(CStr const &_Repository, CDownloadReleaseAsset &&_DownloadRelease)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DownloadReleaseAsset(CStr _Repository, CDownloadReleaseAsset _DownloadRelease)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -226,7 +226,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DownloadPublicReleaseAsset(CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DownloadPublicReleaseAsset(CStr _Repository, CDownloadPublicReleaseAsset _DownloadRelease)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -241,12 +241,12 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<CStr> CGitHostingProvider_GitHub::f_GetPublicReleaseAssetUrl(CStr const &_Repository, CStr const &_TagName, NStr::CStr const &_AssetName)
+	TCFuture<CStr> CGitHostingProvider_GitHub::f_GetPublicReleaseAssetUrl(CStr _Repository, CStr _TagName, NStr::CStr _AssetName)
 	{
 		co_return "https://github.com/{}/releases/download/{}/{}"_f << _Repository << _TagName << _AssetName;
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteReleaseAsset(CStr const &_Repository, NStr::CStr const &_Identifier)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteReleaseAsset(CStr _Repository, NStr::CStr _Identifier)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

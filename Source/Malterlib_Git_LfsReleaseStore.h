@@ -24,9 +24,9 @@ namespace NMib::NGit
 		TCFuture<void> f_WaitForExit();
 		TCFuture<void> f_UpdateReleaseIndex
 			(
-				CStr const &_Remote
+				CStr _Remote
 				, EUpdateReleaseIndexOption _Options
-				, TCFunction<void (CStr const &_Output)> const &_fOutputConsole
+				, TCFunction<void (CStr const &_Output)> _fOutputConsole
 			)
 		;
 

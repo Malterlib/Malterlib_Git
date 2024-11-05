@@ -30,7 +30,7 @@ namespace NMib::NGit::NGitPolicyManager
 			{
 				.m_Repository = _Repository
 				, .m_HostingProvider = _HostingProvider
-				, .m_fOnUpdate = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_UpdatedValues) -> TCFuture<void>
+				, .m_fOnUpdate = g_ActorFunctor / [=, this](CStr _Name, CStr _UpdatedValues) -> TCFuture<void>
 				{
 					Auditor.f_Warning
 						(

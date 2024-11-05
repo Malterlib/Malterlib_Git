@@ -210,7 +210,7 @@ namespace NMib::NGit
 		}
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetBranchProtectionRules(CStr const &_Repository) -> TCFuture<TCMap<CStr, CBranchProtectionRule>>
+	auto CGitHostingProvider_GitHub::f_GetBranchProtectionRules(CStr _Repository) -> TCFuture<TCMap<CStr, CBranchProtectionRule>>
 	{
 		TCMap<CStr, CBranchProtectionRule> OutRules;
 
@@ -292,10 +292,8 @@ namespace NMib::NGit
 	{
 		CJSONSorted Output;
 
-		auto fAddOptional = [&Output, this, &_Organization](CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
+		auto fAddOptional = [&Output, this, &_Organization](CStr const &_Name, auto const &_OptionalValue) -> TCUnsafeFuture<void>
 			{
-				co_await ECoroutineFlag_AllowReferences;
-
 				if (!_OptionalValue)
 					co_return {};
 
@@ -369,7 +367,7 @@ namespace NMib::NGit
 		co_return fg_Move(Output);
 	}
 
-	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateBranchProtectionRule(CStr const &_Repository, CBranchProtectionRule const &_Rule)
+	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -409,7 +407,7 @@ namespace NMib::NGit
 		co_return Data["data"]["createBranchProtectionRule"]["branchProtectionRule"]["id"].f_String();
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule)
+	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -446,7 +444,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 

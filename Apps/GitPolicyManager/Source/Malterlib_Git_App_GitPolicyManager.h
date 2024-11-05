@@ -27,7 +27,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 		void fp_BuildCommandLine(CDistributedAppCommandLineSpecification &o_CommandLine) override;
 
-		TCFuture<void> fp_StartApp(NEncoding::CEJSONSorted const &_Params) override;
+		TCFuture<void> fp_StartApp(NEncoding::CEJSONSorted const _Params) override;
 		TCFuture<void> fp_StopApp() override;
 		TCFuture<void> fp_RegisterSensors();
 

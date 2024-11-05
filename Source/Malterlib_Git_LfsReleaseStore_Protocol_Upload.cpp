@@ -11,6 +11,8 @@ namespace NMib::NGit
 {
 	TCFuture<void> CLfsReleaseStoreService::fp_UploadReleaseAsset(CStr _Repository, CStr _ReleaseIdentifier, CStr _Path, uint64 _Size)
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		TCActor<CProcessLaunchActor> CompressLaunch;
 		CompressLaunch = fg_Construct();
 		auto DestroyLaunch = co_await fg_AsyncDestroy(CompressLaunch);
@@ -47,14 +49,7 @@ namespace NMib::NGit
 			uint64 CompressedSize;
 			{
 				auto BlockingActorCheckout = fg_BlockingActor();
-				CompressedSize = co_await
-					(
-						g_Dispatch(BlockingActorCheckout) / [CompressedFileName]
-						{
-							return CFile::fs_GetFileSize(CompressedFileName);
-						}
-					)
-				;
+				CompressedSize = co_await BlockingActorCheckout.f_Actor().f_Bind<CFile::fs_GetFileSize>(CompressedFileName);
 			}
 
 			if (CompressedSize < AssetSize)
@@ -133,7 +128,7 @@ namespace NMib::NGit
 							uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
 							uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;
 							BytesLastTime = BytesSoFarCorrected;
-							fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime) > fg_DiscardResult();
+							fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime).f_DiscardResult();
 						}
 
 						co_return fg_Move(Result);

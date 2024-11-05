@@ -7,7 +7,7 @@
 
 namespace NMib::NGit
 {
-	TCFuture<void> CGitHostingProvider_GitHub::f_Login(CEJSONSorted const &_LoginDetails)
+	TCFuture<void> CGitHostingProvider_GitHub::f_Login(CEJSONSorted _LoginDetails)
 	{
 		mp_Token = _LoginDetails.f_GetMemberValue("Token", "").f_String();
 		co_return {};

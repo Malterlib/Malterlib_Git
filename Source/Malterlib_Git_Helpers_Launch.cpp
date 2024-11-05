@@ -53,13 +53,13 @@ namespace NMib::NGit
 
 		TCSharedPointer<CStr> pBufferedStdOut = fg_Construct();
 		TCSharedPointer<CStr> pBufferedStdErr = fg_Construct();
-		NConcurrency::TCPromise<CStr> LaunchResult;
+		NConcurrency::TCPromiseFuturePair<CStr> LaunchResult;
 		CProcessLaunchParams LaunchParams = CProcessLaunchParams::fs_LaunchExecutable
 			(
 				"git"
 				, CommandLineParams
 				, _WorkingDirectory
-				, [pBufferedStdOut, pBufferedStdErr, LaunchResult, ProcessLaunch, _StdIn](CProcessLaunchStateChangeVariant const &_State, fp64 _Time)
+				, [pBufferedStdOut, pBufferedStdErr, LaunchResult = fg_Move(LaunchResult.m_Promise), ProcessLaunch, _StdIn](CProcessLaunchStateChangeVariant const &_State, fp64 _Time)
 				{
 					switch (_State.f_GetTypeID())
 					{
@@ -107,6 +107,6 @@ namespace NMib::NGit
 
 		auto LaunchSubscription = co_await ProcessLaunch(&CProcessLaunchActor::f_Launch, fg_Move(LaunchParams), fg_CurrentActor());
 
-		co_return co_await LaunchResult.f_Future();
+		co_return co_await fg_Move(LaunchResult.m_Future);
 	}
 }

@@ -614,13 +614,13 @@ namespace NMib::NGit
 		struct CDownloadPublicReleaseAsset
 		{
 			NStr::CStr m_Url;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data)> m_fWriteData;
 		};
 
 		struct CDownloadReleaseAsset
 		{
 			NStr::CStr m_Identifier;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector &&_Data)> m_fWriteData;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NContainer::CByteVector _Data)> m_fWriteData;
 		};
 
 		struct CAllowedAction_All
@@ -673,48 +673,48 @@ namespace NMib::NGit
 
 		CGitHostingProvider();
 
-		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) = 0;
+		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted _LoginDetails) = 0;
 
-		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository &&_CreateRepository) = 0;
-		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr const &_Repository, CForkRepository &&_ForkRepository) = 0;
-		virtual NConcurrency::TCFuture<CGetRepository> f_UpdateRepository(NStr::CStr const &_Repository, CRepository &&_RepositorySettings) = 0;
-		virtual NConcurrency::TCFuture<NContainer::TCVector<CGetRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> const &_Organizations, bool _bPersonal) = 0;
-		virtual NConcurrency::TCFuture<CGetRepository> f_GetRepository(NStr::CStr const &_Repository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_UpdateRepository(NStr::CStr _Repository, CRepository _RepositorySettings) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CGetRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> _Organizations, bool _bPersonal) = 0;
+		virtual NConcurrency::TCFuture<CGetRepository> f_GetRepository(NStr::CStr _Repository) = 0;
 
-		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr const &_Repository) = 0;
-		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID, CBranchProtectionRule const &_Rule) = 0;
-		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr const &_Repository, CBranchProtectionRule const &_Rule) = 0;
-		virtual NConcurrency::TCFuture<void> f_DeleteBranchProtectionRule(NStr::CStr const &_Repository, NStr::CStr const &_RuleID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr _Repository) = 0;
+		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID, CBranchProtectionRule _Rule) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr _Repository, CBranchProtectionRule _Rule) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID) = 0;
 
-		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr const &_Repository) = 0;
-		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr const &_Repository, CRepositoryPermissions const &_Permissions) = 0;
+		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
+		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions) = 0;
 		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions
 			(
-				NStr::CStr const &_Repository
-				, NContainer::TCSet<NStr::CStr> const &_Teams
-				, NContainer::TCSet<NStr::CStr> const &_Users
+				NStr::CStr _Repository
+				, NContainer::TCSet<NStr::CStr> _Teams
+				, NContainer::TCSet<NStr::CStr> _Users
 			) = 0
 		;
 
-		virtual NConcurrency::TCFuture<CRelease> f_CreateRelease(NStr::CStr const &_Repository, CCreateRelease const &_CreateRelease) = 0;
-		virtual NConcurrency::TCFuture<NStorage::TCOptional<CRelease>> f_GetRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseTag) = 0;
-		virtual NConcurrency::TCFuture<void> f_DeleteRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseID) = 0;
-		virtual NConcurrency::TCFuture<NContainer::TCVector<CRelease>> f_GetReleases(NStr::CStr const &_Repository) = 0;
+		virtual NConcurrency::TCFuture<CRelease> f_CreateRelease(NStr::CStr _Repository, CCreateRelease _CreateRelease) = 0;
+		virtual NConcurrency::TCFuture<NStorage::TCOptional<CRelease>> f_GetRelease(NStr::CStr _Repository, NStr::CStr _ReleaseTag) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteRelease(NStr::CStr _Repository, NStr::CStr _ReleaseID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CRelease>> f_GetReleases(NStr::CStr _Repository) = 0;
 
-		virtual NConcurrency::TCFuture<CReleaseAsset> f_UploadReleaseAsset(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseIdentifier, CUploadReleaseAsset &&_UploadRelease) = 0;
-		virtual NConcurrency::TCFuture<void> f_DownloadReleaseAsset(NStr::CStr const &_Repository, CDownloadReleaseAsset &&_DownloadRelease) = 0;
-		virtual NConcurrency::TCFuture<void> f_DownloadPublicReleaseAsset(NStr::CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease) = 0;
-		virtual NConcurrency::TCFuture<void> f_DeleteReleaseAsset(NStr::CStr const &_Repository, NStr::CStr const &_Identifier) = 0;
-		virtual NConcurrency::TCFuture<NStr::CStr> f_GetPublicReleaseAssetUrl(NStr::CStr const &_Repository, NStr::CStr const &_TagName, NStr::CStr const &_AssetName) = 0;
+		virtual NConcurrency::TCFuture<CReleaseAsset> f_UploadReleaseAsset(NStr::CStr _Repository, NStr::CStr _ReleaseIdentifier, CUploadReleaseAsset _UploadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DownloadReleaseAsset(NStr::CStr _Repository, CDownloadReleaseAsset _DownloadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DownloadPublicReleaseAsset(NStr::CStr _Repository, CDownloadPublicReleaseAsset _DownloadRelease) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteReleaseAsset(NStr::CStr _Repository, NStr::CStr _Identifier) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_GetPublicReleaseAssetUrl(NStr::CStr _Repository, NStr::CStr _TagName, NStr::CStr _AssetName) = 0;
 
-		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>> f_GetGenericRulesets(NStr::CStr const &_Repository) = 0;
-		virtual NConcurrency::TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(NStr::CStr const &_Repository, CGenericRuleset &&_Ruleset) = 0;
-		virtual NConcurrency::TCFuture<void> f_UpdateGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID, CGenericRuleset const &_Ruleset) = 0;
-		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateGenericRuleset(NStr::CStr const &_Repository, CGenericRuleset const &_Ruleset) = 0;
-		virtual NConcurrency::TCFuture<void> f_DeleteGenericRuleset(NStr::CStr const &_Repository, NStr::CStr const &_ID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>> f_GetGenericRulesets(NStr::CStr _Repository) = 0;
+		virtual NConcurrency::TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(NStr::CStr _Repository, CGenericRuleset _Ruleset) = 0;
+		virtual NConcurrency::TCFuture<void> f_UpdateGenericRuleset(NStr::CStr _Repository, NStr::CStr _ID, CGenericRuleset _Ruleset) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateGenericRuleset(NStr::CStr _Repository, CGenericRuleset _Ruleset) = 0;
+		virtual NConcurrency::TCFuture<void> f_DeleteGenericRuleset(NStr::CStr _Repository, NStr::CStr _ID) = 0;
 
-		virtual NConcurrency::TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr const &_Repository) = 0;
-		virtual NConcurrency::TCFuture<void> f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) = 0;
+		virtual NConcurrency::TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr _Repository) = 0;
+		virtual NConcurrency::TCFuture<void> f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);

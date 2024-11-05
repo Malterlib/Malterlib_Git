@@ -13,7 +13,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CLfsReleaseStoreService::f_WaitForExit()
 	{
-		return mp_ExitPromise.f_Future();
+		co_return co_await mp_ExitPromise.f_Future();
 	}
 
 	TCFuture<void> CLfsReleaseStoreService::fp_Destroy()
@@ -28,7 +28,7 @@ namespace NMib::NGit
 			mp_ExitPromise.f_SetResult();
 
 		if (mp_HostingProvider)
-			co_await mp_HostingProvider.f_Destroy();
+			co_await fg_Move(mp_HostingProvider).f_Destroy();
 
 		co_return {};
 	};

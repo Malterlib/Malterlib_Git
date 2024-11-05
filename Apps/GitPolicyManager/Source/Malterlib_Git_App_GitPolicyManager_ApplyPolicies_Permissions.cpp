@@ -24,7 +24,7 @@ namespace NMib::NGit::NGitPolicyManager
 			{
 				.m_Repository = _Repository
 				, .m_HostingProvider = _HostingProvider
-				, .m_fOnCreate = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_CreatedValues) -> TCFuture<void>
+				, .m_fOnCreate = g_ActorFunctor / [=, this](CStr _Name, CStr _CreatedValues) -> TCFuture<void>
 				{
 					Auditor.f_Info
 						(
@@ -38,7 +38,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 					co_return {};
 				}
-				, .m_fOnUpdate = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_UpdatedValues) -> TCFuture<void>
+				, .m_fOnUpdate = g_ActorFunctor / [=, this](CStr _Name, CStr _UpdatedValues) -> TCFuture<void>
 				{
 					Auditor.f_Warning
 						(
@@ -52,7 +52,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 					co_return {};
 				}
-				, .m_fOnDelete = g_ActorFunctor / [=, this](CStr &&_Name, CStr &&_DeletedValues) -> TCFuture<void>
+				, .m_fOnDelete = g_ActorFunctor / [=, this](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
 				{
 					Auditor.f_Warning
 						(

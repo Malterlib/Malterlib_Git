@@ -15,7 +15,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 	CGitPolicyManagerActor::~CGitPolicyManagerActor() = default;
 
-	TCFuture<void> CGitPolicyManagerActor::fp_StartApp(NEncoding::CEJSONSorted const &_Params)
+	TCFuture<void> CGitPolicyManagerActor::fp_StartApp(NEncoding::CEJSONSorted const _Params)
 	{
 		auto OnResume = co_await fg_OnResume
 			(
@@ -36,7 +36,7 @@ namespace NMib::NGit::NGitPolicyManager
 				24.0 * 60.0 * 60.0 // 24 h
 				, [this]() -> TCFuture<void>
 				{
-					co_await self(&CGitPolicyManagerActor::fp_PeriodicUpdate);
+					co_await fp_PeriodicUpdate();
 
 					co_return {};
 				}
@@ -48,11 +48,11 @@ namespace NMib::NGit::NGitPolicyManager
 
 	TCFuture<void> CGitPolicyManagerActor::fp_StopApp()
 	{
-		TCActorResultVector<void> Destroys;
+		TCFutureVector<void> Destroys;
 
-		fg_Exchange(mp_PeriodicUpdateTimerSubscription, nullptr)->f_Destroy() > Destroys.f_AddResult();
+		fg_Exchange(mp_PeriodicUpdateTimerSubscription, nullptr)->f_Destroy() > Destroys;
 
-		co_await Destroys.f_GetResults();
+		co_await fg_AllDoneWrapped(Destroys);
 
 		co_return {};
 	}
@@ -66,7 +66,7 @@ namespace NMib::NGit::NGitPolicyManager
 		SensorInfo.m_ExpectedReportInterval = 24.0 * 60.0 * 60.0;
 		SensorInfo.m_Type = NConcurrency::CDistributedAppSensorReporter::ESensorDataType_Status;
 
-		mp_SensorReporter_Status = co_await self(&CGitPolicyManagerActor::fp_OpenSensorReporter, fg_Move(SensorInfo));
+		mp_SensorReporter_Status = co_await fp_OpenSensorReporter(fg_Move(SensorInfo));
 
 		co_return {};
 	}

@@ -10,6 +10,8 @@ namespace NMib::NGit
 {
 	TCFuture<CStr> CLfsReleaseStoreService::fp_DownloadReleaseAsset(CReleaseAssetInfo _AssetInfo, bool _bPublic)
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		bool bCompressed = false;
 		fp64 CompressionRatio = 1.0;
 		mint Size = _AssetInfo.m_Size;
@@ -46,7 +48,7 @@ namespace NMib::NGit
 		;
 
 		auto fWriteData = g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), ReportClock = CClock{true}]
-			(CByteVector &&_Data) mutable -> TCFuture<void>
+			(CByteVector _Data) mutable -> TCFuture<void>
 			{
 				mint nBytes = _Data.f_GetLen();
 				{
@@ -76,7 +78,7 @@ namespace NMib::NGit
 					uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
 					uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;
 					BytesLastTime = BytesSoFarCorrected;
-					fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime) > fg_DiscardResult();
+					fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime).f_DiscardResult();
 				}
 
 				co_return {};
@@ -153,6 +155,8 @@ namespace NMib::NGit
 
 	auto CLfsReleaseStoreService::fp_GetReleaseAssetInfo(TCSharedPointer<CReleaseIndexCache> _pIndexCache, CStr _Repository, CStr _ObjectID, uint64 _Size) -> TCFuture<CReleaseAssetInfo>
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		auto *pCachedInfo = _pIndexCache->m_Assets.f_FindEqual(mp_CurrentObjectID);
 		if (pCachedInfo)
 			co_return *pCachedInfo;

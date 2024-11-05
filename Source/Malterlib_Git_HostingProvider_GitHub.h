@@ -33,41 +33,41 @@ namespace NMib::NGit
 			NStr::CStr m_MalterlibField;
 		};
 		
-		TCFuture<void> f_Login(CEJSONSorted const &_LoginDetails) override;
-		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository &&_CreateRepository) override;
-		TCFuture<CGetRepository> f_ForkRepository(CStr const &_Repository, CForkRepository &&_ForkRepository) override;
-		TCFuture<CGetRepository> f_UpdateRepository(CStr const &_Repository, CRepository &&_RepositorySettings) override;
-		TCFuture<TCVector<CGetRepository>> f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) override;
-		TCFuture<CGetRepository> f_GetRepository(CStr const &_Repository) override;
+		TCFuture<void> f_Login(CEJSONSorted _LoginDetails) override;
+		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
+		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
+		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
+		TCFuture<TCVector<CGetRepository>> f_GetRepositories(TCVector<CStr> _Organizations, bool _bPersonal) override;
+		TCFuture<CGetRepository> f_GetRepository(CStr _Repository) override;
 
-		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr const &_Repository) override;
-		TCFuture<void> f_UpdateBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID, CBranchProtectionRule const &_Rule) override;
-		TCFuture<CStr> f_CreateBranchProtectionRule(CStr const &_Repository, CBranchProtectionRule const &_Rule) override;
-		TCFuture<void> f_DeleteBranchProtectionRule(CStr const &_Repository, CStr const &_RuleID) override;
+		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr _Repository) override;
+		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
+		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
+		TCFuture<void> f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID) override;
 
-		TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(CStr const &_Repository) override;
-		TCFuture<void> f_AddRepositoryPermissions(CStr const &_Repository, CRepositoryPermissions const &_Permissions) override;
-		TCFuture<void> f_RemoveRepositoryPermissions(CStr const &_Repository, TCSet<CStr> const &_Teams, TCSet<CStr> const &_Users) override;
+		TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(CStr _Repository) override;
+		TCFuture<void> f_AddRepositoryPermissions(CStr _Repository, CRepositoryPermissions _Permissions) override;
+		TCFuture<void> f_RemoveRepositoryPermissions(CStr _Repository, TCSet<CStr> _Teams, TCSet<CStr> _Users) override;
 
-		TCFuture<CRelease> f_CreateRelease(CStr const &_Repository, CCreateRelease const &_CreateRelease) override;
-		TCFuture<TCOptional<CRelease>> f_GetRelease(CStr const &_Repository, CStr const &_ReleaseTag) override;
-		TCFuture<void> f_DeleteRelease(NStr::CStr const &_Repository, NStr::CStr const &_ReleaseID) override;
-		TCFuture<TCVector<CRelease>> f_GetReleases(CStr const &_Repository) override;
+		TCFuture<CRelease> f_CreateRelease(CStr _Repository, CCreateRelease _CreateRelease) override;
+		TCFuture<TCOptional<CRelease>> f_GetRelease(CStr _Repository, CStr _ReleaseTag) override;
+		TCFuture<void> f_DeleteRelease(NStr::CStr _Repository, NStr::CStr _ReleaseID) override;
+		TCFuture<TCVector<CRelease>> f_GetReleases(CStr _Repository) override;
 
-		TCFuture<CReleaseAsset> f_UploadReleaseAsset(CStr const &_Repository, CStr const &_ReleaseIdentifier, CUploadReleaseAsset &&_UploadRelease) override;
-		TCFuture<void> f_DownloadReleaseAsset(CStr const &_Repository, CDownloadReleaseAsset &&_DownloadRelease) override;
-		TCFuture<void> f_DownloadPublicReleaseAsset(CStr const &_Repository, CDownloadPublicReleaseAsset &&_DownloadRelease) override;
-		TCFuture<void> f_DeleteReleaseAsset(CStr const &_Repository, NStr::CStr const &_Identifier) override;
-		TCFuture<CStr> f_GetPublicReleaseAssetUrl(CStr const &_Repository, CStr const &_TagName, CStr const &_AssetName) override;
+		TCFuture<CReleaseAsset> f_UploadReleaseAsset(CStr _Repository, CStr _ReleaseIdentifier, CUploadReleaseAsset _UploadRelease) override;
+		TCFuture<void> f_DownloadReleaseAsset(CStr _Repository, CDownloadReleaseAsset _DownloadRelease) override;
+		TCFuture<void> f_DownloadPublicReleaseAsset(CStr _Repository, CDownloadPublicReleaseAsset _DownloadRelease) override;
+		TCFuture<void> f_DeleteReleaseAsset(CStr _Repository, NStr::CStr _Identifier) override;
+		TCFuture<CStr> f_GetPublicReleaseAssetUrl(CStr _Repository, CStr _TagName, CStr _AssetName) override;
 
-		TCFuture<TCMap<CStr, CGenericRuleset>> f_GetGenericRulesets(CStr const &_Repository) override;
-		TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(CStr const &_Repository, CGenericRuleset &&_Ruleset) override;
-		TCFuture<void> f_UpdateGenericRuleset(CStr const &_Repository, CStr const &_ID, CGenericRuleset const &_Ruleset) override;
-		TCFuture<CStr> f_CreateGenericRuleset(CStr const &_Repository, CGenericRuleset const &_Ruleset) override;
-		TCFuture<void> f_DeleteGenericRuleset(CStr const &_Repository, CStr const &_ID) override;
+		TCFuture<TCMap<CStr, CGenericRuleset>> f_GetGenericRulesets(CStr _Repository) override;
+		TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) override;
+		TCFuture<void> f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset) override;
+		TCFuture<CStr> f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset) override;
+		TCFuture<void> f_DeleteGenericRuleset(CStr _Repository, CStr _ID) override;
 
-		TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr const &_Repository) override;
-		TCFuture<void> f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) override;
+		TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr _Repository) override;
+		TCFuture<void> f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) override;
 
 	private:
 		struct CRepositorySlug
@@ -130,8 +130,8 @@ namespace NMib::NGit
 				, uint32 _ExpectedStatus = 201
 			)
 		;
-		TCFuture<void> fp_RestApiDownloadFile(CStr _Path, TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
-		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
+		TCFuture<void> fp_RestApiDownloadFile(CStr _Path, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
+		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 
 		TCFuture<CJSONSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
 		TCFuture<CJSONSorted> fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset);

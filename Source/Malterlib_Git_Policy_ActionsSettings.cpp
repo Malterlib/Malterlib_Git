@@ -9,7 +9,7 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCFuture<CGitHostingProvider::CActionsSettings> fg_ParseActionsSettings(CEJSONSorted _Properties)
+		TCUnsafeFuture<CGitHostingProvider::CActionsSettings> fg_ParseActionsSettings(CEJSONSorted const &_Properties)
 		{
 			CGitHostingProvider::CActionsSettings OutSettings;
 
@@ -23,7 +23,7 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_ActionsSettings(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_Policy)
+	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_ActionsSettings(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _Policy)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

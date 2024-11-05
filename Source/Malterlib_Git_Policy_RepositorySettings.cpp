@@ -11,7 +11,7 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCFuture<CGitHostingProvider::CRepository> fg_ParseRepositorySettings(CEJSONSorted _Properties)
+		TCUnsafeFuture<CGitHostingProvider::CRepository> fg_ParseRepositorySettings(CEJSONSorted const &_Properties)
 		{
 			CGitHostingProvider::CRepository OutRepository;
 
@@ -49,7 +49,7 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<bool> CGitPolicyActor::f_ApplyPolicy_Repository(CApplyPolicyContext &&_Context, NEncoding::CEJSONSorted &&_RepositorySettings)
+	TCFuture<bool> CGitPolicyActor::f_ApplyPolicy_Repository(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _RepositorySettings)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

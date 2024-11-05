@@ -36,7 +36,7 @@ namespace NMib::NGit
 		return Return;
 	}
 
-	auto CGitHostingProvider_GitHub::f_PopulateGenericRulesetIDs(CStr const &_Repository, CGenericRuleset &&_Ruleset) -> TCFuture<CGenericRuleset>
+	auto CGitHostingProvider_GitHub::f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -129,7 +129,7 @@ namespace NMib::NGit
 		co_return fg_Move(Ruleset);
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetGenericRulesets(NStr::CStr const &_Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>>
+	auto CGitHostingProvider_GitHub::f_GetGenericRulesets(NStr::CStr _Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -143,7 +143,7 @@ namespace NMib::NGit
 
 		NContainer::TCMap<NStr::CStr, CGenericRuleset> OutRulesets;
 
-		TCActorResultVector<CJSONSorted> Results;
+		TCFutureVector<CJSONSorted> Results;
 
 		for (auto &Rule : RuleSetEnum.f_Array())
 		{
@@ -152,11 +152,11 @@ namespace NMib::NGit
 					"repos/{}/{}/rulesets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << Rule["id"].f_Integer()
 					, "Failed to get ruleset from repository '{}'"_f << _Repository
 				) 
-				> Results.f_AddResult()
+				> Results
 			;
 		}
 
-		auto const Rulesets = co_await Results.f_GetUnwrappedResults();
+		auto const Rulesets = co_await fg_AllDone(Results);
 
 		CJSONSorted RuleSetsJson;
 
@@ -350,10 +350,21 @@ namespace NMib::NGit
 	{
 		TCSharedPointer<CCustomRepositoryRoleCache> pRoleCache = fg_Construct();
 
-		auto fAddOptional = [&](auto &&_fThis, CJSONSorted &o_Output, CStr const &_Name, auto const &_OptionalValue) -> TCFuture<void>
+		auto fAddOptional = [&]
+			(
+#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
+				auto &&_fThis
+#else
+				this auto &&_fThis
+#endif
+				, CJSONSorted &o_Output
+				, CStr const &_Name
+				, auto const &_OptionalValue
+			) -> TCUnsafeFuture<void>
 			{
-				co_await ECoroutineFlag_AllowReferences;
-
+#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
+#define _fThis(...) _fThis(_fThis, __VA_ARGS__)
+#endif
 				using CValueType = typename TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>::CType;
 				using CType = TCOptionalType<CValueType>;
 
@@ -391,7 +402,7 @@ namespace NMib::NGit
 					auto &OutputArray = Output.f_Array();
 
 					for (auto &Item : Value)
-						co_await _fThis(_fThis, OutputArray.f_Insert(), {}, Item);
+						co_await _fThis(OutputArray.f_Insert(), {}, Item);
 				}
 				else if constexpr (cIsSame<CType, EGenericRuleTarget>)
 				{
@@ -446,15 +457,15 @@ namespace NMib::NGit
 				}
 				else if constexpr (cIsSame<CType, CGenericRuleBypassActor>)
 				{
-					co_await _fThis(_fThis, Output, "bypass_mode", Value.m_BypassMode);
-					co_await _fThis(_fThis, Output, {}, Value.m_Actor);
+					co_await _fThis(Output, "bypass_mode", Value.m_BypassMode);
+					co_await _fThis(Output, {}, Value.m_Actor);
 				}
 				else if constexpr (cIsSame<CType, CStringMatch>)
 				{
-					co_await _fThis(_fThis, Output, "name", Value.m_Name);
-					co_await _fThis(_fThis, Output, "negate", Value.m_Negate);
-					co_await _fThis(_fThis, Output, "operator", Value.m_Operator);
-					co_await _fThis(_fThis, Output, "pattern", Value.m_Pattern);
+					co_await _fThis(Output, "name", Value.m_Name);
+					co_await _fThis(Output, "negate", Value.m_Negate);
+					co_await _fThis(Output, "operator", Value.m_Operator);
+					co_await _fThis(Output, "pattern", Value.m_Pattern);
 				}
 				else if constexpr (cIsSame<CType, CGenericRule_StatusChecks::CRequiredStatusCheck>)
 				{
@@ -471,8 +482,8 @@ namespace NMib::NGit
 					else
 						Output["repository_id"] = co_await fp_GetRepositoryID(Value.m_WorkflowRepository.m_Slug, false);
 
-					co_await _fThis(_fThis, Output, "ref", Value.m_Ref);
-					co_await _fThis(_fThis, Output, "sha", Value.m_Sha);
+					co_await _fThis(Output, "ref", Value.m_Ref);
+					co_await _fThis(Output, "sha", Value.m_Sha);
 				}
 				else if constexpr (cIsSame<CType, CGenericRule>)
 				{
@@ -513,41 +524,41 @@ namespace NMib::NGit
 						RuleType = "required_status_checks";
 						CGenericRule_StatusChecks const &StatusChecks = Value.template f_GetAsType<CGenericRule_StatusChecks>();
 						Parameters["strict_required_status_checks_policy"] = StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode;
-						co_await _fThis(_fThis, Parameters, "required_status_checks", StatusChecks.m_RequiredStatusChecks);
+						co_await _fThis(Parameters, "required_status_checks", StatusChecks.m_RequiredStatusChecks);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_FastForwardOnly>())
 						RuleType = "non_fast_forward";
 					else if (Value.template f_IsOfType<CGenericRule_CommitMessage>())
 					{
 						RuleType = "commit_message_pattern";
-						co_await _fThis(_fThis, Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitMessage>().m_StringMatch);
+						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitMessage>().m_StringMatch);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_CommitAuthorEmail>())
 					{
 						RuleType = "commit_author_email_pattern";
-						co_await _fThis(_fThis, Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitAuthorEmail>().m_StringMatch);
+						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitAuthorEmail>().m_StringMatch);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_CommitterEmail>())
 					{
 						RuleType = "committer_email_pattern";
-						co_await _fThis(_fThis, Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitterEmail>().m_StringMatch);
+						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitterEmail>().m_StringMatch);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_BranchName>())
 					{
 						RuleType = "branch_name_pattern";
-						co_await _fThis(_fThis, Parameters, {}, Value.template f_GetAsType<CGenericRule_BranchName>().m_StringMatch);
+						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_BranchName>().m_StringMatch);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_TagName>())
 					{
 						RuleType = "tag_name_pattern";
-						co_await _fThis(_fThis, Parameters, {}, Value.template f_GetAsType<CGenericRule_TagName>().m_StringMatch);
+						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_TagName>().m_StringMatch);
 					}
 					else if (Value.template f_IsOfType<CGenericRule_Workflow>())
 					{
 						RuleType = "workflows";
 						CGenericRule_Workflow const &Workflow = Value.template f_GetAsType<CGenericRule_Workflow>();
 
-						co_await _fThis(_fThis, Parameters, "workflows", Workflow.m_Workflows);
+						co_await _fThis(Parameters, "workflows", Workflow.m_Workflows);
 					}
 
 					Output["type"] = RuleType;
@@ -563,19 +574,23 @@ namespace NMib::NGit
 
 		CJSONSorted Output;
 
-		co_await fAddOptional(fAddOptional, Output, "name", _Ruleset.m_Name);
-		co_await fAddOptional(fAddOptional, Output, "bypass_actors", _Ruleset.m_BypassActors);
+#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
+#define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__)
+#endif
+
+		co_await fAddOptional(Output, "name", _Ruleset.m_Name);
+		co_await fAddOptional(Output, "bypass_actors", _Ruleset.m_BypassActors);
 		if (_Ruleset.m_IncludeRefNames || _Ruleset.m_ExcludeRefNames)
 		{
 			auto &ConditionsOut = Output["conditions"]["ref_name"];
 			ConditionsOut["include"] = EJSONType_Array;
 			ConditionsOut["exclude"] = EJSONType_Array;
-			co_await fAddOptional(fAddOptional, ConditionsOut, "include", _Ruleset.m_IncludeRefNames);
-			co_await fAddOptional(fAddOptional, ConditionsOut, "exclude", _Ruleset.m_ExcludeRefNames);
+			co_await fAddOptional(ConditionsOut, "include", _Ruleset.m_IncludeRefNames);
+			co_await fAddOptional(ConditionsOut, "exclude", _Ruleset.m_ExcludeRefNames);
 		}
-		co_await fAddOptional(fAddOptional, Output, "rules", _Ruleset.m_Rules);
-		co_await fAddOptional(fAddOptional, Output, "target", _Ruleset.m_Target);
-		co_await fAddOptional(fAddOptional, Output, "enforcement", _Ruleset.m_Enforcement);
+		co_await fAddOptional(Output, "rules", _Ruleset.m_Rules);
+		co_await fAddOptional(Output, "target", _Ruleset.m_Target);
+		co_await fAddOptional(Output, "enforcement", _Ruleset.m_Enforcement);
 
 		co_return fg_Move(Output);
 	}
@@ -592,7 +607,7 @@ namespace NMib::NGit
 		}
 	;
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateGenericRuleset(CStr const &_Repository, CStr const &_ID, CGenericRuleset const &_Ruleset)
+	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -615,7 +630,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateGenericRuleset(CStr const &_Repository, CGenericRuleset const &_Ruleset)
+	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -637,7 +652,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteGenericRuleset(CStr const &_Repository, CStr const &_ID)
+	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteGenericRuleset(CStr _Repository, CStr _ID)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

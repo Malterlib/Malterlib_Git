@@ -361,7 +361,7 @@ namespace NMib::NGit
 		;
 	}
 
-	auto CGitHostingProvider_GitHub::f_CreateRepository(CCreateRepository &&_CreateRepository) -> TCFuture<CGetRepository>
+	auto CGitHostingProvider_GitHub::f_CreateRepository(CCreateRepository _CreateRepository) -> TCFuture<CGetRepository>
 	{
 		auto CaptureExceptions = co_await g_CaptureExceptions;
 
@@ -392,7 +392,7 @@ namespace NMib::NGit
 		co_return fg_ParseRepository(Data);
 	}
 
-	auto CGitHostingProvider_GitHub::f_ForkRepository(CStr const &_Repository, CForkRepository &&_ForkRepository) -> TCFuture<CGetRepository>
+	auto CGitHostingProvider_GitHub::f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) -> TCFuture<CGetRepository>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -432,7 +432,7 @@ namespace NMib::NGit
 		co_return fg_ParseRepository(Data);
 	}
 
-	auto CGitHostingProvider_GitHub::f_UpdateRepository(NStr::CStr const &_Repository, CRepository &&_RepositorySettings) -> TCFuture<CGetRepository>
+	auto CGitHostingProvider_GitHub::f_UpdateRepository(NStr::CStr _Repository, CRepository _RepositorySettings) -> TCFuture<CGetRepository>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -502,7 +502,7 @@ namespace NMib::NGit
 		co_return fg_ParseRepository(Data);
 	}
 	
-	auto CGitHostingProvider_GitHub::f_GetRepositories(TCVector<CStr> const &_Organizations, bool _bPersonal) -> TCFuture<TCVector<CGetRepository>>
+	auto CGitHostingProvider_GitHub::f_GetRepositories(TCVector<CStr> _Organizations, bool _bPersonal) -> TCFuture<TCVector<CGetRepository>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 		
@@ -536,7 +536,7 @@ namespace NMib::NGit
 		co_return fg_Move(OutRepositories);
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetRepository(CStr const &_Repository) -> TCFuture<CGetRepository>
+	auto CGitHostingProvider_GitHub::f_GetRepository(CStr _Repository) -> TCFuture<CGetRepository>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 

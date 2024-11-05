@@ -28,7 +28,7 @@ namespace NMib::NGit
 		}
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetRepositoryPermissions(CStr const &_Repository) -> TCFuture<CRepositoryPermissions>
+	auto CGitHostingProvider_GitHub::f_GetRepositoryPermissions(CStr _Repository) -> TCFuture<CRepositoryPermissions>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -51,7 +51,7 @@ namespace NMib::NGit
 		co_return fg_Move(OutPermissions);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_AddRepositoryPermissions(NStr::CStr const &_Repository, CRepositoryPermissions const &_Permissions)
+	TCFuture<void> CGitHostingProvider_GitHub::f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -92,7 +92,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::f_RemoveRepositoryPermissions(CStr const &_Repository, TCSet<CStr> const &_Teams, TCSet<CStr> const &_Users)
+	TCFuture<void> CGitHostingProvider_GitHub::f_RemoveRepositoryPermissions(CStr _Repository, TCSet<CStr> _Teams, TCSet<CStr> _Users)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 

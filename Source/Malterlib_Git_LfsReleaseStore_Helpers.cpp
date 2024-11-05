@@ -81,6 +81,7 @@ namespace NMib::NGit
 	TCFuture<bool> CLfsReleaseStoreService::fp_Init(CStr _Remote)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
 		mp_RemoteUrl = (co_await fg_LaunchGit({"remote", "get-url", _Remote}, mp_WorkingDirectory)).f_Trim();
 
@@ -120,6 +121,8 @@ namespace NMib::NGit
 
 	TCFuture<CGitHostingProvider::CRelease> CLfsReleaseStoreService::fp_GetOrCreateRelease(CStr _Repository, CStr _TagName, bool _bAllowCreate)
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		CGitHostingProvider::CCreateRelease CreateRelease;
 
 		CreateRelease.m_TagName = _TagName;
@@ -190,6 +193,8 @@ namespace NMib::NGit
 
 	auto CLfsReleaseStoreService::fp_GetCachedReleases(CStr _Repository) -> TCFuture<TCSharedPointer<CCachedReleases>>
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		auto &pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
 
 		if (pOutRepository->m_bInitedReleases)
@@ -247,6 +252,8 @@ namespace NMib::NGit
 
 	TCFuture<TCSharedPointer<CGitHostingProvider::CGetRepository>> CLfsReleaseStoreService::fp_GetCachedRepository(CStr _Repository)
 	{
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
 		auto &pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
 		if (pOutRepository->m_pRepository)
 			co_return pOutRepository->m_pRepository;

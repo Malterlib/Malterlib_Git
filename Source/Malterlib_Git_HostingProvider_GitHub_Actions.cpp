@@ -144,7 +144,7 @@ namespace NMib::NGit
 		}
 	}
 
-	auto CGitHostingProvider_GitHub::f_GetActionsSettings(NStr::CStr const &_Repository) -> TCFuture<CActionsSettings>
+	auto CGitHostingProvider_GitHub::f_GetActionsSettings(NStr::CStr _Repository) -> TCFuture<CActionsSettings>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -200,7 +200,7 @@ namespace NMib::NGit
 		co_return fg_ParseActionsSettings(Permissions, SelectedActions, LevelOfAccess ? *LevelOfAccess : CJSONSorted{}, WorkflowPermissions);
 	}
 
-	auto CGitHostingProvider_GitHub::f_UpdateActionsSettings(NStr::CStr const &_Repository, CActionsSettings &&_ActionsSettings) -> TCFuture<void>
+	auto CGitHostingProvider_GitHub::f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) -> TCFuture<void>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

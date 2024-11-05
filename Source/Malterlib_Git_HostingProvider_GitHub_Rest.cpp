@@ -323,7 +323,7 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::fp_PublicDownloadFile
 		(
 			CStr _Url
-			, TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> _fWriteData
+			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
 			, CStr _ErrorDescription
 			, uint32 _ExpectedStatus
 		)
@@ -348,7 +348,7 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiDownloadFile
 		(
 			CStr _Path
-			, TCActorFunctor<TCFuture<void> (CByteVector &&_Data)> _fWriteData
+			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
 			, CStr _ErrorDescription
 			, uint32 _ExpectedStatus
 		)

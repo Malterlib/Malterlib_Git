@@ -7,11 +7,11 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value);
+		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value);
 
-		TCFuture<void> fg_ParseRuleSettingValue(CEJSONSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
+		TCUnsafeFuture<void> fg_ParseRuleSettingValue(CEJSONSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
 		{
-			co_await (ECoroutineFlag_CaptureExceptions | ECoroutineFlag_AllowReferences);
+			co_await ECoroutineFlag_CaptureExceptions;
 
 			using CValueType = typename TCRemoveReferenceAndQualifiers<decltype(o_Value)>::CType;
 			using CType = TCOptionalType<CValueType>;
@@ -394,9 +394,9 @@ namespace NMib::NGit
 			co_return {};
 		}
 
-		TCFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value)
+		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value)
 		{
-			co_await (ECoroutineFlag_CaptureExceptions | ECoroutineFlag_AllowReferences);
+			co_await ECoroutineFlag_CaptureExceptions;
 
 			auto *pValue = _Rule.f_GetMember(_Name);
 			if (!pValue)

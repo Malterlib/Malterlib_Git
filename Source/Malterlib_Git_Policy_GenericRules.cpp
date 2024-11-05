@@ -9,7 +9,7 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCFuture<TCMap<CStr, CGitHostingProvider::CGenericRuleset>> fg_ParseGenericRules(CEJSONSorted _Rules)
+		TCUnsafeFuture<TCMap<CStr, CGitHostingProvider::CGenericRuleset>> fg_ParseGenericRules(CEJSONSorted const &_Rules)
 		{
 			TCMap<CStr, CGitHostingProvider::CGenericRuleset> OutRules;
 
@@ -39,7 +39,7 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_GenericRules(CApplyPolicyContext &&_Context, CEJSONSorted &&_Rules)
+	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, CEJSONSorted _Rules)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

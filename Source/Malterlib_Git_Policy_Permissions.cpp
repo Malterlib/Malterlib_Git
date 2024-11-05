@@ -44,7 +44,7 @@ namespace NMib::NGit
 		}
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_Permissions(CApplyPolicyContext &&_Context, CEJSONSorted &&_Permissions)
+	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_Permissions(CApplyPolicyContext _Context, CEJSONSorted _Permissions)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
