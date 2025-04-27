@@ -12,7 +12,7 @@ namespace NMib::NGit
 	{
 		mp_StdSubscription = co_await mp_pCommandLine->f_RegisterForStdIn
 			(
-				g_ActorFunctor / [this, StdInBuffer = CStr()](NProcess::EStdInReaderOutputType _Type, NStr::CStrSecure _Input) mutable -> TCFuture<void>
+				g_ActorFunctor / [this, StdInBuffer = CStr()](NProcess::EStdInReaderOutputType _Type, NStr::CStrIO _Input) mutable -> TCFuture<void>
 				{
 					if (_Type == NProcess::EStdInReaderOutputType_GeneralError)
 					{
