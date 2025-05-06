@@ -72,7 +72,7 @@ namespace NMib::NGit
 						auto *pReleaseAsset = pRelease->m_ReleaseAssets.f_FindEqual(ObjectID);
 						if (pReleaseAsset)
 						{
-							IndexObject[ObjectID] =
+							IndexObject[ObjectID] = _=
 								{
 									"ID"_= pReleaseAsset->m_pSource->m_Identifier
 									, "Repository"_= AssetRepository
