@@ -8,7 +8,7 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCUnsafeFuture<TCMap<CStr, CGitHostingProvider::CBranchProtectionRule>> fg_ParseBranchProtectionRules(CEJSONSorted const &_BranchProtection)
+		TCUnsafeFuture<TCMap<CStr, CGitHostingProvider::CBranchProtectionRule>> fg_ParseBranchProtectionRules(CEJsonSorted const &_BranchProtection)
 		{
 			TCMap<CStr, CGitHostingProvider::CBranchProtectionRule> OutRules;
 
@@ -52,7 +52,7 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_BranchProtection(CApplyPolicyContext _Context, CEJSONSorted _BranchProtection)
+	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_BranchProtection(CApplyPolicyContext _Context, CEJsonSorted _BranchProtection)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

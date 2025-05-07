@@ -5,7 +5,7 @@
 
 namespace NMib::NGit
 {
-	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Init(CEJSONSorted const _Packet)
+	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Init(CEJsonSorted const _Packet)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 

@@ -7,9 +7,9 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_GraphQlApi(CStr _Query, CJSONSorted _Variables)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_GraphQlApi(CStr _Query, CJsonSorted _Variables)
 	{
-		CJSONSorted QueryJson;
+		CJsonSorted QueryJson;
 		QueryJson["query"] = fg_Move(_Query);
 		QueryJson["variables"] = fg_Move(_Variables);
 
@@ -38,13 +38,13 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		auto ResultJson = CJSONSorted::fs_FromString(Result.m_Body);
+		auto ResultJson = CJsonSorted::fs_FromString(Result.m_Body);
 
-		if (auto pErrors = ResultJson.f_GetMember("errors", EJSONType_Array))
+		if (auto pErrors = ResultJson.f_GetMember("errors", EJsonType_Array))
 		{
 			for (auto &Error : fg_Const(pErrors->f_Array()))
 			{
-				if (auto *pMessage = Error.f_GetMember("message", EJSONType_String))
+				if (auto *pMessage = Error.f_GetMember("message", EJsonType_String))
 					co_return DMibErrorInstance("GitHub GraphQL request failed: {}"_f << pMessage->f_String());
 				else
 					co_return DMibErrorInstance("GitHub GraphQL request failed: {}"_f << Error);

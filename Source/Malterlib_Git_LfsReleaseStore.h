@@ -79,14 +79,14 @@ namespace NMib::NGit
 
 		TCFuture<void> fp_Destroy() override;
 
-		TCFuture<void> fp_ProcessPacket(CEJSONSorted _Packet);
+		TCFuture<void> fp_ProcessPacket(CEJsonSorted _Packet);
 
 		TCFuture<bool> fp_Init(CStr _Remote);
 		TCFuture<CGitHostingProvider::CRelease> fp_GetOrCreateRelease(CStr _Repository, CStr _TagName, bool _bAllowCreate);
 
-		TCFuture<void> fp_Protocol_Init(CEJSONSorted const _Packet);
-		TCFuture<void> fp_Protocol_Upload(CEJSONSorted const _Packet);
-		TCFuture<void> fp_Protocol_Download(CEJSONSorted const _Packet);
+		TCFuture<void> fp_Protocol_Init(CEJsonSorted const _Packet);
+		TCFuture<void> fp_Protocol_Upload(CEJsonSorted const _Packet);
+		TCFuture<void> fp_Protocol_Download(CEJsonSorted const _Packet);
 
 		TCFuture<void> fp_SendInitError(int32 _ErrorCode, CStr _ErrorMessage);
 		TCFuture<void> fp_SendProcessError(CStr _ObjectID, int32 _ErrorCode, CStr _ErrorMessage);

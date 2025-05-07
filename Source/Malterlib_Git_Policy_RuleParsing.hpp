@@ -7,9 +7,9 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value);
+		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJsonSorted const &_Rule, CStr const &_Name, auto &o_Value);
 
-		TCUnsafeFuture<void> fg_ParseRuleSettingValue(CEJSONSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
+		TCUnsafeFuture<void> fg_ParseRuleSettingValue(CEJsonSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
 		{
 			co_await ECoroutineFlag_CaptureExceptions;
 
@@ -24,9 +24,9 @@ namespace NMib::NGit
 
 			auto &OutValue = *pOutValue;
 
-			if constexpr (cIsSame<CType, CEJSONSorted>)
+			if constexpr (cIsSame<CType, CEJsonSorted>)
 				OutValue = _JsonValue;
-			else if constexpr (cIsSame<CType, CJSONSorted>)
+			else if constexpr (cIsSame<CType, CJsonSorted>)
 				OutValue = _JsonValue.f_ToJson();
 			else if constexpr (cIsSame<CType, CStr>)
 				OutValue = _JsonValue.f_String();
@@ -394,7 +394,7 @@ namespace NMib::NGit
 			co_return {};
 		}
 
-		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJSONSorted const &_Rule, CStr const &_Name, auto &o_Value)
+		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJsonSorted const &_Rule, CStr const &_Name, auto &o_Value)
 		{
 			co_await ECoroutineFlag_CaptureExceptions;
 

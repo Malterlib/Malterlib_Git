@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_LfsReleaseStore.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Process/ProcessLaunchActor>
 
 namespace NMib::NGit
@@ -234,7 +234,7 @@ namespace NMib::NGit
 		;
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Download(CEJSONSorted const _Packet)
+	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Download(CEJsonSorted const _Packet)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 
@@ -248,7 +248,7 @@ namespace NMib::NGit
 
 		CStr FilePath = co_await fp_DownloadReleaseAsset(ReleaseAssetInfo, pCache->m_bPublicRepository);
 
-		CEJSONSorted Message =
+		CEJsonSorted Message =
 			{
 				"event"_= "complete"
 				, "oid"_= mp_CurrentObjectID

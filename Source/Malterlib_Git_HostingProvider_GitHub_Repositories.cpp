@@ -3,13 +3,13 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
 	namespace
 	{
-		CGitHostingProvider::CGetRepository fg_ParseRepository(CJSONSorted const &_RepositoryJson)
+		CGitHostingProvider::CGetRepository fg_ParseRepository(CJsonSorted const &_RepositoryJson)
 		{
 			using ESquashMergeCommitTitle = CGitHostingProvider::CRepository::ESquashMergeCommitTitle;
 			using ESquashMergeCommitMessage = CGitHostingProvider::CRepository::ESquashMergeCommitMessage;
@@ -143,13 +143,13 @@ namespace NMib::NGit
 					NewRepo.m_MergeCommitMessage = EMergeCommitMessage::mc_Blank;
 			}
 
-			if (auto *pValue = _RepositoryJson.f_GetMember("security_and_analysis", EJSONType_Object))
+			if (auto *pValue = _RepositoryJson.f_GetMember("security_and_analysis", EJsonType_Object))
 			{
 				auto &Value = pValue->f_Object();
 				auto fGetStatusValue = [&](ch8 const *_pName) -> NStorage::TCOptional<bool>
 					{
 						NStorage::TCOptional<bool> Return;
-						if (auto *pValue = Value.f_GetMember(_pName, EJSONType_Object))
+						if (auto *pValue = Value.f_GetMember(_pName, EJsonType_Object))
 						{
 							auto &Value = pValue->f_Object();
 							if (auto *pValue = Value.f_GetMember("status"))
@@ -167,7 +167,7 @@ namespace NMib::NGit
 			return NewRepo;
 		}
 
-		void fg_RepositoryToJSON(CJSONSorted &o_JSON, CGitHostingProvider::CRepository const &_Repository, bool _bUpdate)
+		void fg_RepositoryToJson(CJsonSorted &o_Json, CGitHostingProvider::CRepository const &_Repository, bool _bUpdate)
 		{
 			using ESquashMergeCommitTitle = CGitHostingProvider::CRepository::ESquashMergeCommitTitle;
 			using ESquashMergeCommitMessage = CGitHostingProvider::CRepository::ESquashMergeCommitMessage;
@@ -175,40 +175,40 @@ namespace NMib::NGit
 			using EMergeCommitMessage = CGitHostingProvider::CRepository::EMergeCommitMessage;
 			
 			if (_Repository.m_Name)
-				o_JSON["name"] = CFile::fs_GetFile(*_Repository.m_Name);
+				o_Json["name"] = CFile::fs_GetFile(*_Repository.m_Name);
 			if (_Repository.m_Description)
-				o_JSON["description"] = *_Repository.m_Description;
+				o_Json["description"] = *_Repository.m_Description;
 			if (_Repository.m_Homepage)
-				o_JSON["homepage"] = *_Repository.m_Homepage;
+				o_Json["homepage"] = *_Repository.m_Homepage;
 
 			if (_Repository.m_IsPrivate)
-				o_JSON["private"] = *_Repository.m_IsPrivate;
+				o_Json["private"] = *_Repository.m_IsPrivate;
 			if (_Repository.m_IsTemplate)
-				o_JSON["is_template"] = *_Repository.m_IsTemplate;
+				o_Json["is_template"] = *_Repository.m_IsTemplate;
 			if (_Repository.m_HasIssues)
-				o_JSON["has_issues"] = *_Repository.m_HasIssues;
+				o_Json["has_issues"] = *_Repository.m_HasIssues;
 			if (_Repository.m_HasProjects)
-				o_JSON["has_projects"] = *_Repository.m_HasProjects;
+				o_Json["has_projects"] = *_Repository.m_HasProjects;
 			if (_Repository.m_HasWiki)
-				o_JSON["has_wiki"] = *_Repository.m_HasWiki;
+				o_Json["has_wiki"] = *_Repository.m_HasWiki;
 			if (_Repository.m_AllowSquashMerge)
-				o_JSON["allow_squash_merge"] = *_Repository.m_AllowSquashMerge;
+				o_Json["allow_squash_merge"] = *_Repository.m_AllowSquashMerge;
  			if (_Repository.m_AllowMergeCommit)
-				o_JSON["allow_merge_commit"] = *_Repository.m_AllowMergeCommit;
+				o_Json["allow_merge_commit"] = *_Repository.m_AllowMergeCommit;
 			if (_Repository.m_AllowRebaseMerge)
-				o_JSON["allow_rebase_merge"] = *_Repository.m_AllowRebaseMerge;
+				o_Json["allow_rebase_merge"] = *_Repository.m_AllowRebaseMerge;
 			if (_Repository.m_AllowAutoMerge)
-				o_JSON["allow_auto_merge"] = *_Repository.m_AllowAutoMerge;
+				o_Json["allow_auto_merge"] = *_Repository.m_AllowAutoMerge;
 			if (_Repository.m_DeleteBranchOnMerge)
-				o_JSON["delete_branch_on_merge"] = *_Repository.m_DeleteBranchOnMerge;
+				o_Json["delete_branch_on_merge"] = *_Repository.m_DeleteBranchOnMerge;
 			if (_Repository.m_UseSquashPrTitleAsDefault)
-				o_JSON["use_squash_pr_title_as_default"] = *_Repository.m_UseSquashPrTitleAsDefault;
+				o_Json["use_squash_pr_title_as_default"] = *_Repository.m_UseSquashPrTitleAsDefault;
 			if (_Repository.m_HasDownloads)
-				o_JSON["has_downloads"] = *_Repository.m_HasDownloads;
+				o_Json["has_downloads"] = *_Repository.m_HasDownloads;
 
 			if (_Repository.m_SquashMergeCommitTitle)
 			{
-				o_JSON["squash_merge_commit_title"] = [](auto _Enum)
+				o_Json["squash_merge_commit_title"] = [](auto _Enum)
 					{
 						switch (_Enum)
 						{
@@ -223,7 +223,7 @@ namespace NMib::NGit
 
 			if (_Repository.m_SquashMergeCommitMessage)
 			{
-				o_JSON["squash_merge_commit_message"] = [](auto _Enum)
+				o_Json["squash_merge_commit_message"] = [](auto _Enum)
 					{
 						switch (_Enum)
 						{
@@ -239,7 +239,7 @@ namespace NMib::NGit
 
 			if (_Repository.m_MergeCommitTitle)
 			{
-				o_JSON["merge_commit_title"] = [](auto _Enum)
+				o_Json["merge_commit_title"] = [](auto _Enum)
 					{
 						switch (_Enum)
 						{
@@ -254,7 +254,7 @@ namespace NMib::NGit
 
 			if (_Repository.m_MergeCommitMessage)
 			{
-				o_JSON["merge_commit_message"] = [](auto _Enum)
+				o_Json["merge_commit_message"] = [](auto _Enum)
 					{
 						switch (_Enum)
 						{
@@ -270,7 +270,7 @@ namespace NMib::NGit
 
 			if (_Repository.m_CustomProperties)
 			{
-				auto &OutObject = o_JSON["custom_properties"].f_Object();
+				auto &OutObject = o_Json["custom_properties"].f_Object();
 				for (auto &Value : _Repository.m_CustomProperties->f_Entries())
 				{
 					if (Value.f_Value())
@@ -290,37 +290,37 @@ namespace NMib::NGit
 			;
 
 			if (_Repository.m_Security_AdvancedEnable)
-				o_JSON["security_and_analysis"]["advanced_security"]["status"] = fToStatus(*_Repository.m_Security_AdvancedEnable);
+				o_Json["security_and_analysis"]["advanced_security"]["status"] = fToStatus(*_Repository.m_Security_AdvancedEnable);
 			if (_Repository.m_Security_SecretScanning)
-				o_JSON["security_and_analysis"]["secret_scanning"]["status"] = fToStatus(*_Repository.m_Security_SecretScanning);
+				o_Json["security_and_analysis"]["secret_scanning"]["status"] = fToStatus(*_Repository.m_Security_SecretScanning);
 			if (_Repository.m_Security_SecretScanningPushProtection)
-				o_JSON["security_and_analysis"]["secret_scanning_push_protection"]["status"] = fToStatus(*_Repository.m_Security_SecretScanningPushProtection);
+				o_Json["security_and_analysis"]["secret_scanning_push_protection"]["status"] = fToStatus(*_Repository.m_Security_SecretScanningPushProtection);
 
 			if (_Repository.m_DefaultBranch)
-				o_JSON["default_branch"] = *_Repository.m_DefaultBranch;
+				o_Json["default_branch"] = *_Repository.m_DefaultBranch;
 			if (_Repository.m_AllowUpdateBranch)
-				o_JSON["allow_update_branch"] = *_Repository.m_AllowUpdateBranch;
+				o_Json["allow_update_branch"] = *_Repository.m_AllowUpdateBranch;
 			if (_Repository.m_Archived)
-				o_JSON["archived"] = *_Repository.m_Archived;
+				o_Json["archived"] = *_Repository.m_Archived;
 			if (_Repository.m_AllowForking)
-				o_JSON["allow_forking"] = *_Repository.m_AllowForking;
+				o_Json["allow_forking"] = *_Repository.m_AllowForking;
 			if (_Repository.m_WebCommitSignoffRequired)
-				o_JSON["web_commit_signoff_required"] = *_Repository.m_WebCommitSignoffRequired;
+				o_Json["web_commit_signoff_required"] = *_Repository.m_WebCommitSignoffRequired;
 
 			if (_Repository.m_HasDiscussions)
-				o_JSON["has_discussions"] = *_Repository.m_HasDiscussions;
+				o_Json["has_discussions"] = *_Repository.m_HasDiscussions;
 		}
 
-		void fg_RepositoryToJSON(CJSONSorted &o_JSON, CGitHostingProvider::CCreateRepository const &_Repository)
+		void fg_RepositoryToJson(CJsonSorted &o_Json, CGitHostingProvider::CCreateRepository const &_Repository)
 		{
 			if (_Repository.m_AutoInit)
-				o_JSON["auto_init"] = *_Repository.m_AutoInit;
+				o_Json["auto_init"] = *_Repository.m_AutoInit;
 			if (_Repository.m_GitIgnoreTemplate)
-				o_JSON["gitignore_template"] = *_Repository.m_GitIgnoreTemplate;
+				o_Json["gitignore_template"] = *_Repository.m_GitIgnoreTemplate;
 			if (_Repository.m_LicenseTemplate)
-				o_JSON["license_template"] = *_Repository.m_LicenseTemplate;
+				o_Json["license_template"] = *_Repository.m_LicenseTemplate;
 
-			fg_RepositoryToJSON(o_JSON, _Repository, false);
+			fg_RepositoryToJson(o_Json, _Repository, false);
 		}
 
 		static constexpr CGitHostingProvider_GitHub::CFieldTranslationPair gc_FieldTranslations_Repository[] =
@@ -372,9 +372,9 @@ namespace NMib::NGit
 		else
 			PostUrl = "user/repos";
 
-		CJSONSorted PostData;
+		CJsonSorted PostData;
 
-		fg_RepositoryToJSON(PostData, _CreateRepository);
+		fg_RepositoryToJson(PostData, _CreateRepository);
 
 		auto Data = co_await fp_RestApiPost
 			(
@@ -396,7 +396,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted PostData =
+		CJsonSorted PostData =
 			{
 				"name"_j= CFile::fs_GetFile(_ForkRepository.m_Name)
 			}
@@ -438,22 +438,22 @@ namespace NMib::NGit
 
 		auto CaptureExceptions = co_await g_CaptureExceptions;
 
-		CJSONSorted PatchData;
+		CJsonSorted PatchData;
 
-		fg_RepositoryToJSON(PatchData, _RepositorySettings, true);
+		fg_RepositoryToJson(PatchData, _RepositorySettings, true);
 
 		if (_RepositorySettings.m_CustomProperties)
 		{
-			CJSONSorted CustomPropertiesPatchData;
+			CJsonSorted CustomPropertiesPatchData;
 			auto &OutArray = CustomPropertiesPatchData["properties"].f_Array();
 			for (auto &Property : _RepositorySettings.m_CustomProperties->f_Entries())
 			{
 				OutArray.f_Insert
 					(
-						CJSONSorted
+						CJsonSorted
 						{
 							"property_name"_j= Property.f_Key()
-							, "value"_j= Property.f_Value() ? CJSONSorted(*Property.f_Value()) : CJSONSorted(nullptr)
+							, "value"_j= Property.f_Value() ? CJsonSorted(*Property.f_Value()) : CJsonSorted(nullptr)
 						}
 					)
 				;
@@ -507,7 +507,7 @@ namespace NMib::NGit
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 		
 		TCVector<CGetRepository> OutRepositories;
-		auto fAddRepository = [&](CJSONSorted const &_RepositoryJson)
+		auto fAddRepository = [&](CJsonSorted const &_RepositoryJson)
 			{
 				OutRepositories.f_Insert(fg_ParseRepository(_RepositoryJson));
 			}

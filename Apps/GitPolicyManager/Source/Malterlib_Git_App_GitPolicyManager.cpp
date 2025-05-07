@@ -15,7 +15,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 	CGitPolicyManagerActor::~CGitPolicyManagerActor() = default;
 
-	TCFuture<void> CGitPolicyManagerActor::fp_StartApp(NEncoding::CEJSONSorted const _Params)
+	TCFuture<void> CGitPolicyManagerActor::fp_StartApp(NEncoding::CEJsonSorted const _Params)
 	{
 		auto OnResume = co_await fg_OnResume
 			(

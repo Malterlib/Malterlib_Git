@@ -3,7 +3,7 @@
 
 #include <Mib/Core/Platform>
 #include <Mib/Concurrency/AsyncDestroy>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Git/HostingProvider>
 #include <Mib/Git/Policy>
 
@@ -13,7 +13,7 @@ namespace NMib::NGit::NGitPolicyManager
 {
 	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules
 		(
-			CEJSONSorted _Rules
+			CEJsonSorted _Rules
 			, CStr _Repository
 			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
 			, CStr _PolicyName

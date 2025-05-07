@@ -4,7 +4,7 @@
 #include "Malterlib_Git_LfsReleaseStore.h"
 
 #include <Mib/Concurrency/LogError>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Git/Helpers/Launch>
 
 #include <zstd.h>
@@ -51,7 +51,7 @@ namespace NMib::NGit
 
 		auto Repository = mp_HostingProviderPath.f_RemoveSuffix(".git").f_RemovePrefix("/");
 
-		CEJSONSorted IndexJson;
+		CEJsonSorted IndexJson;
 		auto &IndexObject = IndexJson.f_Object();
 
 		for (auto &ObjectIDsEntry : ObjectIDsByTagName.f_Entries())
@@ -345,7 +345,7 @@ namespace NMib::NGit
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 		CStr IndexString((ch8 const *)DecompressedData.f_GetArray(), DecompressedSize);
 
-		auto IndexJson = CEJSONSorted::fs_FromString(IndexString);
+		auto IndexJson = CEJsonSorted::fs_FromString(IndexString);
 		for (auto &KeyValue : fg_Const(IndexJson).f_Object())
 		{
 			auto &Value = KeyValue.f_Value();

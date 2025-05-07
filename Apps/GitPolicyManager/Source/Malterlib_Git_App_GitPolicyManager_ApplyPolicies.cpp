@@ -3,7 +3,7 @@
 
 #include <Mib/Core/Platform>
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Git/HostingProvider>
 
 #include "Malterlib_Git_App_GitPolicyManager.h"
@@ -14,7 +14,7 @@ namespace NMib::NGit::NGitPolicyManager
 	{
 		struct CNameFilter
 		{
-			CNameFilter(CEJSONSorted const &_Config, CStr const &_ConfigName)
+			CNameFilter(CEJsonSorted const &_Config, CStr const &_ConfigName)
 			{
 				if (auto pValue = _Config.f_GetMember("Exclude{}"_f << _ConfigName))
 					m_Exclude = pValue->f_StringArray();
@@ -64,7 +64,7 @@ namespace NMib::NGit::NGitPolicyManager
 			TCVector<CStr> m_IncludeWildcards;
 		};
 
-		TCVector<CGitHostingProvider::CRepository> fg_FilterRepositories(TCVector<CGitHostingProvider::CRepository> const &_Array, CEJSONSorted const &_Policy)
+		TCVector<CGitHostingProvider::CRepository> fg_FilterRepositories(TCVector<CGitHostingProvider::CRepository> const &_Array, CEJsonSorted const &_Policy)
 		{
 			CNameFilter RepositoryNameFilter(_Policy, "Repository");
 			CNameFilter DefaultBranchFilter(_Policy, "DefaultBranch");
@@ -216,7 +216,7 @@ namespace NMib::NGit::NGitPolicyManager
 		co_return nReposWithoutPolicy;
 	}
 
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJSONSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

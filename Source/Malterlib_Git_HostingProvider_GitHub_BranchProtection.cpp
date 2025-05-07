@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
@@ -168,10 +168,10 @@ namespace NMib::NGit
 			)-----"
 		;
 
-		TCOptional<TCVector<CGitHostingProvider::CGitActor>> fg_ParseActorList(CJSONSorted const &_JSON)
+		TCOptional<TCVector<CGitHostingProvider::CGitActor>> fg_ParseActorList(CJsonSorted const &_Json)
 		{
 			TCVector<CGitHostingProvider::CGitActor> OutActors;
-			for (auto &ActorNode : _JSON["nodes"].f_Array())
+			for (auto &ActorNode : _Json["nodes"].f_Array())
 			{
 				auto &Actor = ActorNode["actor"];
 				auto &Type = Actor["__typename"].f_String();
@@ -266,7 +266,7 @@ namespace NMib::NGit
 				OutRule.m_RequiredStatusChecks = fg_Move(RequiredChecks);
 			}
 
-			if (auto pValue = Rule.f_GetMember("requiredApprovingReviewCount", EJSONType_Integer))
+			if (auto pValue = Rule.f_GetMember("requiredApprovingReviewCount", EJsonType_Integer))
 				OutRule.m_RequiredApprovingReviewCount = pValue->f_Integer();
 
 			OutRule.m_AllowsForcePushes = Rule["allowsForcePushes"].f_Boolean();
@@ -288,9 +288,9 @@ namespace NMib::NGit
 		co_return fg_Move(OutRules);
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule)
 	{
-		CJSONSorted Output;
+		CJsonSorted Output;
 
 		auto fAddOptional = [&Output, this, &_Organization](CStr const &_Name, auto const &_OptionalValue) -> TCUnsafeFuture<void>
 			{
@@ -319,11 +319,11 @@ namespace NMib::NGit
 				}
 				else if constexpr (TCIsSame<CType, TCVector<CRequiredStatusCheck>>::mc_Value)
 				{
-					TCVector<CJSONSorted> OutValues;
+					TCVector<CJsonSorted> OutValues;
 
 					for (auto &Actor : Value)
 					{
-						CJSONSorted Value;
+						CJsonSorted Value;
 						Value["context"] = Actor.m_Context;
 						if (Actor.m_App)
 							Value["appId"] = co_await fp_GetAppID(*Actor.m_App, true);
@@ -373,7 +373,7 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
+		CJsonSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
 		Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository, true);
 
 		auto const Data = co_await
@@ -413,7 +413,7 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
+		CJsonSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
 		Values["branchProtectionRuleId"] = _RuleID;
 
 		co_await

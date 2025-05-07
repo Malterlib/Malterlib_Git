@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {

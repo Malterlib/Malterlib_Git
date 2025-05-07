@@ -3,7 +3,7 @@
 
 #include <Mib/Core/Platform>
 #include <Mib/Concurrency/AsyncDestroy>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Git/HostingProvider>
 #include <Mib/Git/Policy>
 
@@ -11,7 +11,7 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJSONSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJsonSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

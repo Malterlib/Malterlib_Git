@@ -3,18 +3,18 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
 	namespace
 	{
-		CStr fg_ParseIdentifiers(CJSONSorted const &_Data)
+		CStr fg_ParseIdentifiers(CJsonSorted const &_Data)
 		{
 			return "Rest:{},GraphQL:{}"_f << _Data.f_GetMemberValue("id", 0).f_Integer() << _Data.f_GetMemberValue("node_id", CStr()).f_String();
 		}
 
-		CGitHostingProvider::CReleaseAsset fg_ParseReleaseAsset(CJSONSorted const &_Data)
+		CGitHostingProvider::CReleaseAsset fg_ParseReleaseAsset(CJsonSorted const &_Data)
 		{
 			CGitHostingProvider::CReleaseAsset Return;
 
@@ -30,7 +30,7 @@ namespace NMib::NGit
 			return Return;
 		}
 
-		CGitHostingProvider::CRelease fg_ParseRelease(CJSONSorted const &_Data)
+		CGitHostingProvider::CRelease fg_ParseRelease(CJsonSorted const &_Data)
 		{
 			CGitHostingProvider::CRelease Return;
 
@@ -41,11 +41,11 @@ namespace NMib::NGit
 			Return.m_bPublished = !_Data.f_GetMemberValue("draft", false).f_Boolean();
 			Return.m_bPreRelease = _Data.f_GetMemberValue("prerelease", false).f_Boolean();
 
-			if (auto pValue = _Data.f_GetMember("body", EJSONType_String))
+			if (auto pValue = _Data.f_GetMember("body", EJsonType_String))
 				Return.m_Description = pValue->f_String();
 
-			for (auto &AssetJSON : _Data["assets"].f_Array())
-				Return.m_Assets.f_Insert(fg_ParseReleaseAsset(AssetJSON));
+			for (auto &AssetJson : _Data["assets"].f_Array())
+				Return.m_Assets.f_Insert(fg_ParseReleaseAsset(AssetJson));
 
 			return Return;
 		}
@@ -67,7 +67,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted PostData =
+		CJsonSorted PostData =
 			{
 				"tag_name"_j= _CreateRelease.m_TagName
 			}

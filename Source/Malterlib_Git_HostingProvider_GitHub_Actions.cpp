@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
@@ -11,10 +11,10 @@ namespace NMib::NGit
 	{
 		CGitHostingProvider::CActionsSettings fg_ParseActionsSettings
 			(
-				CJSONSorted const &_Permissions
-				, CJSONSorted const &_SelectedActions
-				, CJSONSorted const &_LevelOfAccess
-				, CJSONSorted const &_WorkflowPermissions
+				CJsonSorted const &_Permissions
+				, CJsonSorted const &_SelectedActions
+				, CJsonSorted const &_LevelOfAccess
+				, CJsonSorted const &_WorkflowPermissions
 			)
 		{
 			CGitHostingProvider::CActionsSettings ActionsSettings;
@@ -72,13 +72,13 @@ namespace NMib::NGit
 			return ActionsSettings;
 		}
 
-		void fg_ActionsSettingsToJSON
+		void fg_ActionsSettingsToJson
 			(
 				CGitHostingProvider::CActionsSettings const &_ActionsSettings
-				, CJSONSorted &o_Permissions
-				, CJSONSorted &o_SelectedActions
-				, CJSONSorted &o_LevelOfAccess
-				, CJSONSorted &o_WorkflowPermissions
+				, CJsonSorted &o_Permissions
+				, CJsonSorted &o_SelectedActions
+				, CJsonSorted &o_LevelOfAccess
+				, CJsonSorted &o_WorkflowPermissions
 			)
 		{
 			if (_ActionsSettings.m_ActionsEnabled)
@@ -160,7 +160,7 @@ namespace NMib::NGit
 		if (auto *pValue = Permissions.f_GetMember("allowed_actions"))
 			bIsSelected = pValue->f_String() == "selected";
 
-		CJSONSorted SelectedActions;
+		CJsonSorted SelectedActions;
 		if (bIsSelected)
 		{
 			SelectedActions = co_await
@@ -197,7 +197,7 @@ namespace NMib::NGit
 			)
 		;
 
-		co_return fg_ParseActionsSettings(Permissions, SelectedActions, LevelOfAccess ? *LevelOfAccess : CJSONSorted{}, WorkflowPermissions);
+		co_return fg_ParseActionsSettings(Permissions, SelectedActions, LevelOfAccess ? *LevelOfAccess : CJsonSorted{}, WorkflowPermissions);
 	}
 
 	auto CGitHostingProvider_GitHub::f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) -> TCFuture<void>
@@ -206,12 +206,12 @@ namespace NMib::NGit
 
 		auto CaptureExceptions = co_await g_CaptureExceptions;
 
-		CJSONSorted Permissions;
-		CJSONSorted SelectedActions;
-		CJSONSorted LevelOfAccess;
-		CJSONSorted WorkflowPermissions;
+		CJsonSorted Permissions;
+		CJsonSorted SelectedActions;
+		CJsonSorted LevelOfAccess;
+		CJsonSorted WorkflowPermissions;
 
-		fg_ActionsSettingsToJSON
+		fg_ActionsSettingsToJson
 			(
 				_ActionsSettings
 				, Permissions

@@ -42,11 +42,11 @@ namespace NMib::NGit
 
 		try
 		{
-			CJSONSorted ErrorJson = CJSONSorted::fs_FromString(Error);
-			if (auto pMember = ErrorJson.f_GetMember("message", EJSONType_String))
+			CJsonSorted ErrorJson = CJsonSorted::fs_FromString(Error);
+			if (auto pMember = ErrorJson.f_GetMember("message", EJsonType_String))
 				Error = pMember->f_String();
 
-			if (auto pErrors = ErrorJson.f_GetMember("errors", EJSONType_Array))
+			if (auto pErrors = ErrorJson.f_GetMember("errors", EJsonType_Array))
 			{
 				for (auto &ErrorJson : pErrors->f_Array())
 				{
@@ -110,11 +110,11 @@ namespace NMib::NGit
 		;
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams, uint32 _EmptyStatus, uint32 _ExpectedStatus)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams, uint32 _EmptyStatus, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		CJSONSorted ReturnJson;
+		CJsonSorted ReturnJson;
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
@@ -156,7 +156,7 @@ namespace NMib::NGit
 			{
 				auto CaptureScope = co_await g_CaptureExceptions;
 
-				auto PageJson = CJSONSorted::fs_FromString(Result.m_Body);
+				auto PageJson = CJsonSorted::fs_FromString(Result.m_Body);
 				if (!ReturnJson.f_IsValid())
 					ReturnJson = fg_Move(PageJson);
 				else
@@ -168,8 +168,8 @@ namespace NMib::NGit
 						co_return DMibErrorInstance
 							(
 								"Unexpected paged GitHub request where previous or new result wasn't an array. Previous type: {}. New type: {}."_f
-								<< fg_EJSONTypeToString((EEJSONType)ReturnJson.f_Type()) // EJSONType is a subset of EEJSONType
-								<< fg_EJSONTypeToString((EEJSONType)PageJson.f_Type())
+								<< fg_EJsonTypeToString((EEJsonType)ReturnJson.f_Type()) // EJsonType is a subset of EEJsonType
+								<< fg_EJsonTypeToString((EEJsonType)PageJson.f_Type())
 							)
 						;
 					}
@@ -209,7 +209,7 @@ namespace NMib::NGit
 		co_return fg_Move(ReturnJson);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiPut(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
+	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiPut(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -234,7 +234,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_RestApiPost(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -258,10 +258,10 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		co_return CJSONSorted::fs_FromString(Result.m_Body);
+		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_RestApiPatch(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -285,10 +285,10 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		co_return CJSONSorted::fs_FromString(Result.m_Body);
+		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_RestApiUploadFile
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApiUploadFile
 		(
 			CStr _Path
 			, TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> _fReadData
@@ -317,7 +317,7 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		co_return CJSONSorted::fs_FromString(Result.m_Body);
+		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
 	TCFuture<void> CGitHostingProvider_GitHub::fp_PublicDownloadFile

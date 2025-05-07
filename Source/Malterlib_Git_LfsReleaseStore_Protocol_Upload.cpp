@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_LfsReleaseStore.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Process/ProcessLaunchActor>
 #include <Mib/Web/Curl>
 
@@ -142,7 +142,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Upload(CEJSONSorted const _Packet)
+	TCFuture<void> CLfsReleaseStoreService::fp_Protocol_Upload(CEJsonSorted const _Packet)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 
@@ -190,7 +190,7 @@ namespace NMib::NGit
 		else
 			DMibLog(Info, "Skipping upload, asset already exists");
 
-		CEJSONSorted Message =
+		CEJsonSorted Message =
 			{
 				"event"_= "complete"
 				, "oid"_= mp_CurrentObjectID

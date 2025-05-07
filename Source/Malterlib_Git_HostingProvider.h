@@ -673,7 +673,7 @@ namespace NMib::NGit
 
 		CGitHostingProvider();
 
-		virtual NConcurrency::TCFuture<void> f_Login(CEJSONSorted _LoginDetails) = 0;
+		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;

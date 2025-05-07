@@ -24,11 +24,11 @@ namespace NMib::NGit
 			bool m_bCreateMissing = false;
 		};
 
-		NConcurrency::TCFuture<bool> f_ApplyPolicy_Repository(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _RepositorySettings);
-		NConcurrency::TCFuture<void> f_ApplyPolicy_Permissions(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _Permissions);
-		NConcurrency::TCFuture<void> f_ApplyPolicy_BranchProtection(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _BranchProtection);
-		NConcurrency::TCFuture<void> f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _Rules);
-		NConcurrency::TCFuture<void> f_ApplyPolicy_ActionsSettings(CApplyPolicyContext _Context, NEncoding::CEJSONSorted _RepositorySettings);
+		NConcurrency::TCFuture<bool> f_ApplyPolicy_Repository(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _RepositorySettings);
+		NConcurrency::TCFuture<void> f_ApplyPolicy_Permissions(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _Permissions);
+		NConcurrency::TCFuture<void> f_ApplyPolicy_BranchProtection(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _BranchProtection);
+		NConcurrency::TCFuture<void> f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _Rules);
+		NConcurrency::TCFuture<void> f_ApplyPolicy_ActionsSettings(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _RepositorySettings);
 	};
 }
 

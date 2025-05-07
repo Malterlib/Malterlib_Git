@@ -5,7 +5,7 @@
 
 #include <Mib/Git/Helpers/Credentials>
 #include <Mib/Git/Helpers/Launch>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
@@ -109,7 +109,7 @@ namespace NMib::NGit
 		mp_HostingProvider = CGitHostingProvider::fs_CreateHostingProvider("CGitHostingProviderFactory_CGitHostingProvider_GitHub");
 
 		if (mp_HostingProviderToken)
-			co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJSONSorted{"Token"_= mp_HostingProviderToken});
+			co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted{"Token"_= mp_HostingProviderToken});
 
 		if (!mp_HostingProvider)
 			co_return DMibErrorInstance("GitHub hosting provider not available");

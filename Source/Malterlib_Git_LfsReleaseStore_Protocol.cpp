@@ -4,7 +4,7 @@
 #include "Malterlib_Git_LfsReleaseStore.h"
 
 #include <Mib/Concurrency/LogError>
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
@@ -43,9 +43,9 @@ namespace NMib::NGit
 						{
 							try
 							{
-								CEJSONSorted JSON = CEJSONSorted::fs_FromString(Line);
+								CEJsonSorted Json = CEJsonSorted::fs_FromString(Line);
 
-								fp_ProcessPacket(JSON) > fg_LogError("", "Failed to process packet");
+								fp_ProcessPacket(Json) > fg_LogError("", "Failed to process packet");
 							}
 							catch ([[maybe_unused]] CException const &_Exeption)
 							{
@@ -76,7 +76,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CLfsReleaseStoreService::fp_SendInitError(int32 _ErrorCode, CStr _ErrorMessage)
 	{
-		CEJSONSorted Message =
+		CEJsonSorted Message =
 			{
 				"error"_=
 				{
@@ -93,7 +93,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CLfsReleaseStoreService::fp_SendProcessError(CStr _ObjectID, int32 _ErrorCode, CStr _ErrorMessage)
 	{
-		CEJSONSorted Message =
+		CEJsonSorted Message =
 			{
 				"event"_= "complete"
 				, "oid"_= _ObjectID
@@ -112,7 +112,7 @@ namespace NMib::NGit
 
 	TCFuture<void> CLfsReleaseStoreService::fp_SendProgress(CStr _ObjectID, uint64 _BytesSoFar, uint64 _BytesSinseLast)
 	{
-		CEJSONSorted Message =
+		CEJsonSorted Message =
 			{
 				"event"_= "progress"
 				, "oid"_= _ObjectID
@@ -126,7 +126,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 	
-	TCFuture<void> CLfsReleaseStoreService::fp_ProcessPacket(CEJSONSorted _Packet)
+	TCFuture<void> CLfsReleaseStoreService::fp_ProcessPacket(CEJsonSorted _Packet)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 

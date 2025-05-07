@@ -33,7 +33,7 @@ namespace NMib::NGit
 			NStr::CStr m_MalterlibField;
 		};
 		
-		TCFuture<void> f_Login(CEJSONSorted _LoginDetails) override;
+		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
 		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
@@ -113,15 +113,15 @@ namespace NMib::NGit
 		static CFieldTranslations fsp_FieldTranslations();
 #endif
 
-		TCFuture<CJSONSorted> fp_GraphQlApi(CStr _Query, CJSONSorted _Variables);
+		TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables);
 
-		TCFuture<CJSONSorted> fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams = {}, uint32 _EmptyStatus = 0, uint32 _ExpectedStatus = 200);
-		TCFuture<CJSONSorted> fp_RestApiPost(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
-		TCFuture<CJSONSorted> fp_RestApiPatch(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription,CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
-		TCFuture<void> fp_RestApiPut(CStr _Path, CJSONSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 204);
+		TCFuture<CJsonSorted> fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams = {}, uint32 _EmptyStatus = 0, uint32 _ExpectedStatus = 200);
+		TCFuture<CJsonSorted> fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
+		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription,CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
+		TCFuture<void> fp_RestApiPut(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 204);
 		TCFuture<void> fp_RestApiDelete(CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus = 204);
 
-		TCFuture<CJSONSorted> fp_RestApiUploadFile
+		TCFuture<CJsonSorted> fp_RestApiUploadFile
 			(
 				CStr _Path
 				, TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> _fReadData
@@ -133,8 +133,8 @@ namespace NMib::NGit
 		TCFuture<void> fp_RestApiDownloadFile(CStr _Path, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 
-		TCFuture<CJSONSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
-		TCFuture<CJSONSorted> fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset);
+		TCFuture<CJsonSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
+		TCFuture<CJsonSorted> fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset);
 
 		template <typename tf_CActor>
 		TCFuture<CStr> fp_GetActorIDGeneric(CStr _Organization, tf_CActor _Actor, bool _bGraphQL, TCSharedPointer<CCustomRepositoryRoleCache> _pRoleCache);

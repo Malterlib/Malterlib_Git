@@ -3,11 +3,11 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Encoding/JSONShortcuts>
+#include <Mib/Encoding/JsonShortcuts>
 
 namespace NMib::NGit
 {
-	static CGitHostingProvider::CStringMatch fg_ParseStringMatch(CJSONSorted const *_pParameters)
+	static CGitHostingProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters)
 	{
 		if (!_pParameters)
 			return {};
@@ -143,7 +143,7 @@ namespace NMib::NGit
 
 		NContainer::TCMap<NStr::CStr, CGenericRuleset> OutRulesets;
 
-		TCFutureVector<CJSONSorted> Results;
+		TCFutureVector<CJsonSorted> Results;
 
 		for (auto &Rule : RuleSetEnum.f_Array())
 		{
@@ -158,7 +158,7 @@ namespace NMib::NGit
 
 		auto const Rulesets = co_await fg_AllDone(Results);
 
-		CJSONSorted RuleSetsJson;
+		CJsonSorted RuleSetsJson;
 
 		for (auto &Ruleset : Rulesets)
 		{
@@ -346,7 +346,7 @@ namespace NMib::NGit
 		co_return fg_Move(OutRulesets);
 	}
 
-	TCFuture<CJSONSorted> CGitHostingProvider_GitHub::fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset)
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset)
 	{
 		TCSharedPointer<CCustomRepositoryRoleCache> pRoleCache = fg_Construct();
 
@@ -357,7 +357,7 @@ namespace NMib::NGit
 #else
 				this auto &&_fThis
 #endif
-				, CJSONSorted &o_Output
+				, CJsonSorted &o_Output
 				, CStr const &_Name
 				, auto const &_OptionalValue
 			) -> TCUnsafeFuture<void>
@@ -381,7 +381,7 @@ namespace NMib::NGit
 
 				auto &Value = *pValue;
 
-				CJSONSorted *pOutput = &o_Output;
+				CJsonSorted *pOutput = &o_Output;
 				if (_Name)
 					pOutput = &o_Output[_Name];
 
@@ -488,7 +488,7 @@ namespace NMib::NGit
 				else if constexpr (cIsSame<CType, CGenericRule>)
 				{
 					CStr RuleType;
-					CJSONSorted Parameters;
+					CJsonSorted Parameters;
 					if (Value.template f_IsOfType<CGenericRule_Creation>())
 						RuleType = "creation";
 					else if (Value.template f_IsOfType<CGenericRule_Update>())
@@ -572,7 +572,7 @@ namespace NMib::NGit
 			}
 		;
 
-		CJSONSorted Output;
+		CJsonSorted Output;
 
 #if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
 #define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__)
@@ -583,8 +583,8 @@ namespace NMib::NGit
 		if (_Ruleset.m_IncludeRefNames || _Ruleset.m_ExcludeRefNames)
 		{
 			auto &ConditionsOut = Output["conditions"]["ref_name"];
-			ConditionsOut["include"] = EJSONType_Array;
-			ConditionsOut["exclude"] = EJSONType_Array;
+			ConditionsOut["include"] = EJsonType_Array;
+			ConditionsOut["exclude"] = EJsonType_Array;
 			co_await fAddOptional(ConditionsOut, "include", _Ruleset.m_IncludeRefNames);
 			co_await fAddOptional(ConditionsOut, "exclude", _Ruleset.m_ExcludeRefNames);
 		}
@@ -611,7 +611,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
+		CJsonSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
 
 		co_await fp_RestApiPut
 			(
@@ -634,7 +634,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJSONSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
+		CJsonSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
 
 		co_await fp_RestApiPost
 			(
