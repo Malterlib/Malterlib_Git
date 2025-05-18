@@ -365,7 +365,7 @@ namespace NMib::NGit
 #if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
 #define _fThis(...) _fThis(_fThis, __VA_ARGS__)
 #endif
-				using CValueType = typename TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>::CType;
+				using CValueType = TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>;
 				using CType = TCOptionalType<CValueType>;
 
 				CType const *pValue;

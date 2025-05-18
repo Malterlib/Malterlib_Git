@@ -13,7 +13,7 @@ namespace NMib::NGit
 		{
 			co_await ECoroutineFlag_CaptureExceptions;
 
-			using CValueType = typename TCRemoveReferenceAndQualifiers<decltype(o_Value)>::CType;
+			using CValueType = TCRemoveReferenceAndQualifiers<decltype(o_Value)>;
 			using CType = TCOptionalType<CValueType>;
 
 			CType *pOutValue;
@@ -32,7 +32,7 @@ namespace NMib::NGit
 				OutValue = _JsonValue.f_String();
 			else if constexpr (cIsSame<CType, bool>)
 				OutValue = _JsonValue.f_Boolean();
-			else if constexpr (TCIsInteger<CType>::mc_Value)
+			else if constexpr (cIsInteger<CType>)
 				OutValue = _JsonValue.f_Integer();
 			else if constexpr (cIsSame<CType, TCVector<CStr>>)
 			{

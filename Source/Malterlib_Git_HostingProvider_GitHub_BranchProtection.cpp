@@ -298,17 +298,17 @@ namespace NMib::NGit
 					co_return {};
 
 				auto &Value = *_OptionalValue;
-				using CType = typename NTraits::TCRemoveReferenceAndQualifiers<decltype(Value)>::CType;
+				using CType = NTraits::TCRemoveReferenceAndQualifiers<decltype(Value)>;
 
-				if constexpr (TCIsSame<CType, CStr>::mc_Value)
+				if constexpr (cIsSame<CType, CStr>)
 					Output[_Name] = Value;
-				else if constexpr (TCIsSame<CType, TCVector<CStr>>::mc_Value)
+				else if constexpr (cIsSame<CType, TCVector<CStr>>)
 					Output[_Name] = Value;
-				else if constexpr (TCIsSame<CType, uint32>::mc_Value)
+				else if constexpr (cIsSame<CType, uint32>)
 					Output[_Name] = Value;
-				else if constexpr (TCIsSame<CType, bool>::mc_Value)
+				else if constexpr (cIsSame<CType, bool>)
 					Output[_Name] = Value;
-				else if constexpr (TCIsSame<CType, TCVector<CGitActor>>::mc_Value)
+				else if constexpr (cIsSame<CType, TCVector<CGitActor>>)
 				{
 					TCVector<CStr> ActorIDs;
 
@@ -317,7 +317,7 @@ namespace NMib::NGit
 
 					Output[_Name] = fg_Move(ActorIDs);
 				}
-				else if constexpr (TCIsSame<CType, TCVector<CRequiredStatusCheck>>::mc_Value)
+				else if constexpr (cIsSame<CType, TCVector<CRequiredStatusCheck>>)
 				{
 					TCVector<CJsonSorted> OutValues;
 
@@ -335,7 +335,7 @@ namespace NMib::NGit
 					Output[_Name] = fg_Move(OutValues);
 				}
 				else
-					static_assert(TCIsSame<CType, void>::mc_Value, "Unknown type");
+					static_assert(cIsSame<CType, void>, "Unknown type");
 
 				co_return {};
 			}
