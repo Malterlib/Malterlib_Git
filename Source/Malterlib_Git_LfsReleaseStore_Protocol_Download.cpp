@@ -141,13 +141,33 @@ namespace NMib::NGit
 
 			CStr ExtractedFiles = (co_await CompressLaunch(&CProcessLaunchActor::f_LaunchSimple, fg_Move(Launch))).f_GetStdErr().f_Trim();
 
-			auto Files = ExtractedFiles.f_SplitLine();
+			TCVector<CStr> Files;
+			for (auto &Line : ExtractedFiles.f_SplitLine())
+			{
+				auto File = Line.f_RemovePrefix("x ");
+				if (File.f_StartsWith("._"))
+				{
+					auto BlockingActorCheckout = fg_BlockingActor();
+					co_await
+						(
+							g_Dispatch(BlockingActorCheckout) / [ToDelete = TempDir / File]
+							{
+								CFile::fs_DeleteFile(ToDelete);
+							}
+						)
+					;
+
+					continue;
+				}
+				Files.f_Insert(fg_Move(File));
+			}
+
 			if (Files.f_GetLen() != 1)
 				co_return DMibErrorInstance("Expected only one file in tar archive. Got: {vs}"_f << Files);
 
 			co_await CleanupFileStateCompressed->f_Destroy();
 
-			co_return TempDir / Files[0].f_RemovePrefix("x ");
+			co_return TempDir / Files[0];
 		}
 
 		co_return FilePath;
@@ -210,7 +230,7 @@ namespace NMib::NGit
 			{
 				co_return DMibErrorInstance
 					(
-						"Could not find release asset for object ID '{}' with tag '{}' on any remote in the chain of forked repositories"_f 
+						"Could not find release asset for object ID '{}' with tag '{}' on any remote in the chain of forked repositories"_f
 						<< mp_CurrentObjectID
 						<< TagName
 					)
