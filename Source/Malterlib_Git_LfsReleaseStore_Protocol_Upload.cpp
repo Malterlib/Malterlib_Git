@@ -19,7 +19,8 @@ namespace NMib::NGit
 
 		bool bShouldCompress = true;
 
-		CStr CompressedFileName = CFile::fs_GetUserHomeDirectory() / ".Malterlib/lfs-temp" / ("{}.tar.zst"_f << fg_RandomID());
+		CStr TempDir = fp_GetTempDir();
+		CStr CompressedFileName = TempDir / ("{}.tar.zst"_f << fg_RandomID());
 
 		auto CleanupFile = g_BlockingActorSubscription / [CompressedFileName]
 			{
@@ -76,7 +77,7 @@ namespace NMib::NGit
 				pFileReadState->m_File.f_Close();
 			}
 		;
-		
+
 		co_await mp_HostingProvider
 			(
 				&CGitHostingProvider::f_UploadReleaseAsset

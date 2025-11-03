@@ -28,7 +28,7 @@ namespace NMib::NGit
 
 		bool bAnyBranchExists = !(co_await fg_LaunchGit({"ls-remote", "--heads", "origin", "refs/heads/*"}, mp_WorkingDirectory)).f_Trim().f_IsEmpty();
 
-		CStr TempDir = CFile::fs_GetUserHomeDirectory() / ".Malterlib/lfs-temp";
+		CStr TempDir = fp_GetTempDir();
 		CFile::fs_CreateDirectory(TempDir);
 
 		CStr TempRepoPath = TempDir / ("{}.repo"_f << fg_RandomID());
@@ -78,15 +78,37 @@ namespace NMib::NGit
 		co_return {};
 	}
 
+	CStr CLfsReleaseStoreService::fp_GetTempDir()
+	{
+		if (mp_TempDir)
+			return mp_TempDir;
+
+		return CFile::fs_GetUserHomeDirectory() / ".Malterlib/lfs-temp";
+	}
+
 	TCFuture<bool> CLfsReleaseStoreService::fp_Init(CStr _Remote)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
-		mp_RemoteUrl = (co_await fg_LaunchGit({"remote", "get-url", _Remote}, mp_WorkingDirectory)).f_Trim();
+		auto RemoteFuture = fg_LaunchGit({"remote", "get-url", _Remote}, mp_WorkingDirectory);
+		auto EnvironmentFuture = fg_LaunchGit({"lfs", "env"}, mp_WorkingDirectory);
+
+		mp_RemoteUrl = (co_await fg_Move(RemoteFuture)).f_Trim();
 
 		if (mp_RemoteUrl == mp_LastRemoteUrl)
 			co_return false;
+
+		auto Environment = (co_await fg_Move(EnvironmentFuture)).f_Trim();
+
+		for (auto &Line : Environment.f_SplitLine())
+		{
+			if (Line.f_StartsWith("TempDir="))
+			{
+				mp_TempDir = CFile::fs_GetMalterlibPath(Line.f_RemovePrefix("TempDir="));
+				break;
+			}
+		}
 
 		NWeb::NHTTP::CURL Url(mp_RemoteUrl);
 		if (!Url.f_IsValid())

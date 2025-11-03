@@ -30,7 +30,7 @@ namespace NMib::NGit
 
 		TCSharedPointer<CFileReadState> pFileReadState = fg_Construct();
 
-		CStr TempDir = CFile::fs_GetUserHomeDirectory() / ".Malterlib/lfs-temp";
+		CStr TempDir = fp_GetTempDir();
 
 		CStr FilePath;
 		if (bCompressed)

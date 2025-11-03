@@ -107,6 +107,8 @@ namespace NMib::NGit
 
 		static CStr fsp_GetTagName(CStr const &_ObjectID);
 
+		CStr fp_GetTempDir();
+
 		NStorage::TCSharedPointer<CCommandLineControl> mp_pCommandLine;
 		CActorSubscription mp_StdSubscription;
 		CActorSubscription mp_CancelSubscription;
@@ -120,6 +122,7 @@ namespace NMib::NGit
 		CStr mp_HostingProviderProtocol;
 		CStr mp_HostingProviderToken;
 		CStr mp_RemoteUrl;
+		CStr mp_TempDir;
 		CStr mp_LastRemoteUrl;
 		CStr mp_CurrentObjectID;
 		TCMap<CStr, TCSharedPointer<CCachedReleases>> mp_RepositoryCache;
