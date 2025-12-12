@@ -20,7 +20,7 @@ namespace NMib::NGit
 		bool bShouldCompress = true;
 
 		CStr TempDir = fp_GetTempDir();
-		CStr CompressedFileName = TempDir / ("{}.tar.zst"_f << fg_RandomID());
+		CStr CompressedFileName = TempDir / ("{}.tar.zst"_f << fg_FastRandomID());
 
 		auto CleanupFile = g_BlockingActorSubscription / [CompressedFileName]
 			{

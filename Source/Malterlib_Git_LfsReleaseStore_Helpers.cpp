@@ -31,7 +31,7 @@ namespace NMib::NGit
 		CStr TempDir = fp_GetTempDir();
 		CFile::fs_CreateDirectory(TempDir);
 
-		CStr TempRepoPath = TempDir / ("{}.repo"_f << fg_RandomID());
+		CStr TempRepoPath = TempDir / ("{}.repo"_f << fg_FastRandomID());
 
 		auto Cleanup = g_BlockingActorSubscription / [TempRepoPath]
 			{
@@ -46,7 +46,7 @@ namespace NMib::NGit
 		{
 			co_await fg_LaunchGit({"checkout", "-B", "lfs-temp"}, TempRepoPath);
 
-			CFile::fs_WriteStringToFile(TempRepoPath / "touch.file", fg_RandomID(), false);
+			CFile::fs_WriteStringToFile(TempRepoPath / "touch.file", fg_FastRandomID(), false);
 
 			co_await fg_LaunchGit({"add", "touch.file"}, TempRepoPath);
 			co_await fg_LaunchGit({"commit", "-m", "Temp commit"}, TempRepoPath);

@@ -34,9 +34,9 @@ namespace NMib::NGit
 
 		CStr FilePath;
 		if (bCompressed)
-			FilePath = TempDir / ("{}.tar.zst"_f << fg_RandomID());
+			FilePath = TempDir / ("{}.tar.zst"_f << fg_FastRandomID());
 		else
-			FilePath = TempDir / ("{}.bin"_f << fg_RandomID());
+			FilePath = TempDir / ("{}.bin"_f << fg_FastRandomID());
 
 		auto CleanupFileState = g_BlockingActorSubscription / [pFileReadState, FilePath]
 			{
