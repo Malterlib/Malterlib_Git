@@ -326,7 +326,7 @@ namespace NMib::NGit
 		DecompressedData.f_SetLen(DecompressedSize);
 
 		mint DecompressResult = ZSTD_decompress(DecompressedData.f_GetArray(), DecompressedSize, pReleaseData->f_GetArray(), pReleaseData->f_GetLen());
-		
+
 		for (; !bKnowDecompressSize && ZSTD_getErrorCode(DecompressResult) == ZSTD_error_dstSize_tooSmall && DecompressedSize < c_MaxBufferSize;)
 		{
 			DecompressedSize *= 2;

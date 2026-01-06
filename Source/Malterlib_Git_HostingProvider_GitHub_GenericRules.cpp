@@ -134,7 +134,7 @@ namespace NMib::NGit
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
-		
+
 		auto const RuleSetEnum = co_await
 			(
 				fp_RestApi("repos/{}/{}/rulesets"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name, "Failed to get rulesets from repository '{}'"_f << _Repository)
@@ -151,7 +151,7 @@ namespace NMib::NGit
 				(
 					"repos/{}/{}/rulesets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << Rule["id"].f_Integer()
 					, "Failed to get ruleset from repository '{}'"_f << _Repository
-				) 
+				)
 				> Results
 			;
 		}

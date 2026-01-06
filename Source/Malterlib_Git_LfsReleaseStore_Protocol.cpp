@@ -125,7 +125,7 @@ namespace NMib::NGit
 
 		co_return {};
 	}
-	
+
 	TCFuture<void> CLfsReleaseStoreService::fp_ProcessPacket(CEJsonSorted _Packet)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;

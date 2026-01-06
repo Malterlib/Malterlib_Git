@@ -150,7 +150,7 @@ namespace NMib::NGit
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		auto const Permissions = co_await 
+		auto const Permissions = co_await
 			(
 				fp_RestApi("repos/{}/{}/actions/permissions"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name, "Failed to get repository actions permissions '{}'"_f << _Repository)
 			)

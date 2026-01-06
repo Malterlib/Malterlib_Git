@@ -14,7 +14,7 @@ namespace NMib::NGit
 		struct CFieldTranslationPair
 		{
 #ifndef DCompiler_MSVC_Workaround
-			constexpr 
+			constexpr
 #endif
 			COrdering_Strong operator <=> (CFieldTranslationPair const &_Right) const
 			{
@@ -22,7 +22,7 @@ namespace NMib::NGit
 			}
 
 #ifndef DCompiler_MSVC_Workaround
-			constexpr 
+			constexpr
 #endif
 			COrdering_Strong operator <=> (CStr const &_Right) const
 			{
@@ -32,7 +32,7 @@ namespace NMib::NGit
 			TCStrConst<NStr::CStr> m_GitHubField;
 			NStr::CStr m_MalterlibField;
 		};
-		
+
 		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;

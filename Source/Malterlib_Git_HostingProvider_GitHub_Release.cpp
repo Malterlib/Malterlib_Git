@@ -49,7 +49,7 @@ namespace NMib::NGit
 
 			return Return;
 		}
-		
+
 		CStr fg_GetRestID(CStr const &_Identifier)
 		{
 			for (auto &SubID : _Identifier.f_Split(","))

@@ -189,12 +189,12 @@ namespace NMib::NGit::NGitPolicyManager
 			{
 				if (AllMatchedRepositories.f_FindEqual(*Repository.m_Name))
 					continue;
-	
+
 				if (!WarnedRepositories(*Repository.m_Name).f_WasCreated())
 					continue;
 
 				++nReposWithoutPolicy;
-				
+
 				fg_AddStrSep
 					(
 						WithoutPolicy

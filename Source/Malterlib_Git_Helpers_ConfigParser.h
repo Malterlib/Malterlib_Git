@@ -16,7 +16,7 @@ namespace NMib::NGit
 		{
 			TCMap<CStr, CSubSection> m_SubSections;
 		};
-		
+
 		static CGitConfigParser fs_Parse(CStr const &_String);
 		static bool fs_ToBoolean(CStr const &_String);
 

@@ -18,7 +18,7 @@ namespace NMib::NGit
 			co_await fg_ParseRuleSetting(_Properties, "AccessOutsideOfRepository", OutSettings.m_AccessOutsideOfRepository);
 			co_await fg_ParseRuleSetting(_Properties, "DefaultPermissions", OutSettings.m_DefaultPermissions);
 			co_await fg_ParseRuleSetting(_Properties, "CanApprovePullRequestReviews", OutSettings.m_CanApprovePullRequestReviews);
-			
+
 			co_return fg_Move(OutSettings);
 		};
 	}

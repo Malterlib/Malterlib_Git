@@ -9,7 +9,7 @@ namespace NMib::NGit
 {
 	TCMap<CStr, CStr> CGitHostingProvider_GitHub::fp_GetRestHeaders(bool _bAuthorize)
 	{
-		TCMap<CStr, CStr> Headers = 					
+		TCMap<CStr, CStr> Headers =
 			{
 				{"Accept", "application/vnd.github+json"}
 				, {"User-Agent", "MalterlibGitHostingProvider"}
@@ -216,7 +216,7 @@ namespace NMib::NGit
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
 		auto PutData = _Value.f_ToString(nullptr);
-		
+
 		auto Result = co_await mp_CurlActor
 			(
 				&CCurlActor::f_Request

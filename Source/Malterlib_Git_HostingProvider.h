@@ -49,12 +49,12 @@ namespace NMib::NGit
 		CStr m_GitRawError;
 		TCVector<CGitHostingProviderError> m_GitErrors;
 	};
-	
+
 	DMibImpErrorSpecificClassDefine(CGitHostingProviderException, NMib::NException::CException, CGitHostingProviderExceptionData);
 
 #	define DMibErrorGitHostingProvider(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
 #	define DMibErrorInstanceGitHostingProvider(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
-	
+
 	struct CGitHostingProvider;
 
 	struct ICGitHostingProviderFactory
@@ -117,7 +117,7 @@ namespace NMib::NGit
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
-			
+
 			NStr::CStr m_Slug;
 			NStr::CStr m_ID;
 		};
@@ -242,7 +242,7 @@ namespace NMib::NGit
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
-			
+
 			CGenericRuleGitActor m_Actor;
 			EGenericRuleBypassMode m_BypassMode = EGenericRuleBypassMode::mc_Always;
 		};

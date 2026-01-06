@@ -55,7 +55,7 @@ namespace NMib::NGit
 
 		auto WantedProperties = co_await fg_ParseRepositorySettings(_RepositorySettings);
 		auto CurrentPropertiesWrapped = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetRepository, _Context.m_Repository).f_Wrap();
-		
+
 		if (!CurrentPropertiesWrapped)
 		{
 			if (!_Context.m_bCreateMissing)

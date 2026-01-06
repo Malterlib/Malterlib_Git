@@ -53,7 +53,7 @@ namespace NMib::NGit
 			NewRepo.m_HasProjects = _RepositoryJson["has_projects"].f_Boolean();
 			NewRepo.m_HasWiki = _RepositoryJson["has_wiki"].f_Boolean();
 			NewRepo.m_bHasPages = _RepositoryJson["has_pages"].f_Boolean();
-			
+
 			if (auto *pValue = _RepositoryJson.f_GetMember("has_downloads"))
 				NewRepo.m_HasDownloads = pValue->f_Boolean();
 
@@ -173,7 +173,7 @@ namespace NMib::NGit
 			using ESquashMergeCommitMessage = CGitHostingProvider::CRepository::ESquashMergeCommitMessage;
 			using EMergeCommitTitle = CGitHostingProvider::CRepository::EMergeCommitTitle;
 			using EMergeCommitMessage = CGitHostingProvider::CRepository::EMergeCommitMessage;
-			
+
 			if (_Repository.m_Name)
 				o_Json["name"] = CFile::fs_GetFile(*_Repository.m_Name);
 			if (_Repository.m_Description)
@@ -501,11 +501,11 @@ namespace NMib::NGit
 
 		co_return fg_ParseRepository(Data);
 	}
-	
+
 	auto CGitHostingProvider_GitHub::f_GetRepositories(TCVector<CStr> _Organizations, bool _bPersonal) -> TCFuture<TCVector<CGetRepository>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
-		
+
 		TCVector<CGetRepository> OutRepositories;
 		auto fAddRepository = [&](CJsonSorted const &_RepositoryJson)
 			{

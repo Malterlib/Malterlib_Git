@@ -57,7 +57,7 @@ namespace NMib::NGit
 		co_await ECoroutineFlag_CaptureExceptions;
 
 		auto WantedBranchProtectionRules = co_await fg_ParseBranchProtectionRules(_BranchProtection);
-		
+
 		auto CurrentRules = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetBranchProtectionRules, _Context.m_Repository);
 
 		TCSet<CStr> AlreadyCreated;
