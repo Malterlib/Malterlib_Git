@@ -89,7 +89,14 @@ namespace NMib::NGit
 					auto pRepository = co_await fp_GetCachedRepository(AssetRepository);
 					if (!pRepository->m_ForkedFromRepository)
 					{
-						co_return DMibErrorInstance("Could not find release for tag '{}' on any remote in the chain of forked repositories: {}"_f << TagName << _Remote);
+						co_return DMibErrorInstance
+							(
+								"{}: Could not find release for tag '{}' on any remote in the chain of forked repositories: {}"_f
+								<< mp_WorkingDirectory
+								<< TagName
+								<< _Remote
+							)
+						;
 						break;
 					}
 
@@ -133,7 +140,7 @@ namespace NMib::NGit
 		mint CompressedSize = ZSTD_compress(CompressedData.f_GetArray(), NeededSize, Contents.f_GetStr(), Contents.f_GetLen(), 8);
 
 		if (ZSTD_isError(CompressedSize))
-			co_return DMibErrorInstance("Failed to compress LFS index: {}"_f << ZSTD_getErrorName(CompressedSize));
+			co_return DMibErrorInstance("{}: Failed to compress LFS index: {}"_f << mp_WorkingDirectory << ZSTD_getErrorName(CompressedSize));
 
 		CompressedData.f_SetLen(CompressedSize);
 
