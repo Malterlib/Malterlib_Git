@@ -5,7 +5,7 @@
 
 #include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Process/ProcessLaunchActor>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {

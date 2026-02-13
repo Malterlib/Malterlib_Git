@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {
@@ -32,12 +32,12 @@ namespace NMib::NGit
 		return nullptr;
 	}
 
-	CExceptionPointer CGitHostingProvider_GitHub::fp_GetRestError(CStr const &_Description, CCurlActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation)
+	CExceptionPointer CGitHostingProvider_GitHub::fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation)
 	{
 		CStr Error = _Result.m_Body;
 
 		CGitHostingProviderExceptionData ExceptionData;
-		static_cast<CWebRequestExceptionData &>(ExceptionData) = CWebRequestExceptionData::fs_FromResult(_Result);
+		static_cast<CHttpClientRequestExceptionData &>(ExceptionData) = CHttpClientRequestExceptionData::fs_FromResult(_Result);
 		ExceptionData.m_GitRawError = _Result.m_Body;
 
 		try
@@ -134,10 +134,10 @@ namespace NMib::NGit
 
 		while (PageUrl)
 		{
-			auto Result = co_await mp_CurlActor
+			auto Result = co_await mp_HttpClientActor
 				(
-					&CCurlActor::f_Request
-					, CCurlActor::EMethod_GET
+					&CHttpClientActor::f_Request
+					, CHttpClientActor::EMethod_GET
 					, PageUrl
 					, Headers
 					, CByteVector{}
@@ -217,10 +217,10 @@ namespace NMib::NGit
 
 		auto PutData = _Value.f_ToString(nullptr);
 
-		auto Result = co_await mp_CurlActor
+		auto Result = co_await mp_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_PUT
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_PUT
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
 				, CByteVector::fs_FromString(PutData)
@@ -242,10 +242,10 @@ namespace NMib::NGit
 
 		auto PostData = _Value.f_ToString(nullptr);
 
-		auto Result = co_await mp_CurlActor
+		auto Result = co_await mp_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_POST
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_POST
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
 				, CByteVector::fs_FromString(PostData)
@@ -269,10 +269,10 @@ namespace NMib::NGit
 
 		auto PostData = _Value.f_ToString(nullptr);
 
-		auto Result = co_await mp_CurlActor
+		auto Result = co_await mp_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_PATCH
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_PATCH
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
 				, CByteVector::fs_FromString(PostData)
@@ -301,16 +301,16 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://uploads.github.com/{}"_f << _Path);
 
-		CCurlActor::CRequest Request;
+		CHttpClientActor::CRequest Request;
 
 		Request.m_URL = Url.f_Encode();
-		Request.m_Method = CCurlActor::EMethod_POST;
+		Request.m_Method = CHttpClientActor::EMethod_POST;
 		Request.m_Headers = fp_GetRestHeaders();
 		Request.m_ReadDataSize = _DataSize;
 		Request.m_fReadData = fg_Move(_fReadData);
 		Request.m_Headers["Content-Type"] = "application/octet-stream";
 
-		auto Result = co_await mp_CurlActor(&CCurlActor::f_ExecuteRequest, fg_Move(Request));
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub upload request"_f << _ErrorDescription, Result, {});
@@ -328,16 +328,16 @@ namespace NMib::NGit
 			, uint32 _ExpectedStatus
 		)
 	{
-		CCurlActor::CRequest Request;
+		CHttpClientActor::CRequest Request;
 
 		Request.m_URL = _Url;
-		Request.m_Method = CCurlActor::EMethod_GET;
+		Request.m_Method = CHttpClientActor::EMethod_GET;
 		Request.m_Headers = fp_GetRestHeaders(false);
 		Request.m_fWriteData = fg_Move(_fWriteData);
 		Request.m_Headers["Accept"] = "application/octet-stream";
 		Request.m_bFollowRedirects = true;
 
-		auto Result = co_await mp_CurlActor(&CCurlActor::f_ExecuteRequest, fg_Move(Request));
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub public download request"_f << _ErrorDescription, Result, {});
@@ -357,16 +357,16 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
-		CCurlActor::CRequest Request;
+		CHttpClientActor::CRequest Request;
 
 		Request.m_URL = Url.f_Encode();
-		Request.m_Method = CCurlActor::EMethod_GET;
+		Request.m_Method = CHttpClientActor::EMethod_GET;
 		Request.m_Headers = fp_GetRestHeaders();
 		Request.m_fWriteData = fg_Move(_fWriteData);
 		Request.m_Headers["Accept"] = "application/octet-stream";
 		Request.m_bFollowRedirects = true;
 
-		auto Result = co_await mp_CurlActor(&CCurlActor::f_ExecuteRequest, fg_Move(Request));
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub download request"_f << _ErrorDescription, Result, {});
@@ -382,10 +382,10 @@ namespace NMib::NGit
 
 		CStr PageUrl = Url.f_Encode();
 
-		auto Result = co_await mp_CurlActor
+		auto Result = co_await mp_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_DELETE
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_DELETE
 				, PageUrl
 				, fp_GetRestHeaders()
 				, CByteVector{}

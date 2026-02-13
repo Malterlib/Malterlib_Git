@@ -3,7 +3,7 @@
 
 #include "Malterlib_Git_HostingProvider_GitHub.h"
 
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {
@@ -18,10 +18,10 @@ namespace NMib::NGit
 		if (mp_Token)
 			Headers["Authorization"] = "Bearer {}"_f << mp_Token;
 
-		auto Result = co_await mp_CurlActor
+		auto Result = co_await mp_HttpClientActor
 			(
-				&CCurlActor::f_Request
-				, CCurlActor::EMethod_POST
+				&CHttpClientActor::f_Request
+				, CHttpClientActor::EMethod_POST
 				, "https://api.github.com/graphql"
 				, fg_Move(Headers)
 				, CByteVector::fs_FromString(QueryJson.f_ToString())

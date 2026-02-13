@@ -17,7 +17,7 @@ namespace NMib::NGit
 	template <typename tf_CStream>
 	void CGitHostingProviderExceptionData::f_Stream(tf_CStream &_Stream)
 	{
-		CWebRequestExceptionData::f_Stream(_Stream);
+		CHttpClientRequestExceptionData::f_Stream(_Stream);
 		_Stream % m_GitRawError;
 		_Stream % m_GitErrors;
 	}

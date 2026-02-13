@@ -6,7 +6,7 @@
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/DistributedActorTrustManager>
 #include <Mib/Core/RuntimeType>
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {
@@ -39,7 +39,7 @@ namespace NMib::NGit
 		EGitHostingProviderErrorCode m_Code = EGitHostingProviderErrorCode::mc_None;
 	};
 
-	struct CGitHostingProviderExceptionData : public CWebRequestExceptionData
+	struct CGitHostingProviderExceptionData : public CHttpClientRequestExceptionData
 	{
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);

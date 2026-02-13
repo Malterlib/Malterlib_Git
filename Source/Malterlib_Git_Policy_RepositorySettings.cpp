@@ -5,7 +5,7 @@
 
 #include "Malterlib_Git_Policy_RuleParsing.hpp"
 
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {

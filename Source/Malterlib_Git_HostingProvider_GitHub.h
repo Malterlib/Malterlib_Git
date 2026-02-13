@@ -5,7 +5,7 @@
 
 #include "Malterlib_Git_HostingProvider.h"
 
-#include <Mib/Web/Curl>
+#include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
 {
@@ -145,9 +145,9 @@ namespace NMib::NGit
 
 		TCFuture<CRepositorySlug> fp_SplitRepositorySlug(CStr _Repository);
 		TCMap<CStr, CStr> fp_GetRestHeaders(bool _bAuthorize = true);
-		CExceptionPointer fp_GetRestError(CStr const &_Description, CCurlActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
+		CExceptionPointer fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
 
-		TCActor<CCurlActor> mp_CurlActor{fg_Construct(), "Curl Actor"};
+		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(), "HTTP client Actor"};
 		CStr mp_Token;
 	};
 }
