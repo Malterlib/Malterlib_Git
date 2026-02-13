@@ -136,12 +136,9 @@ namespace NMib::NGit
 		{
 			auto Result = co_await mp_HttpClientActor
 				(
-					&CHttpClientActor::f_Request
-					, CHttpClientActor::EMethod_GET
+					&CHttpClientActor::f_Get
 					, PageUrl
 					, Headers
-					, CByteVector{}
-					, TCMap<CStr, CStr>{}
 				)
 			;
 
@@ -215,16 +212,12 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
-		auto PutData = _Value.f_ToString(nullptr);
-
 		auto Result = co_await mp_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_PUT
+				&CHttpClientActor::f_Put
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
-				, CByteVector::fs_FromString(PutData)
-				, TCMap<CStr, CStr>{}
+				, fg_Move(_Value)
 			)
 		;
 
@@ -240,16 +233,12 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
-		auto PostData = _Value.f_ToString(nullptr);
-
 		auto Result = co_await mp_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_POST
+				&CHttpClientActor::f_Post
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
-				, CByteVector::fs_FromString(PostData)
-				, TCMap<CStr, CStr>{}
+				, fg_Move(_Value)
 			)
 		;
 
@@ -267,16 +256,12 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
-		auto PostData = _Value.f_ToString(nullptr);
-
 		auto Result = co_await mp_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_PATCH
+				&CHttpClientActor::f_Patch
 				, Url.f_Encode()
 				, fp_GetRestHeaders()
-				, CByteVector::fs_FromString(PostData)
-				, TCMap<CStr, CStr>{}
+				, fg_Move(_Value)
 			)
 		;
 
@@ -306,11 +291,13 @@ namespace NMib::NGit
 		Request.m_URL = Url.f_Encode();
 		Request.m_Method = CHttpClientActor::EMethod_POST;
 		Request.m_Headers = fp_GetRestHeaders();
-		Request.m_ReadDataSize = _DataSize;
-		Request.m_fReadData = fg_Move(_fReadData);
 		Request.m_Headers["Content-Type"] = "application/octet-stream";
 
-		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
+		auto &SendData = Request.f_AsyncSend();
+		SendData.m_Size = _DataSize;
+		SendData.m_fRead = fg_Move(_fReadData);
+
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub upload request"_f << _ErrorDescription, Result, {});
@@ -333,11 +320,14 @@ namespace NMib::NGit
 		Request.m_URL = _Url;
 		Request.m_Method = CHttpClientActor::EMethod_GET;
 		Request.m_Headers = fp_GetRestHeaders(false);
-		Request.m_fWriteData = fg_Move(_fWriteData);
 		Request.m_Headers["Accept"] = "application/octet-stream";
+
+		auto &ReceiveData = Request.f_AsyncReceive();
+		ReceiveData.m_fWrite = fg_Move(_fWriteData);
+
 		Request.m_bFollowRedirects = true;
 
-		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub public download request"_f << _ErrorDescription, Result, {});
@@ -362,11 +352,14 @@ namespace NMib::NGit
 		Request.m_URL = Url.f_Encode();
 		Request.m_Method = CHttpClientActor::EMethod_GET;
 		Request.m_Headers = fp_GetRestHeaders();
-		Request.m_fWriteData = fg_Move(_fWriteData);
 		Request.m_Headers["Accept"] = "application/octet-stream";
+
+		auto &ReceiveData = Request.f_AsyncReceive();
+		ReceiveData.m_fWrite = fg_Move(_fWriteData);
+
 		Request.m_bFollowRedirects = true;
 
-		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_ExecuteRequest, fg_Move(Request));
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub download request"_f << _ErrorDescription, Result, {});
@@ -384,12 +377,9 @@ namespace NMib::NGit
 
 		auto Result = co_await mp_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_DELETE
+				&CHttpClientActor::f_Delete
 				, PageUrl
 				, fp_GetRestHeaders()
-				, CByteVector{}
-				, TCMap<CStr, CStr>{}
 			)
 		;
 

@@ -20,12 +20,10 @@ namespace NMib::NGit
 
 		auto Result = co_await mp_HttpClientActor
 			(
-				&CHttpClientActor::f_Request
-				, CHttpClientActor::EMethod_POST
+				&CHttpClientActor::f_Post
 				, "https://api.github.com/graphql"
 				, fg_Move(Headers)
-				, CByteVector::fs_FromString(QueryJson.f_ToString())
-				, TCMap<CStr, CStr>{}
+				, fg_Move(QueryJson)
 			)
 		;
 
