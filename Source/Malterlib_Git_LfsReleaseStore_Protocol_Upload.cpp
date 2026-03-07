@@ -88,7 +88,7 @@ namespace NMib::NGit
 					.m_Name = AssetName
 					, .m_AssetSize = AssetSize
 					, .m_fReadData = g_ActorFunctor
-					/ [this, AssetSize, CompressionRatio, UploadPath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), ReportClock = CClock{true}]
+					/ [this, AssetSize, CompressionRatio, UploadPath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
 					(mint _nBytes) mutable -> TCFuture<CByteVector>
 					{
 						CByteVector Result;
@@ -121,10 +121,10 @@ namespace NMib::NGit
 
 						BytesSoFar += _nBytes;
 
-						if (BytesLastTime == 0 || BytesSoFar == AssetSize || ReportClock.f_GetTime() > 1.0)
+						if (BytesLastTime == 0 || BytesSoFar == AssetSize || Stopwatch.f_GetTime() > 1.0)
 						{
 							if (BytesLastTime != 0)
-								ReportClock.f_AddOffset(1.0);
+								Stopwatch.f_AddOffset(1.0);
 
 							uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
 							uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;

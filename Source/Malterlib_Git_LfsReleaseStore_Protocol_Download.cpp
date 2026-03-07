@@ -47,7 +47,7 @@ namespace NMib::NGit
 			}
 		;
 
-		auto fWriteData = g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), ReportClock = CClock{true}]
+		auto fWriteData = g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
 			(CByteVector _Data) mutable -> TCFuture<void>
 			{
 				mint nBytes = _Data.f_GetLen();
@@ -70,10 +70,10 @@ namespace NMib::NGit
 				}
 				BytesSoFar += nBytes;
 
-				if (BytesLastTime == 0 || BytesSoFar == Size || ReportClock.f_GetTime() > 1.0)
+				if (BytesLastTime == 0 || BytesSoFar == Size || Stopwatch.f_GetTime() > 1.0)
 				{
 					if (BytesLastTime != 0)
-						ReportClock.f_AddOffset(1.0);
+						Stopwatch.f_AddOffset(1.0);
 
 					uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
 					uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;
