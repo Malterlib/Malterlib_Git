@@ -38,7 +38,7 @@ namespace NMib::NGit
 
 	namespace
 	{
-		COrdering_Partial fg_CompareNameOrID(auto const &_LeftName, auto const &_RightName, auto const &_LeftID, auto const &_RightID)
+		COrdering_Partial fg_CompareNameOrID(auto const &_LeftName, auto const &_RightName, auto const &_LeftID, auto const &_RightID) noexcept
 		{
 			bool bHasNameLeft = !!_LeftName;
 			bool bHasNameRight = !!_RightName;
@@ -66,52 +66,52 @@ namespace NMib::NGit
 		}
 	}
 
-	COrdering_Partial CGitHostingProvider::CUser::operator <=> (CUser const &_Right) const
+	COrdering_Partial CGitHostingProvider::CUser::operator <=> (CUser const &_Right) const noexcept
 	{
 		return fg_CompareNameOrID(m_Login, _Right.m_Login, m_ID, _Right.m_ID);
 	}
 
-	bool CGitHostingProvider::CUser::operator == (CUser const &_Right) const
+	bool CGitHostingProvider::CUser::operator == (CUser const &_Right) const noexcept
 	{
 		return (m_Login && m_Login == _Right.m_Login) || (m_ID && m_ID == _Right.m_ID);
 	}
 
-	COrdering_Partial CGitHostingProvider::CApp::operator <=> (CApp const &_Right) const
+	COrdering_Partial CGitHostingProvider::CApp::operator <=> (CApp const &_Right) const noexcept
 	{
 		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
 	}
 
-	bool CGitHostingProvider::CApp::operator == (CApp const &_Right) const
+	bool CGitHostingProvider::CApp::operator == (CApp const &_Right) const noexcept
 	{
 		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
 	}
 
-	COrdering_Partial CGitHostingProvider::CTeam::operator <=> (CTeam const &_Right) const
+	COrdering_Partial CGitHostingProvider::CTeam::operator <=> (CTeam const &_Right) const noexcept
 	{
 		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
 	}
 
-	bool CGitHostingProvider::CTeam::operator == (CTeam const &_Right) const
+	bool CGitHostingProvider::CTeam::operator == (CTeam const &_Right) const noexcept
 	{
 		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
 	}
 
-	COrdering_Partial CGitHostingProvider::CRepositoryReference::operator <=> (CRepositoryReference const &_Right) const
+	COrdering_Partial CGitHostingProvider::CRepositoryReference::operator <=> (CRepositoryReference const &_Right) const noexcept
 	{
 		return fg_CompareNameOrID(m_Slug, _Right.m_Slug, m_ID, _Right.m_ID);
 	}
 
-	bool CGitHostingProvider::CRepositoryReference::operator == (CRepositoryReference const &_Right) const
+	bool CGitHostingProvider::CRepositoryReference::operator == (CRepositoryReference const &_Right) const noexcept
 	{
 		return (m_Slug && m_Slug == _Right.m_Slug) || (m_ID && m_ID == _Right.m_ID);
 	}
 
-	COrdering_Partial CGitHostingProvider::CRepositoryRole::operator <=> (CRepositoryRole const &_Right) const
+	COrdering_Partial CGitHostingProvider::CRepositoryRole::operator <=> (CRepositoryRole const &_Right) const noexcept
 	{
 		return fg_CompareNameOrID(m_Name, _Right.m_Name, m_ID, _Right.m_ID);
 	}
 
-	bool CGitHostingProvider::CRepositoryRole::operator == (CRepositoryRole const &_Right) const
+	bool CGitHostingProvider::CRepositoryRole::operator == (CRepositoryRole const &_Right) const noexcept
 	{
 		return (m_Name && m_Name == _Right.m_Name) || (m_ID && m_ID == _Right.m_ID);
 	}

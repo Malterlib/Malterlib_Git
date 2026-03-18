@@ -73,8 +73,8 @@ namespace NMib::NGit
 
 		struct CUser
 		{
-			COrdering_Partial operator <=> (CUser const &_Right) const;
-			bool operator == (CUser const &_Right) const;
+			COrdering_Partial operator <=> (CUser const &_Right) const noexcept;
+			bool operator == (CUser const &_Right) const noexcept;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -86,8 +86,8 @@ namespace NMib::NGit
 
 		struct CApp
 		{
-			COrdering_Partial operator <=> (CApp const &_Right) const;
-			bool operator == (CApp const &_Right) const;
+			COrdering_Partial operator <=> (CApp const &_Right) const noexcept;
+			bool operator == (CApp const &_Right) const noexcept;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -99,8 +99,8 @@ namespace NMib::NGit
 
 		struct CTeam
 		{
-			COrdering_Partial operator <=> (CTeam const &_Right) const;
-			bool operator == (CTeam const &_Right) const;
+			COrdering_Partial operator <=> (CTeam const &_Right) const noexcept;
+			bool operator == (CTeam const &_Right) const noexcept;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -112,8 +112,8 @@ namespace NMib::NGit
 
 		struct CRepositoryReference
 		{
-			COrdering_Partial operator <=> (CRepositoryReference const &_Right) const;
-			bool operator == (CRepositoryReference const &_Right) const;
+			COrdering_Partial operator <=> (CRepositoryReference const &_Right) const noexcept;
+			bool operator == (CRepositoryReference const &_Right) const noexcept;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -124,8 +124,8 @@ namespace NMib::NGit
 
 		struct CRepositoryRole
 		{
-			COrdering_Partial operator <=> (CRepositoryRole const &_Right) const;
-			bool operator == (CRepositoryRole const &_Right) const;
+			COrdering_Partial operator <=> (CRepositoryRole const &_Right) const noexcept;
+			bool operator == (CRepositoryRole const &_Right) const noexcept;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -136,7 +136,7 @@ namespace NMib::NGit
 
 		struct COrganizationAdmin
 		{
-			auto operator <=> (COrganizationAdmin const &_Right) const = default;
+			auto operator <=> (COrganizationAdmin const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -144,7 +144,7 @@ namespace NMib::NGit
 
 		struct CRequiredStatusCheck
 		{
-			auto operator <=> (CRequiredStatusCheck const &_Right) const = default;
+			auto operator <=> (CRequiredStatusCheck const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -238,7 +238,7 @@ namespace NMib::NGit
 
 		struct CGenericRuleBypassActor
 		{
-			auto operator <=> (CGenericRuleBypassActor const &_Right) const = default;
+			auto operator <=> (CGenericRuleBypassActor const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -249,7 +249,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Creation
 		{
-			auto operator <=> (CGenericRule_Creation const &_Right) const = default;
+			auto operator <=> (CGenericRule_Creation const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -257,7 +257,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Update
 		{
-			auto operator <=> (CGenericRule_Update const &_Right) const = default;
+			auto operator <=> (CGenericRule_Update const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -267,7 +267,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Deletion
 		{
-			auto operator <=> (CGenericRule_Deletion const &_Right) const = default;
+			auto operator <=> (CGenericRule_Deletion const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -275,7 +275,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_LinearHistory
 		{
-			auto operator <=> (CGenericRule_LinearHistory const &_Right) const = default;
+			auto operator <=> (CGenericRule_LinearHistory const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -283,7 +283,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Deployments
 		{
-			auto operator <=> (CGenericRule_Deployments const &_Right) const = default;
+			auto operator <=> (CGenericRule_Deployments const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -293,7 +293,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Signatures
 		{
-			auto operator <=> (CGenericRule_Signatures const &_Right) const = default;
+			auto operator <=> (CGenericRule_Signatures const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -301,7 +301,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_PullRequest
 		{
-			auto operator <=> (CGenericRule_PullRequest const &_Right) const = default;
+			auto operator <=> (CGenericRule_PullRequest const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -315,14 +315,14 @@ namespace NMib::NGit
 
 		struct CGenericRule_StatusChecks
 		{
-			auto operator <=> (CGenericRule_StatusChecks const &_Right) const = default;
+			auto operator <=> (CGenericRule_StatusChecks const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 
 			struct CRequiredStatusCheck
 			{
-				auto operator <=> (CRequiredStatusCheck const &_Right) const = default;
+				auto operator <=> (CRequiredStatusCheck const &_Right) const noexcept = default;
 				template <typename tf_CStr>
 				void f_Format(tf_CStr &o_Str) const;
 
@@ -336,7 +336,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_FastForwardOnly
 		{
-			auto operator <=> (CGenericRule_FastForwardOnly const &_Right) const = default;
+			auto operator <=> (CGenericRule_FastForwardOnly const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -344,7 +344,7 @@ namespace NMib::NGit
 
 		struct CStringMatch
 		{
-			auto operator <=> (CStringMatch const &_Right) const = default;
+			auto operator <=> (CStringMatch const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -357,7 +357,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitMessage
 		{
-			auto operator <=> (CGenericRule_CommitMessage const &_Right) const = default;
+			auto operator <=> (CGenericRule_CommitMessage const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -367,7 +367,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitAuthorEmail
 		{
- 			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const = default;
+ 			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -377,7 +377,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitterEmail
 		{
- 			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const = default;
+ 			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -387,7 +387,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_BranchName
 		{
- 			auto operator <=> (CGenericRule_BranchName const &_Right) const = default;
+ 			auto operator <=> (CGenericRule_BranchName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -397,7 +397,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_TagName
 		{
- 			auto operator <=> (CGenericRule_TagName const &_Right) const = default;
+ 			auto operator <=> (CGenericRule_TagName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -407,14 +407,14 @@ namespace NMib::NGit
 
 		struct CGenericRule_Workflow
 		{
- 			auto operator <=> (CGenericRule_Workflow const &_Right) const = default;
+ 			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 
 			struct CRequiredWorkflow
 			{
-				auto operator <=> (CRequiredWorkflow const &_Right) const = default;
+				auto operator <=> (CRequiredWorkflow const &_Right) const noexcept = default;
 
 				template <typename tf_CStr>
 				void f_Format(tf_CStr &o_Str) const;
@@ -450,7 +450,7 @@ namespace NMib::NGit
 
 		struct CGenericRuleset
 		{
- 			auto operator <=> (CGenericRuleset const &_Right) const = default;
+ 			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
 			bool f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const;
 
 			NStorage::TCOptional<NStr::CStr> m_Name;
@@ -625,7 +625,7 @@ namespace NMib::NGit
 
 		struct CAllowedAction_All
 		{
-			auto operator <=> (CAllowedAction_All const &_Right) const = default;
+			auto operator <=> (CAllowedAction_All const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -633,7 +633,7 @@ namespace NMib::NGit
 
 		struct CAllowedAction_LocalOnly
 		{
-			auto operator <=> (CAllowedAction_LocalOnly const &_Right) const = default;
+			auto operator <=> (CAllowedAction_LocalOnly const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -641,7 +641,7 @@ namespace NMib::NGit
 
 		struct CAllowedAction_Selected
 		{
-			auto operator <=> (CAllowedAction_Selected const &_Right) const = default;
+			auto operator <=> (CAllowedAction_Selected const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
