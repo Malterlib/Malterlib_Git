@@ -30,7 +30,7 @@ namespace NMib::NGit
 			)
 		;
 
-		static constexpr mint mc_ReleaseBuckets = 1024;
+		static constexpr umint mc_ReleaseBuckets = 1024;
 
 	private:
 		struct CCachedReleaseAsset

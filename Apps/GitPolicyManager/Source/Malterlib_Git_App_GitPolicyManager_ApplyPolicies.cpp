@@ -122,7 +122,7 @@ namespace NMib::NGit::NGitPolicyManager
 			return "";
 	}
 
-	TCFuture<mint> CGitPolicyManagerActor::fp_ApplyPolicies()
+	TCFuture<umint> CGitPolicyManagerActor::fp_ApplyPolicies()
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -139,7 +139,7 @@ namespace NMib::NGit::NGitPolicyManager
 		if (!pConfigs)
 			co_return 0;
 
-		mint nReposWithoutPolicy = 0;
+		umint nReposWithoutPolicy = 0;
 
 		TCVector<CGitHostingProvider::CRepository> AllRepositories;
 		TCSet<CStr> AllMatchedRepositories;

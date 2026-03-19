@@ -14,8 +14,8 @@ namespace NMib::NGit
 		CStr ObjectID64 = "0x" + _ObjectID.f_Left(16);
 		uint64 ObjectIDPrefix = ObjectID64.f_ToInt(uint64(0));
 
-		mint nBits = fg_GetHighestBitSet(mc_ReleaseBuckets) + 1;
-		mint nChars = (nBits + 3) / 4;
+		umint nBits = fg_GetHighestBitSet(mc_ReleaseBuckets) + 1;
+		umint nChars = (nBits + 3) / 4;
 
 		return "lfs/{nfh,sf0,sj*}"_f << (ObjectIDPrefix % mc_ReleaseBuckets) << nChars;
 	}
@@ -159,7 +159,7 @@ namespace NMib::NGit
 		CGitHostingProvider::CRelease Release;
 
 		bool bTryGetRelease = true;
-		for (mint iRetry = 0; ; ++iRetry)
+		for (umint iRetry = 0; ; ++iRetry)
 		{
 			if (bTryGetRelease)
 			{

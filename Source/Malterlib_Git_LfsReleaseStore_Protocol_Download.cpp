@@ -14,7 +14,7 @@ namespace NMib::NGit
 
 		bool bCompressed = false;
 		fp64 CompressionRatio = 1.0;
-		mint Size = _AssetInfo.m_Size;
+		umint Size = _AssetInfo.m_Size;
 		if (_AssetInfo.m_CompressedSize)
 		{
 			CompressionRatio = fp64(_AssetInfo.m_Size) / fp64(_AssetInfo.m_CompressedSize);
@@ -50,7 +50,7 @@ namespace NMib::NGit
 		auto fWriteData = g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
 			(CByteVector _Data) mutable -> TCFuture<void>
 			{
-				mint nBytes = _Data.f_GetLen();
+				umint nBytes = _Data.f_GetLen();
 				{
 					auto BlockingActorCheckout = fg_BlockingActor();
 					co_await

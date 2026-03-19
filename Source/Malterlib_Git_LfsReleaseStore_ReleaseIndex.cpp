@@ -133,11 +133,11 @@ namespace NMib::NGit
 
 		auto Contents = IndexJson.f_ToString();
 
-		mint NeededSize = ZSTD_compressBound(Contents.f_GetLen());
+		umint NeededSize = ZSTD_compressBound(Contents.f_GetLen());
 		CByteVector CompressedData;
 		CompressedData.f_SetLen(NeededSize);
 
-		mint CompressedSize = ZSTD_compress(CompressedData.f_GetArray(), NeededSize, Contents.f_GetStr(), Contents.f_GetLen(), 8);
+		umint CompressedSize = ZSTD_compress(CompressedData.f_GetArray(), NeededSize, Contents.f_GetStr(), Contents.f_GetLen(), 8);
 
 		if (ZSTD_isError(CompressedSize))
 			co_return DMibErrorInstance("{}: Failed to compress LFS index: {}"_f << mp_WorkingDirectory << ZSTD_getErrorName(CompressedSize));
@@ -183,9 +183,9 @@ namespace NMib::NGit
 					.m_Name = gc_IndexAssetName
 					, .m_Label = Label
 					, .m_AssetSize = CompressedSize
-					, .m_fReadData = g_ActorFunctor / [CompressedData = fg_Move(CompressedData), StartByte = mint(0)](mint _nBytes) mutable -> TCFuture<CByteVector>
+					, .m_fReadData = g_ActorFunctor / [CompressedData = fg_Move(CompressedData), StartByte = umint(0)](umint _nBytes) mutable -> TCFuture<CByteVector>
 					{
-						mint nBytes = fg_Min(_nBytes, CompressedData.f_GetLen() - StartByte);
+						umint nBytes = fg_Min(_nBytes, CompressedData.f_GetLen() - StartByte);
 
 						CByteVector Result;
 						Result.f_Insert(CompressedData.f_GetArray() + StartByte, nBytes);
@@ -301,7 +301,7 @@ namespace NMib::NGit
 		// Optimistically try to download index publically
 		TCSharedPointer<CByteVector> pReleaseData = co_await fp_DownloadReleaseIndexPublic(_Repository);
 
-		mint DecompressedSize = 0;
+		umint DecompressedSize = 0;
 		bool bKnowDecompressSize = false;
 
 		if (pReleaseData)
@@ -324,7 +324,7 @@ namespace NMib::NGit
 			bKnowDecompressSize = true;
 		}
 
-		static constexpr mint c_MaxBufferSize = 128 * 1024 * 1024;
+		static constexpr umint c_MaxBufferSize = 128 * 1024 * 1024;
 
 		if (!bKnowDecompressSize)
 			DecompressedSize = fg_Min(fg_Max(pReleaseData->f_GetLen(), 16u) * 20u, c_MaxBufferSize);
@@ -332,7 +332,7 @@ namespace NMib::NGit
 		CByteVector DecompressedData;
 		DecompressedData.f_SetLen(DecompressedSize);
 
-		mint DecompressResult = ZSTD_decompress(DecompressedData.f_GetArray(), DecompressedSize, pReleaseData->f_GetArray(), pReleaseData->f_GetLen());
+		umint DecompressResult = ZSTD_decompress(DecompressedData.f_GetArray(), DecompressedSize, pReleaseData->f_GetArray(), pReleaseData->f_GetLen());
 
 		for (; !bKnowDecompressSize && ZSTD_getErrorCode(DecompressResult) == ZSTD_error_dstSize_tooSmall && DecompressedSize < c_MaxBufferSize;)
 		{

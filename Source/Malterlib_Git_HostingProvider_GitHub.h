@@ -89,10 +89,10 @@ namespace NMib::NGit
 			CStr const *f_GetMalterlibField(CStr const &_GitHubField) const;
 
 			CFieldTranslationPair const *m_pFields = nullptr;
-			mint m_nFields = 0;
+			umint m_nFields = 0;
 		};
 
-		template <mint t_nFields>
+		template <umint t_nFields>
 		struct TCFieldTranslations : public CFieldTranslations
 		{
 			constexpr TCFieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields])
@@ -106,7 +106,7 @@ namespace NMib::NGit
 		};
 
 #ifdef DCompiler_MSVC_Workaround
-		template <mint t_nFields>
+		template <umint t_nFields>
 		static CFieldTranslations fsp_FieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields]);
 #else
 		template <TCFieldTranslations t_Fields>
@@ -124,7 +124,7 @@ namespace NMib::NGit
 		TCFuture<CJsonSorted> fp_RestApiUploadFile
 			(
 				CStr _Path
-				, TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> _fReadData
+				, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData
 				, uint64 _DataSize
 				, CStr _ErrorDescription
 				, uint32 _ExpectedStatus = 201

@@ -608,7 +608,7 @@ namespace NMib::NGit
 			NStr::CStr m_Name;
 			NStorage::TCOptional<NStr::CStr> m_Label;
 			uint64 m_AssetSize = 0;
-			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (mint _nBytes)> m_fReadData;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<NContainer::CByteVector> (umint _nBytes)> m_fReadData;
 		};
 
 		struct CDownloadPublicReleaseAsset

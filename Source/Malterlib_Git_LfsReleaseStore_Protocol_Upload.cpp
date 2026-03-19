@@ -89,7 +89,7 @@ namespace NMib::NGit
 					, .m_AssetSize = AssetSize
 					, .m_fReadData = g_ActorFunctor
 					/ [this, AssetSize, CompressionRatio, UploadPath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
-					(mint _nBytes) mutable -> TCFuture<CByteVector>
+					(umint _nBytes) mutable -> TCFuture<CByteVector>
 					{
 						CByteVector Result;
 						{
@@ -103,7 +103,7 @@ namespace NMib::NGit
 
 										auto BytesLeftInFile = pFileReadState->m_File.f_GetLength() - pFileReadState->m_File.f_GetPosition();
 
-										mint BytesToRead = fg_Min(mint(BytesLeftInFile), _nBytes);
+										umint BytesToRead = fg_Min(umint(BytesLeftInFile), _nBytes);
 
 										CByteVector Return;
 										Return.f_SetLen(BytesToRead);

@@ -6,7 +6,7 @@
 namespace NMib::NGit
 {
 #ifdef DCompiler_MSVC_Workaround
-	template <mint t_nFields>
+	template <umint t_nFields>
 	CGitHostingProvider_GitHub::CFieldTranslations CGitHostingProvider_GitHub::fsp_FieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields])
 	{
 		return CFieldTranslations

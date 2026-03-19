@@ -276,7 +276,7 @@ namespace NMib::NGit
 	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApiUploadFile
 		(
 			CStr _Path
-			, TCActorFunctor<TCFuture<CByteVector> (mint _nBytes)> _fReadData
+			, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData
 			, uint64 _DataSize
 			, CStr _ErrorDescription
 			, uint32 _ExpectedStatus
