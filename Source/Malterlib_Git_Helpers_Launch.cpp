@@ -13,7 +13,7 @@ namespace NMib::NGit
 		TCVector<CStr> CommandLineParams;
 		CommandLineParams.f_Insert(_Params);
 
-		CProcessLaunchActor::CSimpleLaunch LaunchParams{"git", CommandLineParams, _WorkingDirectory};
+		CProcessLaunchActor::CSimpleLaunch LaunchParams{"git", CommandLineParams, _WorkingDirectory, CProcessLaunchActor::ESimpleLaunchFlag_None};
 
 		LaunchParams.m_Params.m_Environment = fg_Move(_Environment);
 		LaunchParams.m_Params.m_bMergeEnvironment = true;
@@ -29,8 +29,7 @@ namespace NMib::NGit
 		TCVector<CStr> CommandLineParams;
 		CommandLineParams.f_Insert(_Params);
 
-		CProcessLaunchActor::CSimpleLaunch LaunchParams{"git", CommandLineParams, _WorkingDirectory};
-		LaunchParams.m_SimpleFlags = CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode;
+		CProcessLaunchActor::CSimpleLaunch LaunchParams{"git", CommandLineParams, _WorkingDirectory, CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode};
 
 		LaunchParams.m_Params.m_Environment = fg_Move(_Environment);
 		LaunchParams.m_Params.m_bMergeEnvironment = true;
