@@ -432,6 +432,45 @@ namespace NMib::NGit
 		co_return fg_ParseRepository(Data);
 	}
 
+	auto CGitHostingProvider_GitHub::f_RenameBranch(CStr _Repository, CStr _OldName, CStr _NewName) -> TCFuture<void>
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto CaptureExceptions = co_await g_CaptureExceptions;
+
+		// Branch names can contain '/' and other characters with special URL meaning.
+		// fp_RestApiPost does not escape path components, so encode the old name here.
+		// The new name goes into the JSON body and is escaped by the JSON serializer.
+		CStr OldNameEncoded = NWeb::NHTTP::CURL::fs_PercentEncode(_OldName);
+
+		CJsonSorted PostData =
+			{
+				"new_name"_j= _NewName
+			}
+		;
+
+		static constexpr CFieldTranslationPair c_FieldTranslations[] =
+			{
+				{gc_Str<"new_name">, gc_Str<"NewName">}
+			}
+		;
+
+		co_await fp_RestApiPost
+			(
+				"repos/{}/{}/branches/{}/rename"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << OldNameEncoded
+				, PostData
+				, "Failed to rename branch"
+#ifdef DCompiler_MSVC_Workaround
+				, fsp_FieldTranslations(c_FieldTranslations)
+#else
+				, fsp_FieldTranslations<c_FieldTranslations>()
+#endif
+			)
+		;
+
+		co_return {};
+	}
+
 	auto CGitHostingProvider_GitHub::f_UpdateRepository(NStr::CStr _Repository, CRepository _RepositorySettings) -> TCFuture<CGetRepository>
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);

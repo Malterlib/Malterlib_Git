@@ -692,6 +692,8 @@ namespace NMib::NGit
 		// target. Must be called after a successful f_Login.
 		virtual NConcurrency::TCFuture<CUser> f_GetAuthenticatedUser() = 0;
 
+		virtual NConcurrency::TCFuture<void> f_RenameBranch(NStr::CStr _Repository, NStr::CStr _OldName, NStr::CStr _NewName) = 0;
+
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID, CBranchProtectionRule _Rule) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr _Repository, CBranchProtectionRule _Rule) = 0;
