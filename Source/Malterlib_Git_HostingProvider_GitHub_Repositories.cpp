@@ -558,4 +558,19 @@ namespace NMib::NGit
 
 		co_return Data["type"].f_String() == "Organization";
 	}
+
+	auto CGitHostingProvider_GitHub::f_GetAuthenticatedUser() -> TCFuture<CUser>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		// GET /user returns the authenticated user's profile (login, id, name).
+		auto const Data = co_await fp_RestApi("user", "Failed to get authenticated user");
+
+		CUser User;
+		User.m_Login = Data["login"].f_String();
+		User.m_ID = CStr::CFormat("{}") << Data["id"].f_Integer();
+		if (auto *pName = Data.f_GetMember("name"); pName && pName->f_IsString())
+			User.m_Name = pName->f_String();
+		co_return fg_Move(User);
+	}
 }

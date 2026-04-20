@@ -686,6 +686,12 @@ namespace NMib::NGit
 		// when forking — GitHub's fork API rejects `organization=<username>` with 422.
 		virtual NConcurrency::TCFuture<bool> f_IsOrganization(NStr::CStr _Owner) = 0;
 
+		// Returns the currently-authenticated user's identity (login, id, name) as known to
+		// the provider. Used when deciding fork destination: personal forks can only be made
+		// into the authenticated user's own namespace, while org forks require an organization
+		// target. Must be called after a successful f_Login.
+		virtual NConcurrency::TCFuture<CUser> f_GetAuthenticatedUser() = 0;
+
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID, CBranchProtectionRule _Rule) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr _Repository, CBranchProtectionRule _Rule) = 0;

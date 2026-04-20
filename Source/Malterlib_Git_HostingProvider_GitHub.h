@@ -42,6 +42,8 @@ namespace NMib::NGit
 
 		TCFuture<bool> f_IsOrganization(CStr _Owner) override;
 
+		TCFuture<CUser> f_GetAuthenticatedUser() override;
+
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr _Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
 		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
