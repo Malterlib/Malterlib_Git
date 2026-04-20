@@ -133,6 +133,8 @@ namespace NMib::NGit
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
+		auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing rulesets for repository '{}'"_f << _Repository));
+
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
 		auto const RuleSetEnum = co_await

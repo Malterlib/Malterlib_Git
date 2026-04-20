@@ -11,7 +11,7 @@ namespace NMib::NGit
 
 		TCUnsafeFuture<void> fg_ParseRuleSettingValue(CEJsonSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
 		{
-			co_await ECoroutineFlag_CaptureExceptions;
+			auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing policy field '{}'"_f << _Name));
 
 			using CValueType = TCRemoveReferenceAndQualifiers<decltype(o_Value)>;
 			using CType = TCOptionalType<CValueType>;
