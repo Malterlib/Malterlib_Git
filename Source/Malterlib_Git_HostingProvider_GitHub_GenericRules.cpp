@@ -208,14 +208,19 @@ namespace NMib::NGit
 					auto &OutActor = Actors.f_Insert();
 
 					auto &ActorType = BypassActor["actor_type"].f_String();
-					auto &ActorID = BypassActor["actor_id"].f_Integer();
+
+					auto fGetActorID = [&]() -> CStr
+						{
+							return CStr::fs_ToStr(BypassActor["actor_id"].f_Integer());
+						}
+					;
 
 					if (ActorType == "RepositoryRole")
-						OutActor.m_Actor = CRepositoryRole{.m_ID = CStr::fs_ToStr(ActorID)};
+						OutActor.m_Actor = CRepositoryRole{.m_ID = fGetActorID()};
 					else if (ActorType == "Team")
-						OutActor.m_Actor = CTeam{.m_ID = CStr::fs_ToStr(ActorID)};
+						OutActor.m_Actor = CTeam{.m_ID = fGetActorID()};
 					else if (ActorType == "Integration")
-						OutActor.m_Actor = CApp{.m_ID = CStr::fs_ToStr(ActorID)};
+						OutActor.m_Actor = CApp{.m_ID = fGetActorID()};
 					else if (ActorType == "OrganizationAdmin")
 						OutActor.m_Actor = COrganizationAdmin{};
 					else
