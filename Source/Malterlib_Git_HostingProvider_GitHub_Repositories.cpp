@@ -546,4 +546,16 @@ namespace NMib::NGit
 
 		co_return fg_ParseRepository(Repository);
 	}
+
+	auto CGitHostingProvider_GitHub::f_IsOrganization(CStr _Owner) -> TCFuture<bool>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		// GET /users/{owner} returns both users and organizations (GitHub routes
+		// organization names through the users endpoint). The "type" field is
+		// "User" or "Organization".
+		auto const Data = co_await fp_RestApi("users/{}"_f << _Owner, "Failed to get user or organization '{}'"_f << _Owner);
+
+		co_return Data["type"].f_String() == "Organization";
+	}
 }

@@ -681,6 +681,11 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CGetRepository>> f_GetRepositories(NContainer::TCVector<NStr::CStr> _Organizations, bool _bPersonal) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_GetRepository(NStr::CStr _Repository) = 0;
 
+		// Returns true if the named owner (user / org name) is an organization on the provider,
+		// false if it's a personal user account. Used to decide whether to pass `organization`
+		// when forking — GitHub's fork API rejects `organization=<username>` with 422.
+		virtual NConcurrency::TCFuture<bool> f_IsOrganization(NStr::CStr _Owner) = 0;
+
 		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID, CBranchProtectionRule _Rule) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr _Repository, CBranchProtectionRule _Rule) = 0;

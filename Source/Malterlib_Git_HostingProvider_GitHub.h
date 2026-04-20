@@ -40,6 +40,8 @@ namespace NMib::NGit
 		TCFuture<TCVector<CGetRepository>> f_GetRepositories(TCVector<CStr> _Organizations, bool _bPersonal) override;
 		TCFuture<CGetRepository> f_GetRepository(CStr _Repository) override;
 
+		TCFuture<bool> f_IsOrganization(CStr _Owner) override;
+
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr _Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
 		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
