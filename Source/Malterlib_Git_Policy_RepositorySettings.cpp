@@ -87,7 +87,31 @@ namespace NMib::NGit
 				if (!CreateRepository.m_Name)
 					CreateRepository.m_Name = CFile::fs_GetFile(_Context.m_Repository);
 
-				CreateRepository.m_Organization = CFile::fs_GetPath(_Context.m_Repository);
+				// Classify the slug's owner: authenticated user's personal namespace
+				// (POST /user/repos — omit m_Organization), organization the caller can
+				// write to (POST /orgs/<owner>/repos — set m_Organization), or a
+				// different user account (cannot create via API — refuse).
+				// Owner names are case-insensitive on GitHub but rendered in whatever
+				// casing the owner picked, so compare normalized.
+				CStr Owner = CFile::fs_GetPath(_Context.m_Repository);
+				auto AuthUser = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetAuthenticatedUser);
+				if (AuthUser.m_Login.f_LowerCase() == Owner.f_LowerCase())
+				{
+					// Personal namespace — leave m_Organization unset so the create
+					// request goes to POST /user/repos.
+				}
+				else if (co_await _Context.m_HostingProvider(&CGitHostingProvider::f_IsOrganization, Owner))
+					CreateRepository.m_Organization = Owner;
+				else
+				{
+					co_return DMibErrorInstance
+						(
+							"Cannot create repository under '{}': the target is a user account that is not the authenticated user '{}'. "
+							"Repositories can only be created in the authenticated user's own namespace or in an organization they can write to."_f
+							<< Owner << AuthUser.m_Login
+						)
+					;
+				}
 
 				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_CreateRepository, CreateRepository);
 				CurrentPropertiesWrapped = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetRepository, _Context.m_Repository).f_Wrap();
