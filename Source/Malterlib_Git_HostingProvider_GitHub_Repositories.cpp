@@ -376,6 +376,14 @@ namespace NMib::NGit
 
 		fg_RepositoryToJson(PostData, _CreateRepository);
 
+		// GitHub's create endpoint defaults "private" to false when the field is omitted.
+		// Default to private when the caller didn't specify a visibility — accidentally
+		// publishing a repository is the more dangerous direction of the two possible
+		// mistakes. Callers who want public must set IsPrivate: false explicitly, which
+		// fg_RepositoryToJson above emits as "private": false and we leave untouched.
+		if (!PostData.f_GetMember("private"))
+			PostData["private"] = true;
+
 		auto Data = co_await fp_RestApiPost
 			(
 				PostUrl
