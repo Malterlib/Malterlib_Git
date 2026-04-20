@@ -80,6 +80,13 @@ namespace NMib::NGit
 			{
 				CGitHostingProvider::CCreateRepository CreateRepository;
 				static_cast<CGitHostingProvider::CRepository &>(CreateRepository) = WantedProperties;
+
+				// GitHub's create endpoint requires "name". Derive it from the slug when
+				// the caller didn't specify one (e.g. --apply-policy-create-missing without
+				// a RepositorySettings block, which passes empty settings).
+				if (!CreateRepository.m_Name)
+					CreateRepository.m_Name = CFile::fs_GetFile(_Context.m_Repository);
+
 				CreateRepository.m_Organization = CFile::fs_GetPath(_Context.m_Repository);
 
 				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_CreateRepository, CreateRepository);
