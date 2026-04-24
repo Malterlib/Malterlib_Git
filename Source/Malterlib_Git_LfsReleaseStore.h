@@ -95,7 +95,7 @@ namespace NMib::NGit
 		TCFuture<void> fp_UploadReleaseAsset(CStr _Repository, CStr _ReleaseIdentifier, CStr _Path, uint64 _Size);
 		TCFuture<CStr> fp_DownloadReleaseAsset(CReleaseAssetInfo _AssetInfo, bool _bPublic);
 
-		TCFuture<void> fp_CreateLfsBranch();
+		TCFuture<CStr> fp_EnsureLfsReleaseTarget();
 
 		TCFuture<TCSharedPointer<CCachedReleases>> fp_GetCachedReleases(CStr _Repository);
 		TCFuture<TCSharedPointer<CGitHostingProvider::CGetRepository>> fp_GetCachedRepository(CStr _Repository);
@@ -125,8 +125,10 @@ namespace NMib::NGit
 		CStr mp_TempDir;
 		CStr mp_LastRemoteUrl;
 		CStr mp_CurrentObjectID;
+		CStr mp_LfsReleaseTargetHash;
 		TCMap<CStr, TCSharedPointer<CCachedReleases>> mp_RepositoryCache;
 		TCMap<CStr, TCSharedPointer<CReleaseIndexCache>> mp_ReleaseIndexCache;
 		TCFunction<void (CStr const &_Output)> mp_fOutputConsole;
+		bool mp_bLfsReleaseTargetInitialized = false;
 	};
 }

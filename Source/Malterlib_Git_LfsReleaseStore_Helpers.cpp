@@ -9,6 +9,34 @@
 
 namespace NMib::NGit
 {
+	namespace
+	{
+		constexpr CStr gc_LfsReleaseTargetTagName = gc_Str<"lfs/index">;
+
+		CStr fg_ParseLsRemoteHash(CStr const &_Output, CStr const &_Ref)
+		{
+			CStr Hash;
+			CStr PeeledHash;
+
+			for (auto &Line : _Output.f_SplitLine())
+			{
+				CStr LineHash;
+				CStr LineRef;
+				aint nParsed = 0;
+				(CStr::CParse("{}\t{}") >> LineHash >> LineRef).f_Parse(Line, nParsed);
+				if (nParsed != 2 || LineHash.f_IsEmpty())
+					continue;
+
+				if (LineRef == _Ref)
+					Hash = LineHash;
+				else if (LineRef == _Ref + "^{}")
+					PeeledHash = LineHash;
+			}
+
+			return PeeledHash ? PeeledHash : Hash;
+		}
+	}
+
 	CStr CLfsReleaseStoreService::fsp_GetTagName(CStr const &_ObjectID)
 	{
 		CStr ObjectID64 = "0x" + _ObjectID.f_Left(16);
@@ -20,13 +48,30 @@ namespace NMib::NGit
 		return "lfs/{nfh,sf0,sj*}"_f << (ObjectIDPrefix % mc_ReleaseBuckets) << nChars;
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::fp_CreateLfsBranch()
+	TCFuture<CStr> CLfsReleaseStoreService::fp_EnsureLfsReleaseTarget()
 	{
-		bool bLfsBranchExists = !(co_await fg_LaunchGit({"ls-remote", "--heads", "origin", "refs/heads/lfs"}, mp_WorkingDirectory)).f_Trim().f_IsEmpty();
-		if (bLfsBranchExists)
-			co_return {};
+		if (mp_bLfsReleaseTargetInitialized && mp_LfsReleaseTargetHash)
+			co_return mp_LfsReleaseTargetHash;
 
-		bool bAnyBranchExists = !(co_await fg_LaunchGit({"ls-remote", "--heads", "origin", "refs/heads/*"}, mp_WorkingDirectory)).f_Trim().f_IsEmpty();
+		CStr TargetTagRef = "refs/tags/{}"_f << gc_LfsReleaseTargetTagName;
+		mp_LfsReleaseTargetHash = fg_ParseLsRemoteHash(co_await fg_LaunchGit({"ls-remote", "--tags", mp_RemoteUrl, TargetTagRef, TargetTagRef + "^{}"}, mp_WorkingDirectory), TargetTagRef);
+		if (mp_LfsReleaseTargetHash)
+		{
+			mp_bLfsReleaseTargetInitialized = true;
+			co_return mp_LfsReleaseTargetHash;
+		}
+
+		CStr LegacyLfsBranchHash;
+		{
+			CStr LfsBranchRef = gc_Str<"refs/heads/lfs">.m_Str;
+			CStr LfsBranch = (co_await fg_LaunchGit({"ls-remote", "--heads", mp_RemoteUrl, LfsBranchRef}, mp_WorkingDirectory)).f_Trim();
+			if (LfsBranch)
+			{
+				LegacyLfsBranchHash = fg_ParseLsRemoteHash(LfsBranch, LfsBranchRef);
+				if (LegacyLfsBranchHash.f_IsEmpty())
+					co_return DMibErrorInstance("Failed to parse remote LFS branch hash: {}"_f << LfsBranch);
+			}
+		}
 
 		CStr TempDir = fp_GetTempDir();
 		CFile::fs_CreateDirectory(TempDir);
@@ -42,40 +87,56 @@ namespace NMib::NGit
 
 		co_await fg_LaunchGit({"clone", "--no-checkout", mp_RemoteUrl, TempRepoPath}, TempDir);
 
-		if (!bAnyBranchExists)
+		if (LegacyLfsBranchHash)
 		{
-			co_await fg_LaunchGit({"checkout", "-B", "lfs-temp"}, TempRepoPath);
+			co_await fg_LaunchGit({"fetch", "origin", "refs/heads/lfs:refs/remotes/origin/lfs"}, TempRepoPath);
 
-			CFile::fs_WriteStringToFile(TempRepoPath / "touch.file", fg_FastRandomID(), false);
-
-			co_await fg_LaunchGit({"add", "touch.file"}, TempRepoPath);
-			co_await fg_LaunchGit({"commit", "-m", "Temp commit"}, TempRepoPath);
-
-			auto PushResult = co_await fg_LaunchGitWithResult({"push", "--porcelain", "-u", "origin", "lfs-temp"}, TempRepoPath);
+			auto PushResult = co_await fg_LaunchGitWithResult({"push", "--porcelain", "origin", "refs/remotes/origin/lfs:refs/tags/{}"_f << gc_LfsReleaseTargetTagName}, TempRepoPath);
 			if (PushResult.m_ExitCode != 0)
 			{
-				if (PushResult.f_GetStdOut().f_Find("!	refs/heads/lfs:refs/heads/lfs	[rejected] (non-fast-forward)") < 0)
-					co_return DMibErrorInstance("Push lfs-temp failed with: {}"_f << PushResult.f_GetStdErr());
+				mp_LfsReleaseTargetHash = fg_ParseLsRemoteHash
+					(
+						co_await fg_LaunchGit({"ls-remote", "--tags", mp_RemoteUrl, TargetTagRef, TargetTagRef + "^{}"}, mp_WorkingDirectory)
+						, TargetTagRef
+					)
+				;
+
+				if (mp_LfsReleaseTargetHash.f_IsEmpty())
+					co_return DMibErrorInstance("Push LFS release target tag from legacy LFS branch failed with: {}"_f << PushResult.f_GetStdErr());
+			}
+			else
+				mp_LfsReleaseTargetHash = LegacyLfsBranchHash;
+		}
+		else
+		{
+			co_await fg_LaunchGit({"switch", "--orphan", "lfs-release-target"}, TempRepoPath);
+
+			CFile::fs_WriteStringToFile(TempRepoPath / ".gitattributes", "** export-ignore\n", false);
+
+			co_await fg_LaunchGit({"add", ".gitattributes"}, TempRepoPath);
+			co_await fg_LaunchGit({"commit", "-m", "LFS release target"}, TempRepoPath);
+			mp_LfsReleaseTargetHash = (co_await fg_LaunchGit({"rev-parse", "HEAD"}, TempRepoPath)).f_Trim();
+
+			auto PushResult = co_await fg_LaunchGitWithResult({"push", "--porcelain", "origin", "HEAD:refs/tags/{}"_f << gc_LfsReleaseTargetTagName}, TempRepoPath);
+			if (PushResult.m_ExitCode != 0)
+			{
+				mp_LfsReleaseTargetHash = fg_ParseLsRemoteHash
+					(
+						co_await fg_LaunchGit({"ls-remote", "--tags", mp_RemoteUrl, TargetTagRef, TargetTagRef + "^{}"}, mp_WorkingDirectory)
+						, TargetTagRef
+					)
+				;
+
+				if (mp_LfsReleaseTargetHash.f_IsEmpty())
+					co_return DMibErrorInstance("Push LFS release target tag failed with: {}"_f << PushResult.f_GetStdErr());
 			}
 		}
 
-		co_await fg_LaunchGit({"switch", "--orphan", "lfs"}, TempRepoPath);
-
-		CFile::fs_WriteStringToFile(TempRepoPath / ".gitattributes", "** export-ignore\n", false);
-
-		co_await fg_LaunchGit({"add", ".gitattributes"}, TempRepoPath);
-		co_await fg_LaunchGit({"commit", "-m", "LFS"}, TempRepoPath);
-
-		auto PushResult = co_await fg_LaunchGitWithResult({"push", "--porcelain", "-u", "origin", "lfs"}, TempRepoPath);
-		if (PushResult.m_ExitCode != 0)
-		{
-			if (PushResult.f_GetStdOut().f_Find("!	refs/heads/lfs:refs/heads/lfs	[rejected] (non-fast-forward)") < 0)
-				co_return DMibErrorInstance("Push lfs failed with: {}"_f << PushResult.f_GetStdErr());
-		}
+		mp_bLfsReleaseTargetInitialized = true;
 
 		co_await Cleanup->f_Destroy();
 
-		co_return {};
+		co_return mp_LfsReleaseTargetHash;
 	}
 
 	CStr CLfsReleaseStoreService::fp_GetTempDir()
@@ -115,6 +176,8 @@ namespace NMib::NGit
 			co_return DMibErrorInstance("Failed to parse remote url");
 
 		mp_LastRemoteUrl.f_Clear();
+		mp_LfsReleaseTargetHash.f_Clear();
+		mp_bLfsReleaseTargetInitialized = false;
 
 		mp_HostingProviderProtocol = Url.f_GetScheme();
 		mp_HostingProviderHost = Url.f_GetHost();
@@ -154,7 +217,6 @@ namespace NMib::NGit
 		CreateRelease.m_Published = true;
 		CreateRelease.m_PreRelease = false;
 		CreateRelease.m_MakeLatest = false;
-		CreateRelease.m_TargetReference = "lfs";
 
 		CGitHostingProvider::CRelease Release;
 
@@ -173,6 +235,9 @@ namespace NMib::NGit
 			}
 			else
 				bTryGetRelease = true;
+
+			if (_bAllowCreate)
+				CreateRelease.m_TargetReference = co_await fp_EnsureLfsReleaseTarget();
 
 			auto CreateReleaseResult = co_await mp_HostingProvider(&CGitHostingProvider::f_CreateRelease, _Repository, CreateRelease).f_Wrap();
 			if (CreateReleaseResult)
@@ -203,7 +268,8 @@ namespace NMib::NGit
 				;
 			else if (bIsMissingTarget && iRetry < 5)
 			{
-				co_await fp_CreateLfsBranch();
+				mp_bLfsReleaseTargetInitialized = false;
+				co_await fp_EnsureLfsReleaseTarget();
 				bTryGetRelease = false;
 			}
 			else
@@ -226,7 +292,7 @@ namespace NMib::NGit
 
 		for (auto &Release : co_await mp_HostingProvider(&CGitHostingProvider::f_GetReleases, _Repository))
 		{
-			if (!Release.m_Name.f_StartsWith("lfs/") || Release.m_Name == "lfs/index")
+			if (!Release.m_Name.f_StartsWith("lfs/") || Release.m_Name == gc_LfsReleaseTargetTagName)
 				continue;
 
 			auto &OutRelease = OutReleases[Release.m_Name];
