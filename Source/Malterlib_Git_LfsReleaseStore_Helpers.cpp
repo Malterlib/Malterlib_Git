@@ -3,6 +3,7 @@
 
 #include "Malterlib_Git_LfsReleaseStore.h"
 
+#include <Mib/Cryptography/Hashes/SHA>
 #include <Mib/Git/Helpers/Credentials>
 #include <Mib/Git/Helpers/Launch>
 #include <Mib/Encoding/JsonShortcuts>
@@ -34,6 +35,15 @@ namespace NMib::NGit
 			}
 
 			return PeeledHash ? PeeledHash : Hash;
+		}
+
+		CStr fg_GetReleaseLockFileName(CStr const &_TempDir, CStr const &_Repository, CStr const &_TagName)
+		{
+			CStr LockKey = "{}\n{}"_f << _Repository << _TagName;
+			CStr LockKeyHash = CHash_SHA256::fs_DigestFromData(LockKey.f_GetStr(), LockKey.f_GetLen()).f_GetString().f_Left(16);
+			CStr LockName = CFile::fs_MakeNiceFilename("{}-{}"_f << _Repository << _TagName).f_Left(80);
+
+			return _TempDir / ("release-{}-{}.lock"_f << LockKeyHash << LockName);
 		}
 	}
 
@@ -208,6 +218,39 @@ namespace NMib::NGit
 	{
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
+		TCUniquePointer<CLockFile> pCreateReleaseLock;
+		if (_bAllowCreate)
+		{
+			CStr TempDir = fp_GetTempDir();
+			CStr LockFileName = fg_GetReleaseLockFileName(TempDir, _Repository, _TagName);
+
+			// Git LFS may run several transfer adapter processes concurrently. GitHub
+			// can race duplicate release creation for the same tag, so serialize the
+			// get/create sequence across processes, not just within this actor.
+			auto BlockingActorCheckout = fg_BlockingActor();
+			pCreateReleaseLock = co_await
+				(
+					g_Dispatch(BlockingActorCheckout) / [TempDir, LockFileName]() mutable
+					{
+						CFile::fs_CreateDirectory(TempDir);
+
+						TCUniquePointer<CLockFile> pLockFile = fg_Construct(LockFileName);
+						pLockFile->f_LockWithException(10.0 * 60.0);
+
+						return fg_Move(pLockFile);
+					}
+				)
+			;
+		}
+
+		auto CleanupCreateReleaseLock = g_BlockingActorSubscription / [pCreateReleaseLock = fg_Move(pCreateReleaseLock)]() mutable -> TCFuture<void>
+			{
+				pCreateReleaseLock.f_Clear();
+
+				co_return {};
+			}
+		;
+
 		CGitHostingProvider::CCreateRelease CreateRelease;
 
 		CreateRelease.m_TagName = _TagName;
@@ -292,10 +335,10 @@ namespace NMib::NGit
 
 		for (auto &Release : co_await mp_HostingProvider(&CGitHostingProvider::f_GetReleases, _Repository))
 		{
-			if (!Release.m_Name.f_StartsWith("lfs/") || Release.m_Name == gc_LfsReleaseTargetTagName)
+			if (!Release.m_TagName.f_StartsWith("lfs/") || Release.m_TagName == gc_LfsReleaseTargetTagName)
 				continue;
 
-			auto &OutRelease = OutReleases[Release.m_Name];
+			auto &OutRelease = OutReleases[Release.m_TagName];
 			OutRelease.m_Release = fg_Move(Release);
 			for (auto &Asset : OutRelease.m_Release.m_Assets)
 			{

@@ -110,7 +110,7 @@ namespace NMib::NGit
 			auto pReleases = co_await fp_GetCachedReleases(Repository);
 			for (auto &Release : pReleases->m_Releases)
 			{
-				auto *pObjectIDs = ObjectIDsByTagName.f_FindEqual(Release.m_Release.m_Name);
+				auto *pObjectIDs = ObjectIDsByTagName.f_FindEqual(Release.m_Release.m_TagName);
 
 				for (auto &AssetEntry : Release.m_ReleaseAssets.f_Entries())
 				{
