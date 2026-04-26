@@ -101,6 +101,8 @@ namespace NMib::NGit
 		}
 		else
 		{
+			co_await fp_EnsureLogin();
+
 			co_await mp_HostingProvider
 				(
 					&CGitHostingProvider::f_DownloadReleaseAsset
@@ -180,6 +182,8 @@ namespace NMib::NGit
 		auto *pCachedInfo = _pIndexCache->m_Assets.f_FindEqual(mp_CurrentObjectID);
 		if (pCachedInfo)
 			co_return *pCachedInfo;
+
+		co_await fp_EnsureLogin();
 
 		auto Repository = _Repository;
 

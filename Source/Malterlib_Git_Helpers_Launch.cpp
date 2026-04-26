@@ -42,7 +42,7 @@ namespace NMib::NGit
 		co_return Result.f_GetStdOut();
 	}
 
-	TCFuture<CStr> fg_LaunchGitSendStdIn(TCVector<CStr> _Params, CStr _StdIn, CStr _WorkingDirectory)
+	TCFuture<CStr> fg_LaunchGitSendStdIn(TCVector<CStr> _Params, CStr _StdIn, CStr _WorkingDirectory, CSystemEnvironment _Environment)
 	{
 		TCVector<CStr> CommandLineParams;
 		CommandLineParams.f_Insert(_Params);
@@ -95,6 +95,8 @@ namespace NMib::NGit
 		;
 
 		LaunchParams.m_bAllowExecutableLocate = true;
+		LaunchParams.m_Environment = fg_Move(_Environment);
+		LaunchParams.m_bMergeEnvironment = true;
 		LaunchParams.m_fOnOutput = [pBufferedStdOut, pBufferedStdErr](EProcessLaunchOutputType _OutputType, NMib::NStr::CStr const &_Output)
 			{
 				if (_OutputType == EProcessLaunchOutputType_StdOut)

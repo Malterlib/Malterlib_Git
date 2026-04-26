@@ -82,6 +82,8 @@ namespace NMib::NGit
 		TCFuture<void> fp_ProcessPacket(CEJsonSorted _Packet);
 
 		TCFuture<bool> fp_Init(CStr _Remote);
+		TCFuture<void> fp_EnsureLogin();
+		TCFuture<void> fp_DoLogin();
 		TCFuture<CGitHostingProvider::CRelease> fp_GetOrCreateRelease(CStr _Repository, CStr _TagName, bool _bAllowCreate);
 
 		TCFuture<void> fp_Protocol_Init(CEJsonSorted const _Packet);
@@ -129,6 +131,14 @@ namespace NMib::NGit
 		TCMap<CStr, TCSharedPointer<CCachedReleases>> mp_RepositoryCache;
 		TCMap<CStr, TCSharedPointer<CReleaseIndexCache>> mp_ReleaseIndexCache;
 		TCFunction<void (CStr const &_Output)> mp_fOutputConsole;
+		struct CLoginState
+		{
+			bool m_bCompleted = false;
+			NException::CExceptionPointer m_pException;
+			NContainer::TCVector<TCPromise<void>> m_Waiters;
+		};
+
+		NStorage::TCSharedPointer<CLoginState> mp_pLoginState;
 		bool mp_bLfsReleaseTargetInitialized = false;
 	};
 }

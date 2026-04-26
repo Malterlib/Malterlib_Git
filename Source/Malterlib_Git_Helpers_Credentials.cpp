@@ -4,6 +4,7 @@
 #include "Malterlib_Git_LfsReleaseStore.h"
 
 #include <Mib/Concurrency/LogError>
+#include <Mib/Core/System>
 #include <Mib/Git/Helpers/Launch>
 
 namespace NMib::NGit
@@ -17,7 +18,48 @@ namespace NMib::NGit
 		if (_Url.f_HasUsername())
 			CredentialFillQuery += "username={}\n"_f << _Url.f_GetUsername();
 
-		auto Credentials = (co_await fg_LaunchGitSendStdIn({"credential", "fill"}, CredentialFillQuery, _WorkingDirectory)).f_SplitLine();
+		// Force `git credential fill` to be non-interactive. GIT_TERMINAL_PROMPT=0
+		// disables terminal prompts. We additionally point GIT_ASKPASS and
+		// SSH_ASKPASS at `true`, a no-op program that exits 0 with empty
+		// stdout, but only when the parent environment supplies *neither*
+		// variable. This suppresses GUI prompts configured via `core.askpass`
+		// (the common case on macOS where an IDE installs a graphical askpass
+		// script into the system git config) by giving git a silent answer
+		// rather than relying on a failing fallback chain — empirically, a
+		// failing askpass program (`false`) does not reliably suppress
+		// downstream prompts on macOS, while `true` does.
+		//
+		// CI systems (GitHub Actions, GitLab CI, etc.) wire one or both env
+		// vars to non-interactive scripts that hand back tokens; because git
+		// consults GIT_ASKPASS before SSH_ASKPASS, overriding either when only
+		// the other is inherited would short-circuit the working fallback —
+		// hence the "neither inherited" guard.
+		//
+		// Tradeoff: with `true` as askpass, `git credential fill` exits 0 with
+		// an empty password whenever no creds are available, so a broken
+		// credential helper is indistinguishable from a missing one — both
+		// produce an empty token. Callers that proceed unauthenticated on an
+		// empty token (e.g. BuildSystem probes, LFS public-repo download) work
+		// correctly; callers that need auth see the eventual provider 401/404
+		// rather than the original helper error. A setup with a non-interactive
+		// `core.askpass` script *and* no askpass env vars will be masked here;
+		// such users should either configure `credential.helper` (the
+		// conventional non-interactive path) or export GIT_ASKPASS pointing at
+		// their script.
+		CSystemEnvironment Env;
+		Env["GIT_TERMINAL_PROMPT"] = "0";
+		auto *pSystem = fg_GetSys();
+		bool bHasGitAskPass = false;
+		bool bHasSshAskPass = false;
+		pSystem->f_GetEnvironmentVariable("GIT_ASKPASS", {}, &bHasGitAskPass);
+		pSystem->f_GetEnvironmentVariable("SSH_ASKPASS", {}, &bHasSshAskPass);
+		if (!bHasGitAskPass && !bHasSshAskPass)
+		{
+			Env["GIT_ASKPASS"] = "true";
+			Env["SSH_ASKPASS"] = "true";
+		}
+
+		auto Credentials = (co_await fg_LaunchGitSendStdIn({"credential", "fill"}, CredentialFillQuery, _WorkingDirectory, fg_Move(Env))).f_SplitLine();
 
 		for (auto &Line : Credentials)
 		{

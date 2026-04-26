@@ -188,6 +188,8 @@ namespace NMib::NGit
 		mp_LastRemoteUrl.f_Clear();
 		mp_LfsReleaseTargetHash.f_Clear();
 		mp_bLfsReleaseTargetInitialized = false;
+		mp_HostingProviderToken.f_Clear();
+		mp_pLoginState.f_Clear();
 
 		mp_HostingProviderProtocol = Url.f_GetScheme();
 		mp_HostingProviderHost = Url.f_GetHost();
@@ -199,12 +201,14 @@ namespace NMib::NGit
 		if (mp_HostingProviderHost != "github.com")
 			co_return DMibErrorInstance("Only github.com hosting provider is supported. Remote '{}' has host: {}"_f << _Remote << mp_HostingProviderHost);
 
-		mp_HostingProviderToken = co_await fg_GetGitCredentials(Url, mp_WorkingDirectory);
-
+		// Defer credential acquisition to the first GitHub API call that
+		// actually needs it. fg_GetGitCredentials shells out to `git credential
+		// fill`, which in environments like VS Code triggers the IDE's askpass
+		// prompt. Public-repo LFS downloads complete entirely via the public
+		// release-asset CDN (no API, no rate limits) and should never prompt
+		// the user. fp_EnsureLogin runs the credential fetch + provider login
+		// lazily, on demand, exactly once per remote.
 		mp_HostingProvider = CGitHostingProvider::fs_CreateHostingProvider("CGitHostingProviderFactory_CGitHostingProvider_GitHub");
-
-		if (mp_HostingProviderToken)
-			co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted{"Token"_= mp_HostingProviderToken});
 
 		if (!mp_HostingProvider)
 			co_return DMibErrorInstance("GitHub hosting provider not available");
@@ -214,9 +218,85 @@ namespace NMib::NGit
 		co_return true;
 	}
 
+	TCFuture<void> CLfsReleaseStoreService::fp_EnsureLogin()
+	{
+		// Concurrent transfers (LFS may dispatch multiple object packets in
+		// parallel within one adapter process) can all reach this method at
+		// once. We funnel them through a shared waiter list: the first caller
+		// drives the credential fetch + provider login; subsequent callers
+		// arriving while the login is in flight register a per-caller promise
+		// and await its future. When the driver finishes, it resolves every
+		// queued promise with the same outcome. A one-shot promise won't do —
+		// TCPromise::f_Future() can only be called once, so each waiter needs
+		// its own promise/future pair.
+		if (mp_pLoginState && mp_pLoginState->m_bCompleted)
+		{
+			if (mp_pLoginState->m_pException)
+				co_return mp_pLoginState->m_pException;
+			co_return {};
+		}
+
+		if (mp_pLoginState)
+		{
+			TCPromiseFuturePair<void> Pair;
+			auto Future = fg_Move(Pair.m_Future);
+			mp_pLoginState->m_Waiters.f_Insert(fg_Move(Pair.m_Promise));
+			co_await fg_Move(Future);
+			co_return {};
+		}
+
+		mp_pLoginState = fg_Construct<CLoginState>();
+		auto pState = mp_pLoginState;
+
+		auto Result = co_await fp_DoLogin().f_Wrap();
+
+		pState->m_bCompleted = true;
+		if (!Result)
+			pState->m_pException = Result.f_GetException();
+
+		// Resolve every waiter that queued up while we were doing the work.
+		// The actor is single-threaded, so no waiter can be added between
+		// setting m_bCompleted and draining the queue.
+		auto Waiters = fg_Move(pState->m_Waiters);
+		for (auto &Promise : Waiters)
+		{
+			if (pState->m_pException)
+				Promise.f_SetException(pState->m_pException);
+			else
+				Promise.f_SetResult();
+		}
+
+		if (!Result)
+			co_return Result.f_GetException();
+		co_return {};
+	}
+
+	TCFuture<void> CLfsReleaseStoreService::fp_DoLogin()
+	{
+		auto ExceptionCapture = co_await g_CaptureExceptions;
+		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
+		// Try the credential helper. A failure (broken or missing helper) is
+		// not fatal here — it just means subsequent API calls run
+		// unauthenticated, hitting GitHub's much lower rate limit. Operations
+		// that genuinely require auth (uploads, private downloads) will fail
+		// at the API level with their own clearer error.
+		NWeb::NHTTP::CURL Url(mp_RemoteUrl);
+		auto TokenResult = co_await fg_GetGitCredentials(Url, mp_WorkingDirectory).f_Wrap();
+		if (TokenResult)
+			mp_HostingProviderToken = *TokenResult;
+
+		if (mp_HostingProviderToken)
+			co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted{"Token"_= mp_HostingProviderToken});
+
+		co_return {};
+	}
+
 	TCFuture<CGitHostingProvider::CRelease> CLfsReleaseStoreService::fp_GetOrCreateRelease(CStr _Repository, CStr _TagName, bool _bAllowCreate)
 	{
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
+
+		co_await fp_EnsureLogin();
 
 		TCUniquePointer<CLockFile> pCreateReleaseLock;
 		if (_bAllowCreate)
@@ -331,6 +411,8 @@ namespace NMib::NGit
 		if (pOutRepository->m_bInitedReleases)
 			co_return pOutRepository;
 
+		co_await fp_EnsureLogin();
+
 		auto &OutReleases = pOutRepository->m_Releases;
 
 		for (auto &Release : co_await mp_HostingProvider(&CGitHostingProvider::f_GetReleases, _Repository))
@@ -388,6 +470,8 @@ namespace NMib::NGit
 		auto &pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
 		if (pOutRepository->m_pRepository)
 			co_return pOutRepository->m_pRepository;
+
+		co_await fp_EnsureLogin();
 
 		pOutRepository->m_pRepository = fg_Construct(co_await mp_HostingProvider(&CGitHostingProvider::f_GetRepository, _Repository));
 
