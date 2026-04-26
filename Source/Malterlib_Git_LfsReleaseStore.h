@@ -82,8 +82,8 @@ namespace NMib::NGit
 		TCFuture<void> fp_ProcessPacket(CEJsonSorted _Packet);
 
 		TCFuture<bool> fp_Init(CStr _Remote);
-		TCFuture<void> fp_EnsureLogin();
-		TCFuture<void> fp_DoLogin();
+		TCFuture<void> fp_EnsureLogin(bool _bAllowInteractive);
+		TCFuture<void> fp_DoLogin(bool _bAllowInteractive);
 		TCFuture<CGitHostingProvider::CRelease> fp_GetOrCreateRelease(CStr _Repository, CStr _TagName, bool _bAllowCreate);
 
 		TCFuture<void> fp_Protocol_Init(CEJsonSorted const _Packet);
@@ -122,7 +122,6 @@ namespace NMib::NGit
 		CStr mp_HostingProviderHost;
 		CStr mp_HostingProviderPath;
 		CStr mp_HostingProviderProtocol;
-		CStr mp_HostingProviderToken;
 		CStr mp_RemoteUrl;
 		CStr mp_TempDir;
 		CStr mp_LastRemoteUrl;
@@ -139,6 +138,8 @@ namespace NMib::NGit
 		};
 
 		NStorage::TCSharedPointer<CLoginState> mp_pLoginState;
+		NStorage::TCSharedPointer<CLoginState> mp_pLoginStateNonInteractive;
 		bool mp_bLfsReleaseTargetInitialized = false;
+		bool mp_bLoggedIn = false;
 	};
 }

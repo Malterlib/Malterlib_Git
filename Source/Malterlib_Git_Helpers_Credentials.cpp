@@ -9,7 +9,7 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory)
+	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 
@@ -53,7 +53,41 @@ namespace NMib::NGit
 		bool bHasSshAskPass = false;
 		pSystem->f_GetEnvironmentVariable("GIT_ASKPASS", {}, &bHasGitAskPass);
 		pSystem->f_GetEnvironmentVariable("SSH_ASKPASS", {}, &bHasSshAskPass);
-		if (!bHasGitAskPass && !bHasSshAskPass)
+
+		auto fEnvVarIsTruthy = [&](CStr const &_Name)
+			{
+				auto Value = pSystem->f_GetEnvironmentVariable(_Name);
+				return Value == "1" || Value.f_CmpNoCase("true") == 0;
+			}
+		;
+		auto fEnvVarIsSet = [&](CStr const &_Name)
+			{
+				bool bExists = false;
+				auto Value = pSystem->f_GetEnvironmentVariable(_Name, {}, &bExists);
+				return bExists && !Value.f_IsEmpty();
+			}
+		;
+
+		auto fIsAutomatedBuild = [&]
+			{
+				return fEnvVarIsTruthy("RunningCI")
+					|| fEnvVarIsTruthy("MalterlibBuildServerBuild")
+					|| fEnvVarIsTruthy("BUILDSERVER")
+					|| fEnvVarIsTruthy("CI")
+					|| fEnvVarIsTruthy("GITHUB_ACTIONS")
+					|| fEnvVarIsTruthy("GITLAB_CI")
+					|| fEnvVarIsTruthy("TF_BUILD")
+					|| fEnvVarIsTruthy("BUILDKITE")
+					|| fEnvVarIsTruthy("CIRCLECI")
+					|| fEnvVarIsTruthy("TRAVIS")
+					|| fEnvVarIsTruthy("APPVEYOR")
+					|| fEnvVarIsSet("TEAMCITY_VERSION")
+					|| fEnvVarIsSet("JENKINS_URL")
+				;
+			}
+		;
+
+		if ((!bHasGitAskPass && !bHasSshAskPass) || (!_bAllowInteractive && !fIsAutomatedBuild()))
 		{
 			Env["GIT_ASKPASS"] = "true";
 			Env["SSH_ASKPASS"] = "true";

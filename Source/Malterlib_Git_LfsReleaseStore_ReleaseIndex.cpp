@@ -208,27 +208,72 @@ namespace NMib::NGit
 		auto PublicDownloadUrl = co_await mp_HostingProvider(&CGitHostingProvider::f_GetPublicReleaseAssetUrl, _Repository, gc_IndexTagName, gc_IndexAssetName);
 
 		TCSharedPointer<CByteVector> pReleaseData = fg_Construct();
-		auto PublicDownloadResult = co_await mp_HostingProvider
-			(
-				&CGitHostingProvider::f_DownloadPublicReleaseAsset
-				, _Repository
-				, CGitHostingProvider::CDownloadPublicReleaseAsset
-				{
-					.m_Url = PublicDownloadUrl
-					, .m_fWriteData = g_ActorFunctor / [pReleaseData](CByteVector _Data) mutable -> TCFuture<void>
+
+		// Same factory pattern as fp_DownloadReleaseAsset: each retry consumes the
+		// move-only callback, so wrap construction so the loop can hand a fresh
+		// callback to each attempt.
+		auto fGetWriteData = [pReleaseData]() -> TCActorFunctor<TCFuture<void> (CByteVector)>
+			{
+				return g_ActorFunctor / [pReleaseData](CByteVector _Data) mutable -> TCFuture<void>
 					{
 						pReleaseData->f_Insert(fg_Move(_Data));
 
 						co_return {};
 					}
-				}
-			).f_Wrap()
+				;
+			}
 		;
 
-		if (PublicDownloadResult)
-			co_return pReleaseData;
+		constexpr umint c_MaxAttempts = 6;
+		for (umint iAttempt = 0; ; ++iAttempt)
+		{
+			if (iAttempt > 0)
+				pReleaseData->f_Clear();
 
-		co_return {};
+			auto PublicDownloadResult = co_await mp_HostingProvider
+				(
+					&CGitHostingProvider::f_DownloadPublicReleaseAsset
+					, _Repository
+					, CGitHostingProvider::CDownloadPublicReleaseAsset
+					{
+						.m_Url = PublicDownloadUrl
+						, .m_fWriteData = fGetWriteData()
+					}
+				).f_Wrap()
+			;
+
+			if (PublicDownloadResult)
+				co_return pReleaseData;
+
+			bool bShouldRetry = false;
+			NException::fg_VisitException<CGitHostingProviderException>
+				(
+					PublicDownloadResult.f_GetException()
+					, [&](CGitHostingProviderException const &_Exception)
+					{
+						uint32 Status = _Exception.f_GetSpecific().m_StatusCode;
+						if (Status == 408 || Status == 429 || (Status >= 500 && Status <= 599))
+							bShouldRetry = true;
+					}
+				)
+			;
+
+			if (!bShouldRetry || iAttempt + 1 >= c_MaxAttempts)
+				co_return {};
+
+			fp64 BackoffSeconds = fg_Min(fp64(60), fp64(uint64(1) << iAttempt));
+			DMibLog
+				(
+					Info
+					, "Release index download failed (attempt {}/{}); retrying in {fe1}s: {}"
+					, iAttempt + 1
+					, c_MaxAttempts
+					, BackoffSeconds
+					, PublicDownloadResult.f_GetExceptionStr()
+				)
+			;
+			co_await fg_Timeout(BackoffSeconds);
+		}
 	}
 
 	auto CLfsReleaseStoreService::fp_DownloadReleaseIndexPrivate(CStr _Repository) -> TCFuture<CPrivateReleaseIndexDownload>

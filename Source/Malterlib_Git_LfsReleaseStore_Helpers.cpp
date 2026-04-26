@@ -188,8 +188,9 @@ namespace NMib::NGit
 		mp_LastRemoteUrl.f_Clear();
 		mp_LfsReleaseTargetHash.f_Clear();
 		mp_bLfsReleaseTargetInitialized = false;
-		mp_HostingProviderToken.f_Clear();
+		mp_bLoggedIn = false;
 		mp_pLoginState.f_Clear();
+		mp_pLoginStateNonInteractive.f_Clear();
 
 		mp_HostingProviderProtocol = Url.f_GetScheme();
 		mp_HostingProviderHost = Url.f_GetHost();
@@ -218,7 +219,7 @@ namespace NMib::NGit
 		co_return true;
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::fp_EnsureLogin()
+	TCFuture<void> CLfsReleaseStoreService::fp_EnsureLogin(bool _bAllowInteractive)
 	{
 		// Concurrent transfers (LFS may dispatch multiple object packets in
 		// parallel within one adapter process) can all reach this method at
@@ -229,26 +230,41 @@ namespace NMib::NGit
 		// queued promise with the same outcome. A one-shot promise won't do —
 		// TCPromise::f_Future() can only be called once, so each waiter needs
 		// its own promise/future pair.
-		if (mp_pLoginState && mp_pLoginState->m_bCompleted)
+
+		NStorage::TCSharedPointer<CLoginState> *pLoginStatePtr;
+
+		if (_bAllowInteractive)
+			pLoginStatePtr = &mp_pLoginState;
+		else
 		{
-			if (mp_pLoginState->m_pException)
-				co_return mp_pLoginState->m_pException;
+			if (mp_pLoginState && mp_pLoginState->m_bCompleted)
+				pLoginStatePtr = &mp_pLoginState;
+			else
+				pLoginStatePtr = &mp_pLoginStateNonInteractive;
+		}
+
+		auto &pLoginState = *pLoginStatePtr;
+
+		if (pLoginState && pLoginState->m_bCompleted)
+		{
+			if (pLoginState->m_pException)
+				co_return pLoginState->m_pException;
 			co_return {};
 		}
 
-		if (mp_pLoginState)
+		if (pLoginState)
 		{
 			TCPromiseFuturePair<void> Pair;
 			auto Future = fg_Move(Pair.m_Future);
-			mp_pLoginState->m_Waiters.f_Insert(fg_Move(Pair.m_Promise));
+			pLoginState->m_Waiters.f_Insert(fg_Move(Pair.m_Promise));
 			co_await fg_Move(Future);
 			co_return {};
 		}
 
-		mp_pLoginState = fg_Construct<CLoginState>();
-		auto pState = mp_pLoginState;
+		pLoginState = fg_Construct<CLoginState>();
+		auto pState = pLoginState;
 
-		auto Result = co_await fp_DoLogin().f_Wrap();
+		auto Result = co_await fp_DoLogin(_bAllowInteractive).f_Wrap();
 
 		pState->m_bCompleted = true;
 		if (!Result)
@@ -271,7 +287,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::fp_DoLogin()
+	TCFuture<void> CLfsReleaseStoreService::fp_DoLogin(bool _bAllowInteractive)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
@@ -282,12 +298,18 @@ namespace NMib::NGit
 		// that genuinely require auth (uploads, private downloads) will fail
 		// at the API level with their own clearer error.
 		NWeb::NHTTP::CURL Url(mp_RemoteUrl);
-		auto TokenResult = co_await fg_GetGitCredentials(Url, mp_WorkingDirectory).f_Wrap();
+		auto TokenResult = co_await fg_GetGitCredentials(Url, mp_WorkingDirectory, _bAllowInteractive).f_Wrap();
+		CStr Token;
 		if (TokenResult)
-			mp_HostingProviderToken = *TokenResult;
+			Token = *TokenResult;
 
-		if (mp_HostingProviderToken)
-			co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted{"Token"_= mp_HostingProviderToken});
+		if (Token)
+		{
+			auto Result = co_await mp_HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted{"Token"_= Token}).f_Wrap();
+			if (!Result)
+				co_return Result.f_GetException();
+			mp_bLoggedIn = true;
+		}
 
 		co_return {};
 	}
@@ -296,7 +318,7 @@ namespace NMib::NGit
 	{
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
-		co_await fp_EnsureLogin();
+		co_await fp_EnsureLogin(true);
 
 		TCUniquePointer<CLockFile> pCreateReleaseLock;
 		if (_bAllowCreate)
@@ -411,7 +433,7 @@ namespace NMib::NGit
 		if (pOutRepository->m_bInitedReleases)
 			co_return pOutRepository;
 
-		co_await fp_EnsureLogin();
+		co_await fp_EnsureLogin(true);
 
 		auto &OutReleases = pOutRepository->m_Releases;
 
@@ -471,7 +493,7 @@ namespace NMib::NGit
 		if (pOutRepository->m_pRepository)
 			co_return pOutRepository->m_pRepository;
 
-		co_await fp_EnsureLogin();
+		co_await fp_EnsureLogin(true);
 
 		pOutRepository->m_pRepository = fg_Construct(co_await mp_HostingProvider(&CGitHostingProvider::f_GetRepository, _Repository));
 

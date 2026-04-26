@@ -47,73 +47,222 @@ namespace NMib::NGit
 			}
 		;
 
-		auto fWriteData = g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
-			(CByteVector _Data) mutable -> TCFuture<void>
+		// The write callback is move-only and consumed by each request. Wrap its
+		// construction in a factory so the retry loop below can hand a fresh
+		// callback (with reset byte counters) to each attempt without duplicating
+		// the lambda body.
+		auto fGetWriteData = [this, Size, CompressionRatio, FilePath, pFileReadState]
+			() -> TCActorFunctor<TCFuture<void> (CByteVector)>
 			{
-				umint nBytes = _Data.f_GetLen();
-				{
-					auto BlockingActorCheckout = fg_BlockingActor();
-					co_await
-						(
-							g_Dispatch(BlockingActorCheckout) / [FilePath, pFileReadState, Data = fg_Move(_Data)]
-							{
-								if (!pFileReadState->m_File.f_IsValid())
-								{
-									CFile::fs_CreateDirectoryForFile(FilePath);
-									pFileReadState->m_File.f_Open(FilePath, EFileOpen_Write | EFileOpen_ShareAll);
-								}
+				return g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
+					(CByteVector _Data) mutable -> TCFuture<void>
+					{
+						umint nBytes = _Data.f_GetLen();
+						{
+							auto BlockingActorCheckout = fg_BlockingActor();
+							co_await
+								(
+									g_Dispatch(BlockingActorCheckout) / [FilePath, pFileReadState, Data = fg_Move(_Data)]
+									{
+										if (!pFileReadState->m_File.f_IsValid())
+										{
+											CFile::fs_CreateDirectoryForFile(FilePath);
+											pFileReadState->m_File.f_Open(FilePath, EFileOpen_Write | EFileOpen_ShareAll);
+										}
 
-								pFileReadState->m_File.f_Write(Data.f_GetArray(), Data.f_GetLen());
-							}
-						)
-					;
-				}
-				BytesSoFar += nBytes;
+										pFileReadState->m_File.f_Write(Data.f_GetArray(), Data.f_GetLen());
+									}
+								)
+							;
+						}
+						BytesSoFar += nBytes;
 
-				if (BytesLastTime == 0 || BytesSoFar == Size || Stopwatch.f_GetTime() > 1.0)
-				{
-					if (BytesLastTime != 0)
-						Stopwatch.f_AddOffset(1.0);
+						if (BytesLastTime == 0 || BytesSoFar == Size || Stopwatch.f_GetTime() > 1.0)
+						{
+							if (BytesLastTime != 0)
+								Stopwatch.f_AddOffset(1.0);
 
-					uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
-					uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;
-					BytesLastTime = BytesSoFarCorrected;
-					fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime).f_DiscardResult();
-				}
+							uint64 BytesSoFarCorrected = (fp64(BytesSoFar) * CompressionRatio).f_ToInt();
+							uint64 BytesThisTime = BytesSoFarCorrected - BytesLastTime;
+							BytesLastTime = BytesSoFarCorrected;
+							fp_SendProgress(mp_CurrentObjectID, BytesSoFarCorrected, BytesThisTime).f_DiscardResult();
+						}
 
-				co_return {};
+						co_return {};
+					}
+				;
 			}
 		;
 
-		if (_bPublic)
-		{
-			co_await mp_HostingProvider
-				(
-					&CGitHostingProvider::f_DownloadPublicReleaseAsset
-					, _AssetInfo.m_Repository
-					, CGitHostingProvider::CDownloadPublicReleaseAsset
-					{
-						.m_Url = _AssetInfo.m_PublicDownloadUrl
-						, .m_fWriteData = fg_Move(fWriteData)
-					}
-				)
-			;
-		}
-		else
-		{
-			co_await fp_EnsureLogin();
+		if (!_bPublic)
+			co_await fp_EnsureLogin(true);
 
-			co_await mp_HostingProvider
+		// Spurious 5xx responses from the GitHub release-asset CDN happen often
+		// enough during clones from public repositories to break CI. Retry with
+		// exponential backoff on transient HTTP statuses; bounded so a real
+		// outage still surfaces.
+		constexpr umint c_MaxAttempts = 6;
+		TCVector<uint32> AttemptStatusCodes;
+		CStr PrivateLoginFailure;
+		bool bPrivateRetry = false;
+		for (umint iAttempt = 0; ; ++iAttempt)
+		{
+			if (iAttempt > 0)
+			{
+				// Discard partial bytes from the failed attempt before the next one
+				// starts writing.
+				auto BlockingActorCheckout = fg_BlockingActor();
+				co_await
+					(
+						g_Dispatch(BlockingActorCheckout) / [pFileReadState, FilePath]
+						{
+							pFileReadState->m_File.f_Close();
+							if (CFile::fs_FileExists(FilePath))
+								CFile::fs_DeleteFile(FilePath);
+						}
+					)
+				;
+			}
+
+			TCAsyncResult<void> Result;
+			if (_bPublic)
+			{
+				Result = co_await mp_HostingProvider
+					(
+						&CGitHostingProvider::f_DownloadPublicReleaseAsset
+						, _AssetInfo.m_Repository
+						, CGitHostingProvider::CDownloadPublicReleaseAsset
+						{
+							.m_Url = _AssetInfo.m_PublicDownloadUrl
+							, .m_fWriteData = fGetWriteData()
+						}
+					).f_Wrap()
+				;
+			}
+			else
+			{
+				Result = co_await mp_HostingProvider
+					(
+						&CGitHostingProvider::f_DownloadReleaseAsset
+						, _AssetInfo.m_Repository
+						, CGitHostingProvider::CDownloadReleaseAsset
+						{
+							.m_Identifier = _AssetInfo.m_ID
+							, .m_fWriteData = fGetWriteData()
+						}
+					).f_Wrap()
+				;
+			}
+
+			if (Result)
+				break;
+
+			bool bShouldRetry = false;
+			uint32 AttemptStatusCode = 0;
+			NException::fg_VisitException<CGitHostingProviderException>
 				(
-					&CGitHostingProvider::f_DownloadReleaseAsset
-					, _AssetInfo.m_Repository
-					, CGitHostingProvider::CDownloadReleaseAsset
+					Result.f_GetException()
+					, [&](CGitHostingProviderException const &_Exception)
 					{
-						.m_Identifier = _AssetInfo.m_ID
-						, .m_fWriteData = fg_Move(fWriteData)
+						uint32 Status = _Exception.f_GetSpecific().m_StatusCode;
+						AttemptStatusCode = Status;
+						if (Status == 408 || Status == 429 || (Status >= 500 && Status <= 599))
+							bShouldRetry = true;
 					}
 				)
 			;
+			AttemptStatusCodes.f_Insert(AttemptStatusCode);
+
+			if (!bShouldRetry || iAttempt + 1 >= c_MaxAttempts)
+			{
+				if (iAttempt == 0 && !bShouldRetry)
+					co_return Result.f_GetException();
+
+				CStr PrivateLoginMessage;
+				if (PrivateLoginFailure)
+					PrivateLoginMessage = "\nPrivate fallback login failure: {}"_f << PrivateLoginFailure;
+				else if (bPrivateRetry)
+					PrivateLoginMessage = "\nLast attempt switched to authenticated download.";
+
+				auto pException = Result.f_GetException();
+				co_return DMibErrorInstanceWrapped
+					(
+						"Release asset download failed after {} attempts ({} retries, final error retryable: {}, status codes: {vs}): {}{}"_f
+						<< (iAttempt + 1)
+						<< iAttempt
+						<< bShouldRetry
+						<< AttemptStatusCodes
+						<< Result.f_GetExceptionStr()
+						<< PrivateLoginMessage
+						, fg_Move(pException)
+						, false
+					).f_ExceptionPointer()
+				;
+			}
+
+			// After five failed public CDN attempts, immediately try the authenticated release
+			// asset API as a last resort when credentials are available. A stale token
+			// can make this final attempt fail with an auth error, but by this point
+			// another public URL retry is likely less useful than switching paths.
+			if (iAttempt == 4 && _bPublic)
+			{
+				auto fLogPrivateRetry = [&]
+					{
+						DMibLog
+							(
+								Info
+								, "Release asset download failed (attempt {}/{}); retrying with authenticated download: {}"
+								, iAttempt + 1
+								, c_MaxAttempts
+								, Result.f_GetExceptionStr()
+							)
+						;
+					}
+				;
+				if (mp_bLoggedIn)
+				{
+					_bPublic = false;
+					bPrivateRetry = true;
+					fLogPrivateRetry();
+					continue;
+				}
+				else
+				{
+					auto LoginResult = co_await fp_EnsureLogin(false).f_Wrap();
+
+					if (LoginResult && mp_bLoggedIn)
+					{
+						_bPublic = false;
+						bPrivateRetry = true;
+						fLogPrivateRetry();
+						continue;
+					}
+					else if (!LoginResult)
+					{
+						PrivateLoginFailure = LoginResult.f_GetExceptionStr();
+						DMibLog
+							(
+								Info
+								, "Release asset private-download fallback login failed; continuing with public URL: {}"
+								, PrivateLoginFailure
+							)
+						;
+					}
+				}
+			}
+
+			fp64 BackoffSeconds = fg_Min(fp64(60), fp64(uint64(1) << iAttempt));
+			DMibLog
+				(
+					Info
+					, "Release asset download failed (attempt {}/{}); retrying in {fe1}s: {}"
+					, iAttempt + 1
+					, c_MaxAttempts
+					, BackoffSeconds
+					, Result.f_GetExceptionStr()
+				)
+			;
+			co_await fg_Timeout(BackoffSeconds);
 		}
 
 		TCActor<CProcessLaunchActor> CompressLaunch;
@@ -183,7 +332,7 @@ namespace NMib::NGit
 		if (pCachedInfo)
 			co_return *pCachedInfo;
 
-		co_await fp_EnsureLogin();
+		co_await fp_EnsureLogin(true);
 
 		auto Repository = _Repository;
 
