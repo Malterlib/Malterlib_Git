@@ -143,11 +143,15 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteRelease(NStr::CStr _Repository, NStr::CStr _ReleaseID)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+		CStr RestID = fg_GetRestID(_ReleaseID);
+
+		if (!RestID)
+			co_return DMibErrorInstance("Release identifier does not contain a REST ID: {}"_f << _ReleaseID);
 
 		CStr URL = "repos/{}/{}/releases/{}"_f
 			<< RepositorySlug.m_Owner
 			<< RepositorySlug.m_Name
-			<< fg_GetRestID(_ReleaseID)
+			<< RestID
 		;
 
 		co_await fp_RestApiDelete(URL, "Failed to delete release");
@@ -182,11 +186,15 @@ namespace NMib::NGit
 			co_return DMibErrorInstance("Release name cannot be empty");
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+		CStr RestID = fg_GetRestID(_ReleaseIdentifier);
+
+		if (!RestID)
+			co_return DMibErrorInstance("Release identifier does not contain a REST ID: {}"_f << _ReleaseIdentifier);
 
 		CStr URL = "repos/{}/{}/releases/{}/assets?name={}"_f
 			<< RepositorySlug.m_Owner
 			<< RepositorySlug.m_Name
-			<< fg_GetRestID(_ReleaseIdentifier)
+			<< RestID
 			<< NWeb::NHTTP::CURL::fs_PercentEncode(_UploadRelease.m_Name)
 		;
 
@@ -208,11 +216,15 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::f_DownloadReleaseAsset(CStr _Repository, CDownloadReleaseAsset _DownloadRelease)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+		CStr RestID = fg_GetRestID(_DownloadRelease.m_Identifier);
+
+		if (!RestID)
+			co_return DMibErrorInstance("Release asset identifier does not contain a REST ID: {}"_f << _DownloadRelease.m_Identifier);
 
 		CStr URL = "repos/{}/{}/releases/assets/{}"_f
 			<< RepositorySlug.m_Owner
 			<< RepositorySlug.m_Name
-			<< fg_GetRestID(_DownloadRelease.m_Identifier)
+			<< RestID
 		;
 
 		co_await fp_RestApiDownloadFile
@@ -249,11 +261,15 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteReleaseAsset(CStr _Repository, NStr::CStr _Identifier)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+		CStr RestID = fg_GetRestID(_Identifier);
+
+		if (!RestID)
+			co_return DMibErrorInstance("Release asset identifier does not contain a REST ID: {}"_f << _Identifier);
 
 		CStr URL = "repos/{}/{}/releases/assets/{}"_f
 			<< RepositorySlug.m_Owner
 			<< RepositorySlug.m_Name
-			<< fg_GetRestID(_Identifier)
+			<< RestID
 		;
 
 		co_await fp_RestApiDelete(URL, "Failed to delete release asset");
