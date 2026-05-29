@@ -422,16 +422,21 @@ namespace NMib::NGit
 			}
 		;
 
+		// GitHub forks asynchronously: the "Create a fork" endpoint queues the work and
+		// returns 202 (Accepted) with the new repository's metadata in the body, not the
+		// 201 (Created) that fp_RestApiPost expects by default. Override the expected
+		// status so an accepted fork isn't mistaken for a failure.
 		auto Data = co_await fp_RestApiPost
 			(
 				"repos/{}/{}/forks"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
 				, PostData
-				, "Failed to fork release"
+				, "Failed to fork repository"
 #ifdef DCompiler_MSVC_Workaround
 				, fsp_FieldTranslations(c_FieldTranslations)
 #else
 				, fsp_FieldTranslations<c_FieldTranslations>()
 #endif
+				, 202
 			)
 		;
 
