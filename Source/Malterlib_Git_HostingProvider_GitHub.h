@@ -18,7 +18,7 @@ namespace NMib::NGit
 #endif
 			COrdering_Strong operator <=> (CFieldTranslationPair const &_Right) const noexcept
 			{
-				return fg_StrCmpConstExpr(m_GitHubField.m_pStr, _Right.m_GitHubField.m_pStr) <=> 0;
+				return fg_StrCmp(m_GitHubField.m_pStr, _Right.m_GitHubField.m_pStr) <=> 0;
 			}
 
 #ifndef DCompiler_MSVC_Workaround
