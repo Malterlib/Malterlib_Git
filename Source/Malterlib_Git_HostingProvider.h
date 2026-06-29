@@ -692,6 +692,17 @@ namespace NMib::NGit
 			NStr::CStr m_Owner;
 		};
 
+		// One repository the configured credentials can access (for GitHub, a repository the app installation can
+		// reach). m_CloneUrl is the HTTPS clone URL and m_WebUrl the browser URL, so a multi-repository source
+		// provider can serve each repository without reconstructing URLs by hand.
+		struct CInstallationRepository
+		{
+			NStr::CStr m_Owner;
+			NStr::CStr m_Name;
+			NStr::CStr m_CloneUrl;
+			NStr::CStr m_WebUrl;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
@@ -700,6 +711,12 @@ namespace NMib::NGit
 		// GitHub via a configured GitHub App) override it. Requires a prior f_Login with provider credentials capable
 		// of issuing tokens (a GitHub App for GitHub).
 		virtual NConcurrency::TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request);
+
+		// Lists every repository the configured credentials can access (for GitHub, the app installation's
+		// repositories). Used to expand an organization + wildcard repository selection into concrete repositories.
+		// The default implementation fails; providers that support it (GitHub via a configured GitHub App) override it.
+		// _OwnerHint helps resolve the installation when none is preconfigured (it is otherwise informational).
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CInstallationRepository>> f_ListInstallationRepositories(NStr::CStr _OwnerHint);
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;

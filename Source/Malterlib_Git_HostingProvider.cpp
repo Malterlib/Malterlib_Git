@@ -19,6 +19,11 @@ namespace NMib::NGit
 		co_return DMibErrorInstance("This git hosting provider does not support creating access tokens");
 	}
 
+	NConcurrency::TCFuture<NContainer::TCVector<CGitHostingProvider::CInstallationRepository>> CGitHostingProvider::f_ListInstallationRepositories(NStr::CStr)
+	{
+		co_return DMibErrorInstance("This git hosting provider does not support listing installation repositories");
+	}
+
 	bool CGitHostingProviderExceptionData::f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource, CStr const &_Message) const
 	{
 		for (auto &Error : m_GitErrors)

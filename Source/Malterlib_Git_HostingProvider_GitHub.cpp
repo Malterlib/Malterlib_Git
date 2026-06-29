@@ -101,6 +101,36 @@ namespace NMib::NGit
 		co_return CStr();
 	}
 
+	TCFuture<CGitHostingProvider::CAccessToken> CGitHostingProvider_GitHub::fp_MintInstallationToken(CStr _Jwt, CStr _InstallationID, CJsonSorted _Body)
+	{
+		auto Result = co_await mp_HttpClientActor
+			(
+				&CHttpClientActor::f_Post
+				, "{}/app/installations/{}/access_tokens"_f << mp_ApiBaseUrl << _InstallationID
+				, fp_GetAppJwtHeaders(_Jwt)
+				, CJsonSorted(fg_Move(_Body))
+			)
+		;
+
+		if (Result.m_StatusCode != 201)
+			co_return fp_GetRestError("Create GitHub installation access token", Result, {});
+
+		CAccessToken Token;
+		{
+			auto CaptureScope = co_await g_CaptureExceptions;
+			CJsonSorted Json = CJsonSorted::fs_FromString(Result.m_Body);
+			Token.m_Token = Json.f_GetMemberValue("token", CStr()).f_String();
+		}
+
+		if (!Token.m_Token)
+			co_return DMibErrorInstance("GitHub installation access token response did not contain a token");
+
+		// GitHub installation tokens last one hour; report a slightly earlier expiry so callers refresh in time.
+		Token.m_ExpiresUnixTime = fg_NowUnixSeconds() + gc_GitHubInstallationTokenLifetimeSeconds;
+
+		co_return Token;
+	}
+
 	TCFuture<CGitHostingProvider::CAccessToken> CGitHostingProvider_GitHub::f_CreateAccessToken(CCreateAccessToken _Request)
 	{
 		if (!fp_HasAppCredentials())
@@ -134,32 +164,100 @@ namespace NMib::NGit
 		if (_Request.m_Permissions.f_IsObject())
 			Body["permissions"] = fg_Move(_Request.m_Permissions);
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, "{}/app/installations/{}/access_tokens"_f << mp_ApiBaseUrl << InstallationID
-				, fp_GetAppJwtHeaders(Jwt)
-				, CJsonSorted(fg_Move(Body))
-			)
-		;
+		co_return co_await fp_MintInstallationToken(Jwt, InstallationID, fg_Move(Body));
+	}
 
-		if (Result.m_StatusCode != 201)
-			co_return fp_GetRestError("Create GitHub installation access token", Result, {});
-
-		CAccessToken Token;
+	TCFuture<TCVector<CGitHostingProvider::CInstallationRepository>> CGitHostingProvider_GitHub::f_ListInstallationRepositories(CStr _OwnerHint)
+	{
+		// Listing the installation's repositories needs an installation access token. Reuse the one minted at login
+		// when present; otherwise mint a full-installation token from the app credentials just for the enumeration.
+		CStr Token = mp_Token;
+		if (!Token)
 		{
-			auto CaptureScope = co_await g_CaptureExceptions;
-			CJsonSorted Json = CJsonSorted::fs_FromString(Result.m_Body);
-			Token.m_Token = Json.f_GetMemberValue("token", CStr()).f_String();
+			if (!fp_HasAppCredentials())
+				co_return DMibErrorInstance("Cannot list GitHub installation repositories without an installation token or GitHub App credentials");
+
+			CStr Jwt;
+			{
+				auto CaptureScope = co_await (g_CaptureExceptions % "Failed to build GitHub App JWT");
+				Jwt = fp_BuildAppJwt();
+			}
+
+			CStr InstallationID = mp_InstallationID;
+			if (!InstallationID)
+				InstallationID = co_await fp_ResolveInstallationID(Jwt, _OwnerHint, {});
+
+			if (!InstallationID)
+				co_return DMibErrorInstance("Cannot resolve a GitHub App installation id; configure InstallationID or provide an owner");
+
+			CAccessToken Full = co_await fp_MintInstallationToken(Jwt, InstallationID, CJsonSorted(EJsonType_Object));
+			Token = fg_Move(Full.m_Token);
 		}
 
-		if (!Token.m_Token)
-			co_return DMibErrorInstance("GitHub installation access token response did not contain a token");
+		TCMap<CStr, CStr> Headers = fp_GetRestHeaders(false);
+		Headers["Authorization"] = "Bearer {}"_f << Token;
 
-		// GitHub installation tokens last one hour; report a slightly earlier expiry so callers refresh in time.
-		Token.m_ExpiresUnixTime = fg_NowUnixSeconds() + gc_GitHubInstallationTokenLifetimeSeconds;
+		TCVector<CInstallationRepository> Repositories;
 
-		co_return Token;
+		// GET /installation/repositories returns an object ({total_count, repositories:[...]}) rather than a bare
+		// array, so it cannot ride the array-merging fp_RestApi pager; page it explicitly until every repository the
+		// installation can access has been collected.
+		int64 Page = 1;
+		for (;;)
+		{
+			auto Result = co_await mp_HttpClientActor
+				(
+					&CHttpClientActor::f_Get
+					, "{}/installation/repositories?per_page=100&page={}"_f << mp_ApiBaseUrl << Page
+					, Headers
+				)
+			;
+
+			if (Result.m_StatusCode != 200)
+				co_return fp_GetRestError("List GitHub installation repositories", Result, {});
+
+			int64 TotalCount = 0;
+			umint nThisPage = 0;
+			{
+				auto CaptureScope = co_await g_CaptureExceptions;
+
+				CJsonSorted Json = CJsonSorted::fs_FromString(Result.m_Body);
+				if (auto *pTotal = Json.f_GetMember("total_count"))
+					TotalCount = pTotal->f_AsInteger(0);
+
+				if (auto *pRepos = Json.f_GetMember("repositories", EJsonType_Array))
+				{
+					for (auto &Repo : pRepos->f_Array())
+					{
+						CInstallationRepository Entry;
+						if (auto *pName = Repo.f_GetMember("name", EJsonType_String))
+							Entry.m_Name = pName->f_String();
+						if (auto *pOwner = Repo.f_GetMember("owner", EJsonType_Object))
+						{
+							if (auto *pLogin = pOwner->f_GetMember("login", EJsonType_String))
+								Entry.m_Owner = pLogin->f_String();
+						}
+						if (auto *pClone = Repo.f_GetMember("clone_url", EJsonType_String))
+							Entry.m_CloneUrl = pClone->f_String();
+						if (auto *pHtml = Repo.f_GetMember("html_url", EJsonType_String))
+							Entry.m_WebUrl = pHtml->f_String();
+
+						if (Entry.m_Name)
+						{
+							Repositories.f_Insert(fg_Move(Entry));
+							++nThisPage;
+						}
+					}
+				}
+			}
+
+			if (nThisPage == 0 || int64(Repositories.f_GetLen()) >= TotalCount)
+				break;
+
+			++Page;
+		}
+
+		co_return fg_Move(Repositories);
 	}
 
 	DMibGitHostingProviderRegister(CGitHostingProvider_GitHub);
