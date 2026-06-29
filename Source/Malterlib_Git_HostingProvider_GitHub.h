@@ -34,6 +34,7 @@ namespace NMib::NGit
 		};
 
 		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
+		TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
 		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
@@ -153,8 +154,21 @@ namespace NMib::NGit
 		TCMap<CStr, CStr> fp_GetRestHeaders(bool _bAuthorize = true);
 		CExceptionPointer fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
 
+		// GitHub App support. fp_BuildAppJwt mints a fresh short-lived JWT from the configured app id + private key;
+		// fp_ResolveInstallationID returns the configured installation id or discovers it from an owner/repository.
+		bool fp_HasAppCredentials() const;
+		CStr fp_BuildAppJwt();
+		TCFuture<CStr> fp_ResolveInstallationID(CStr _Jwt, CStr _Owner, CStr _Repository);
+		TCMap<CStr, CStr> fp_GetAppJwtHeaders(CStr const &_Jwt);
+
 		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(), "HTTP client Actor"};
 		CStr mp_Token;
+
+		// Set when authenticated as a GitHub App (via f_Login). The private key is held in DER for signing.
+		CStr mp_AppID;
+		NContainer::CSecureByteVector mp_AppPrivateKeyDer;
+		CStr mp_InstallationID;
+		CStr mp_ApiBaseUrl = "https://api.github.com";
 	};
 }
 

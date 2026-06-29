@@ -14,6 +14,11 @@ namespace NMib::NGit
 		DMibGitHostingProviderMakeActive(CGitHostingProvider_GitHub);
 	}
 
+	NConcurrency::TCFuture<CGitHostingProvider::CAccessToken> CGitHostingProvider::f_CreateAccessToken(CCreateAccessToken)
+	{
+		co_return DMibErrorInstance("This git hosting provider does not support creating access tokens");
+	}
+
 	bool CGitHostingProviderExceptionData::f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource, CStr const &_Message) const
 	{
 		for (auto &Error : m_GitErrors)
