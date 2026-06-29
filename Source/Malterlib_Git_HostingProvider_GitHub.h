@@ -35,6 +35,7 @@ namespace NMib::NGit
 
 		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
 		TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) override;
+		TCFuture<TCVector<CInstallationRepository>> f_ListInstallationRepositories(CStr _OwnerHint) override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
 		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
@@ -160,6 +161,9 @@ namespace NMib::NGit
 		CStr fp_BuildAppJwt();
 		TCFuture<CStr> fp_ResolveInstallationID(CStr _Jwt, CStr _Owner, CStr _Repository);
 		TCMap<CStr, CStr> fp_GetAppJwtHeaders(CStr const &_Jwt);
+		// POSTs the installation access-token request and parses the minted token; shared by f_CreateAccessToken and
+		// the full-installation token used to enumerate repositories.
+		TCFuture<CAccessToken> fp_MintInstallationToken(CStr _Jwt, CStr _InstallationID, CJsonSorted _Body);
 
 		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(), "HTTP client Actor"};
 		CStr mp_Token;
