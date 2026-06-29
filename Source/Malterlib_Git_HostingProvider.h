@@ -671,9 +671,35 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_CanApprovePullRequestReviews;
 		};
 
+		// A short-lived access token suitable for git operations (clone/fetch over HTTPS) and REST calls. For GitHub
+		// this is an installation access token. m_ExpiresUnixTime is 0 when the provider does not report an expiry.
+		struct CAccessToken
+		{
+			NStr::CStr m_Token;
+			int64 m_ExpiresUnixTime = 0;
+		};
+
+		// Request for a scoped access token. For GitHub, m_Repositories and m_Permissions map directly onto the
+		// installation access token API: an empty m_Repositories means the whole installation, otherwise the token is
+		// limited to those repository names; m_Permissions is a JSON object of permission name -> level (e.g.
+		// {"contents":"read","pull_requests":"write"}) that narrows the granted permissions, letting a build request
+		// write access in a specific repository when it needs it. m_Owner is an optional "owner" hint used to discover
+		// the installation when none is preconfigured.
+		struct CCreateAccessToken
+		{
+			NContainer::TCVector<NStr::CStr> m_Repositories;
+			NEncoding::CJsonSorted m_Permissions;
+			NStr::CStr m_Owner;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
+
+		// Mints a short-lived, scoped access token. The default implementation fails; providers that support it (e.g.
+		// GitHub via a configured GitHub App) override it. Requires a prior f_Login with provider credentials capable
+		// of issuing tokens (a GitHub App for GitHub).
+		virtual NConcurrency::TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request);
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;
