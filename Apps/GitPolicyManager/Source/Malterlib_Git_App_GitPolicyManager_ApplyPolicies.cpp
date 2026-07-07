@@ -157,7 +157,7 @@ namespace NMib::NGit::NGitPolicyManager
 			co_await HostingProvider
 				(
 					&CGitHostingProvider::f_Login
-					, Config["Authentication"]
+					, CEJsonSorted::fs_FromCompatible(Config["Authentication"])
 				)
 			;
 
@@ -165,8 +165,9 @@ namespace NMib::NGit::NGitPolicyManager
 
 			TCSet<CStr> MatchedRepositories;
 
-			for (auto &Policy : Config["Policies"].f_Array())
+			for (auto &PolicyYaml : Config["Policies"].f_Array())
 			{
+				auto Policy = CEJsonSorted::fs_FromCompatible(PolicyYaml);
 				auto &PolicyName = Policy["Name"].f_String();
 				for (auto &Repository : fg_FilterRepositories(Repositories, Policy))
 				{
