@@ -153,7 +153,7 @@ namespace NMib::NGit
 		TCMap<CStr, CStr> fp_GetRestHeaders(bool _bAuthorize = true);
 		CExceptionPointer fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
 
-		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(), "HTTP client Actor"};
+		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct()};
 		CStr mp_Token;
 	};
 }
