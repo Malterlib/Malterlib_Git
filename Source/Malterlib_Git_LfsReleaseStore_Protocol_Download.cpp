@@ -98,9 +98,10 @@ namespace NMib::NGit
 			co_await fp_EnsureLogin(true);
 
 		// Spurious 5xx responses from the GitHub release-asset CDN happen often
-		// enough during clones from public repositories to break CI. Retry with
-		// exponential backoff on transient HTTP statuses; bounded so a real
-		// outage still surfaces.
+		// enough during clones from public repositories to break CI, and so do
+		// connections that reset before a reply arrives. Retry with
+		// exponential backoff on transient HTTP statuses and on every failure
+		// that carries no status at all; bounded so a real outage still surfaces.
 		constexpr umint c_MaxAttempts = 6;
 		TCVector<uint32> AttemptStatusCodes;
 		CStr PrivateLoginFailure;
@@ -159,7 +160,7 @@ namespace NMib::NGit
 
 			bool bShouldRetry = false;
 			uint32 AttemptStatusCode = 0;
-			NException::fg_VisitException<CGitHostingProviderException>
+			bool bHasStatus = NException::fg_VisitException<CGitHostingProviderException>
 				(
 					Result.f_GetException()
 					, [&](CGitHostingProviderException const &_Exception)
@@ -171,6 +172,10 @@ namespace NMib::NGit
 					}
 				)
 			;
+
+			// Without a status the request never got a reply: the connection broke
+			if (!bHasStatus)
+				bShouldRetry = true;
 			AttemptStatusCodes.f_Insert(AttemptStatusCode);
 
 			if (!bShouldRetry || iAttempt + 1 >= c_MaxAttempts)
