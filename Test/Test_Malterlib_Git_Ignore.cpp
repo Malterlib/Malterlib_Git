@@ -129,6 +129,46 @@ namespace
 				DMibExpectTrue(Backslash.f_IsIgnored("dir/foo\\bar", false));
 			};
 
+			DMibTestSuite("Attributes")
+			{
+				CGitAttributes Attributes;
+				Attributes.f_AddRules("", "*.cpp diff\n*.dat -diff\n*.bin binary\n*.img diff=custom\n*.txt text\n");
+				Attributes.f_AddRules("nested", "*.dat diff\n*.cpp !diff\n");
+				Attributes.f_AddRules("make", "[attr]custom -diff\n[Mm]akefile -diff\n");
+				Attributes.f_AddRules("text", "* binary\n*.txt -binary\n*.md !binary\n");
+				Attributes.f_AddRules("kept", "* -diff\n*.txt -binary\n");
+				Attributes.f_AddRules("valued", "* binary\n*.txt binary=false\n");
+				Attributes.f_AddRules("negated", "* diff\n!special -diff\n");
+				// info/attributes outranks every .gitattributes, whichever is added first.
+				Attributes.f_AddInfoRules("info.cpp -diff\n");
+				Attributes.f_AddRules("", "info.cpp diff\n");
+				DMibExpectTrue(Attributes.f_GetTextAttribute("src/main.cpp") == EGitTextAttribute::mc_Text);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("data.dat") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("blob.bin") == EGitTextAttribute::mc_Binary);
+				// A named driver and a plain text attribute say nothing about binariness.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("disk.img") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("notes.txt") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("other.md") == EGitTextAttribute::mc_Unspecified);
+				// The deeper file's rules win within its directory and reach nothing outside it.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("nested/data.dat") == EGitTextAttribute::mc_Text);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("nested/main.cpp") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("other/data.dat") == EGitTextAttribute::mc_Binary);
+				// A leading set is a pattern; only '[attr]' defines a macro.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("make/makefile") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("make/Makefile") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("make/custom") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("info.cpp") == EGitTextAttribute::mc_Binary);
+				// Unsetting or resetting the macro leaves 'diff' unspecified.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("text/a.bin") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("text/a.txt") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("text/a.md") == EGitTextAttribute::mc_Unspecified);
+				// It leaves a 'diff' assigned of its own as it is.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("kept/a.txt") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("valued/a.txt") == EGitTextAttribute::mc_Unspecified);
+				// A negated pattern is no rule.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("negated/!special") == EGitTextAttribute::mc_Text);
+			};
+
 			DMibTestSuite("RepositoryExcludes")
 			{
 				CStr Root = CFile::fs_GetProgramDirectory() / "GitExcludesTests";
@@ -146,6 +186,7 @@ namespace
 					CFile::fs_CreateDirectory(Root / "plain");
 					auto Directories = fg_GetGitDirectories(Root / "plain");
 					DMibExpectTrue(!Directories.m_GitDirectory);
+					DMibExpectTrue(!fg_FindGitWorkingTreeRoot(Root / "plain") || !fg_FindGitWorkingTreeRoot(Root / "plain").f_StartsWith(Root));
 					auto Excludes = fg_GetGitRepositoryExcludes(Root / "plain", Directories, Environment);
 					DMibExpectTrue(!Excludes.m_InfoExclude);
 				};
@@ -153,15 +194,20 @@ namespace
 				DMibTestCategory("RepositoryConfiguration")
 				{
 					CStr Main = Root / "main";
-					fg_WriteFile(Main / ".git/config", "[core]\n\texcludesFile = ~/ignore-list\n");
+					fg_WriteFile(Main / ".git/config", "[core]\n\texcludesFile = ~/ignore-list\n\tignorecase = TRUE\n");
 					fg_WriteFile(Main / ".git/info/exclude", "Local/\n");
 					fg_WriteFile(Home / "ignore-list", "Generated/\n");
+					fg_WriteFile(Main / ".git/info/attributes", "*.dat -diff\n");
 					auto Directories = fg_GetGitDirectories(Main);
 					DMibExpect(Directories.m_GitDirectory, ==, Main / ".git");
 					DMibExpect(Directories.m_CommonDirectory, ==, Main / ".git");
 					auto Excludes = fg_GetGitRepositoryExcludes(Main, Directories, Environment);
 					DMibExpect(Excludes.m_ExcludesFile, ==, Home / "ignore-list");
 					DMibExpect(Excludes.m_InfoExclude, ==, Main / ".git/info/exclude");
+					DMibExpect(Excludes.m_InfoAttributes, ==, Main / ".git/info/attributes");
+					DMibExpectTrue(Excludes.m_bIgnoreCase);
+					CFile::fs_CreateDirectory(Main / "src/deep");
+					DMibExpect(fg_FindGitWorkingTreeRoot(Main / "src/deep"), ==, Main);
 				};
 
 				DMibTestCategory("ConfigurationValues")

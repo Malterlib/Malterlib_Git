@@ -40,6 +40,67 @@ namespace NMib::NGit
 		NContainer::TCVector<CRuleSet> mp_Sets;
 	};
 
+	// What git's 'diff' attribute says of a file: whether it is text, binary, or nothing, in
+	// which case git looks for a NUL among the first 8000 bytes.
+	enum class EGitTextAttribute
+	{
+		mc_Unspecified
+		, mc_Text
+		, mc_Binary
+	};
+
+	// The attributes of one repository, gathered as a walk meets its .gitattributes files
+	// the way CGitIgnore gathers ignore rules, answering for the 'diff' attribute and the
+	// 'binary' macro.
+	struct CGitAttributes
+	{
+		void f_AddRules(NStr::CStr const &_Directory, NStr::CStr const &_Contents, bool _bIgnoreCase = false);
+
+		// The repository's info/attributes, which take precedence over every .gitattributes file whenever they are added.
+		void f_AddInfoRules(NStr::CStr const &_Contents, bool _bIgnoreCase = false);
+
+		EGitTextAttribute f_GetTextAttribute(NStr::CStr const &_Path) const;
+
+	private:
+		// One word of a rule about 'diff' or the 'binary' macro.
+		struct CAssignment
+		{
+			bool m_bMacro = false;						// Assigns 'binary', which sets the macro or not; otherwise assigns 'diff'.
+			bool m_bMacroSet = false;
+			EGitTextAttribute m_Diff = EGitTextAttribute::mc_Unspecified;
+		};
+
+		struct CRule
+		{
+			NFile::CPathGlob m_Glob;
+			NContainer::TCVector<CAssignment> m_Assignments;
+		};
+
+		struct CRuleSet
+		{
+			NStr::CStr m_Directory;
+			NContainer::TCVector<CRule> m_Rules;
+		};
+
+		// What has been decided going from the rule that takes precedence down.
+		struct CDecision
+		{
+			bool m_bDiff = false;
+			bool m_bMacro = false;
+			EGitTextAttribute m_Text = EGitTextAttribute::mc_Unspecified;
+		};
+
+		static CRuleSet fsp_ParseRules(NStr::CStr const &_Directory, NStr::CStr const &_Contents, bool _bIgnoreCase);
+		static bool fsp_Decide(CRuleSet const &_Set, NStr::CStr const &_Path, NStr::CUStr const &_FileName, NFile::CPathGlob::CScratch &_Scratch, CDecision &o_Decision);
+
+		NContainer::TCVector<CRuleSet> mp_Sets;
+		CRuleSet mp_Info;
+	};
+
+	// The working tree root holding the directory: the nearest directory at or above it
+	// with a '.git' entry, or empty when there is none.
+	NStr::CStr fg_FindGitWorkingTreeRoot(NStr::CStr const &_Directory);
+
 	// Where a working tree keeps its repository data: its '.git' directory, or the directory
 	// a worktree's '.git' file names, and the directory those share with the main worktree.
 	struct CGitDirectories
@@ -63,11 +124,16 @@ namespace NMib::NGit
 	};
 
 	// The ignore files git applies to a whole repository below every .gitignore: the one
-	// core.excludesFile names, or its default, and the repository's info/exclude.
+	// core.excludesFile names, or its default, and the repository's info/exclude, and the
+	// attribute files below and above every .gitattributes. The system's attributes file, under
+	// git's installation prefix, is not read, by decision, as the system configuration's is not.
 	struct CGitRepositoryExcludes
 	{
 		NStr::CStr m_ExcludesFile;						// Empty when no file applies.
 		NStr::CStr m_InfoExclude;
+		NStr::CStr m_AttributesFile;					// The one core.attributesFile names, or its default, below every .gitattributes.
+		NStr::CStr m_InfoAttributes;					// The repository's info/attributes, below every .gitattributes.
+		bool m_bIgnoreCase = false;						// core.ignoreCase, which its ignore and attribute patterns match by.
 	};
 
 	// Both empty when the root holds no '.git' entry this understands.
