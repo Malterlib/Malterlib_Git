@@ -38,4 +38,36 @@ namespace NMib::NGit
 
 		NContainer::TCVector<CRuleSet> mp_Sets;
 	};
+
+	// Where a working tree keeps its repository data: its '.git' directory, or the directory
+	// a worktree's '.git' file names, and the directory those share with the main worktree.
+	struct CGitDirectories
+	{
+		NStr::CStr m_GitDirectory;
+		NStr::CStr m_CommonDirectory;
+	};
+
+	// The variables git reads to find its global and system configuration.
+	struct CGitEnvironment
+	{
+		static CGitEnvironment fs_FromProcess();
+
+		NStr::CStr m_Home;
+		NStr::CStr m_ConfigHome;						// XDG_CONFIG_HOME
+		NStr::CStr m_GlobalConfiguration;				// GIT_CONFIG_GLOBAL replaces both global files.
+		NStr::CStr m_SystemConfiguration;				// GIT_CONFIG_SYSTEM
+		bool m_bNoSystem = false;						// GIT_CONFIG_NOSYSTEM
+	};
+
+	// The ignore files git applies to a whole repository below every .gitignore: the one
+	// core.excludesFile names, or its default, and the repository's info/exclude.
+	struct CGitRepositoryExcludes
+	{
+		NStr::CStr m_ExcludesFile;						// Empty when no file applies.
+		NStr::CStr m_InfoExclude;
+	};
+
+	// Both empty when the root holds no '.git' entry this understands.
+	CGitDirectories fg_GetGitDirectories(NStr::CStr const &_Root);
+	CGitRepositoryExcludes fg_GetGitRepositoryExcludes(NStr::CStr const &_Root, CGitDirectories const &_Directories, CGitEnvironment const &_Environment);
 }
