@@ -91,6 +91,105 @@ namespace NMib::NGit
 		return false;
 	}
 
+	// A line names a pattern and then attributes, each set, unset with a leading '-', or
+	// reset with a leading '!'; 'binary' unsets 'diff'. A pattern with spaces would need
+	// quoting, which no Malterlib file uses.
+	void CGitAttributes::f_AddRules(CStr const &_Directory, CStr const &_Contents)
+	{
+		CRuleSet Set;
+		Set.m_Directory = _Directory;
+		for (auto const &RawLine : _Contents.f_SplitLine())
+		{
+			auto Line = RawLine.f_Trim();
+			if (!Line || Line.f_StartsWith("#") || Line.f_StartsWith("["))
+				continue;
+
+			auto Words = Line.f_Replace("\t", " ").f_Split<true>(" ");
+			if (Words.f_GetLen() < 2)
+				continue;
+
+			auto Pattern = Words[0];
+			if (Pattern.f_StartsWith("\\#"))
+				Pattern = Pattern.f_Extract(1);
+
+			CRule Rule
+				{
+					CPathGlob(Pattern)
+				}
+			;
+			for (umint iWord = 1; iWord < Words.f_GetLen(); ++iWord)
+			{
+				auto const &Word = Words[iWord];
+				if (Word == "diff")
+				{
+					Rule.m_bSpeaks = true;
+					Rule.m_Text = EGitTextAttribute::mc_Text;
+				}
+				else if (Word == "-diff" || Word == "binary")
+				{
+					Rule.m_bSpeaks = true;
+					Rule.m_Text = EGitTextAttribute::mc_Binary;
+				}
+				else if (Word == "!diff" || Word.f_StartsWith("diff="))
+				{
+					Rule.m_bSpeaks = true;
+					Rule.m_Text = EGitTextAttribute::mc_Unspecified;
+				}
+			}
+
+			if (Rule.m_bSpeaks)
+				Set.m_Rules.f_Insert(fg_Move(Rule));
+		}
+
+		mp_Sets.f_Insert(fg_Move(Set));
+	}
+
+	EGitTextAttribute CGitAttributes::f_GetTextAttribute(CStr const &_Path) const
+	{
+		auto FileName = CPathGlob::fs_ToUnicode(CFile::fs_GetFile(_Path));
+		CPathGlob::CScratch Scratch;
+		// Deeper files and later rules take precedence, so the last matching rule decides.
+		for (umint iSet = mp_Sets.f_GetLen(); iSet; --iSet)
+		{
+			auto const &Set = mp_Sets[iSet - 1];
+			CStr Relative = _Path;
+			if (Set.m_Directory)
+			{
+				if (!_Path.f_StartsWith(Set.m_Directory + "/"))
+					continue;
+
+				Relative = _Path.f_Extract(Set.m_Directory.f_GetLen() + 1);
+			}
+
+			auto Path = CPathGlob::fs_ToUnicode(Relative);
+			for (umint iRule = Set.m_Rules.f_GetLen(); iRule; --iRule)
+			{
+				auto const &Rule = Set.m_Rules[iRule - 1];
+				if (Rule.m_Glob.f_Match(Path, FileName, Scratch))
+					return Rule.m_Text;
+			}
+		}
+
+		return EGitTextAttribute::mc_Unspecified;
+	}
+
+	CStr fg_FindGitWorkingTreeRoot(CStr const &_Directory)
+	{
+		for (auto Directory = _Directory; Directory; )
+		{
+			if (CFile::fs_FileExists(Directory / ".git"))
+				return Directory;
+
+			auto Parent = CFile::fs_GetPath(Directory);
+			if (Parent == Directory)
+				break;
+
+			Directory = fg_Move(Parent);
+		}
+
+		return {};
+	}
+
 	CGitEnvironment CGitEnvironment::fs_FromProcess()
 	{
 		auto *pSys = fg_GetSys();
@@ -188,6 +287,10 @@ namespace NMib::NGit
 			auto InfoExclude = _Directories.m_CommonDirectory / "info/exclude";
 			if (CFile::fs_FileExists(InfoExclude, EFileAttrib_File))
 				Excludes.m_InfoExclude = InfoExclude;
+
+			auto InfoAttributes = _Directories.m_CommonDirectory / "info/attributes";
+			if (CFile::fs_FileExists(InfoAttributes, EFileAttrib_File))
+				Excludes.m_InfoAttributes = InfoAttributes;
 		}
 
 		CStr ExcludesFile;

@@ -39,6 +39,45 @@ namespace NMib::NGit
 		NContainer::TCVector<CRuleSet> mp_Sets;
 	};
 
+	// What git's 'diff' attribute says of a file: whether it is text, binary, or nothing, in
+	// which case git looks for a NUL among the first 8000 bytes.
+	enum class EGitTextAttribute
+	{
+		mc_Unspecified
+		, mc_Text
+		, mc_Binary
+	};
+
+	// The attributes of one repository, gathered as a walk meets its .gitattributes files
+	// the way CGitIgnore gathers ignore rules, answering for the 'diff' attribute and the
+	// 'binary' macro.
+	struct CGitAttributes
+	{
+		void f_AddRules(NStr::CStr const &_Directory, NStr::CStr const &_Contents);
+
+		EGitTextAttribute f_GetTextAttribute(NStr::CStr const &_Path) const;
+
+	private:
+		struct CRule
+		{
+			NFile::CPathGlob m_Glob;
+			EGitTextAttribute m_Text = EGitTextAttribute::mc_Unspecified;
+			bool m_bSpeaks = false;						// The rule mentions 'diff' or 'binary' at all.
+		};
+
+		struct CRuleSet
+		{
+			NStr::CStr m_Directory;
+			NContainer::TCVector<CRule> m_Rules;
+		};
+
+		NContainer::TCVector<CRuleSet> mp_Sets;
+	};
+
+	// The working tree root holding the directory: the nearest directory at or above it
+	// with a '.git' entry, or empty when there is none.
+	NStr::CStr fg_FindGitWorkingTreeRoot(NStr::CStr const &_Directory);
+
 	// Where a working tree keeps its repository data: its '.git' directory, or the directory
 	// a worktree's '.git' file names, and the directory those share with the main worktree.
 	struct CGitDirectories
@@ -65,6 +104,7 @@ namespace NMib::NGit
 	{
 		NStr::CStr m_ExcludesFile;						// Empty when no file applies.
 		NStr::CStr m_InfoExclude;
+		NStr::CStr m_InfoAttributes;					// The repository's info/attributes, below every .gitattributes.
 	};
 
 	// Both empty when the root holds no '.git' entry this understands.
