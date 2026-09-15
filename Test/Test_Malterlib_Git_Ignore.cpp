@@ -73,6 +73,24 @@ namespace
 				DMibExpectTrue(Ignore.f_IsIgnored("other/important.log", false));
 			};
 
+			DMibTestSuite("Attributes")
+			{
+				CGitAttributes Attributes;
+				Attributes.f_AddRules("", "*.cpp diff\n*.dat -diff\n*.bin binary\n*.img diff=custom\n*.txt text\n");
+				Attributes.f_AddRules("nested", "*.dat diff\n*.cpp !diff\n");
+				DMibExpectTrue(Attributes.f_GetTextAttribute("src/main.cpp") == EGitTextAttribute::mc_Text);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("data.dat") == EGitTextAttribute::mc_Binary);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("blob.bin") == EGitTextAttribute::mc_Binary);
+				// A named driver and a plain text attribute say nothing about binariness.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("disk.img") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("notes.txt") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("other.md") == EGitTextAttribute::mc_Unspecified);
+				// The deeper file's rules win within its directory and reach nothing outside it.
+				DMibExpectTrue(Attributes.f_GetTextAttribute("nested/data.dat") == EGitTextAttribute::mc_Text);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("nested/main.cpp") == EGitTextAttribute::mc_Unspecified);
+				DMibExpectTrue(Attributes.f_GetTextAttribute("other/data.dat") == EGitTextAttribute::mc_Binary);
+			};
+
 			DMibTestSuite("RepositoryExcludes")
 			{
 				CStr Root = CFile::fs_GetProgramDirectory() / "GitExcludesTests";
@@ -90,6 +108,7 @@ namespace
 					CFile::fs_CreateDirectory(Root / "plain");
 					auto Directories = fg_GetGitDirectories(Root / "plain");
 					DMibExpectTrue(!Directories.m_GitDirectory);
+					DMibExpectTrue(!fg_FindGitWorkingTreeRoot(Root / "plain") || !fg_FindGitWorkingTreeRoot(Root / "plain").f_StartsWith(Root));
 					auto Excludes = fg_GetGitRepositoryExcludes(Root / "plain", Directories, Environment);
 					DMibExpectTrue(!Excludes.m_InfoExclude);
 				};
@@ -100,12 +119,16 @@ namespace
 					fg_WriteFile(Main / ".git/config", "[core]\n\texcludesFile = ~/ignore-list\n");
 					fg_WriteFile(Main / ".git/info/exclude", "Local/\n");
 					fg_WriteFile(Home / "ignore-list", "Generated/\n");
+					fg_WriteFile(Main / ".git/info/attributes", "*.dat -diff\n");
 					auto Directories = fg_GetGitDirectories(Main);
 					DMibExpect(Directories.m_GitDirectory, ==, Main / ".git");
 					DMibExpect(Directories.m_CommonDirectory, ==, Main / ".git");
 					auto Excludes = fg_GetGitRepositoryExcludes(Main, Directories, Environment);
 					DMibExpect(Excludes.m_ExcludesFile, ==, Home / "ignore-list");
 					DMibExpect(Excludes.m_InfoExclude, ==, Main / ".git/info/exclude");
+					DMibExpect(Excludes.m_InfoAttributes, ==, Main / ".git/info/attributes");
+					CFile::fs_CreateDirectory(Main / "src/deep");
+					DMibExpect(fg_FindGitWorkingTreeRoot(Main / "src/deep"), ==, Main);
 				};
 
 				DMibTestCategory("DefaultAndGlobal")
