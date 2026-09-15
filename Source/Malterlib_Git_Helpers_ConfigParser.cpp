@@ -19,7 +19,20 @@ namespace NMib::NGit
 		if (_String == "1")
 			return true;
 
-		return false;
+		// git reads any integer but zero as true, signed too.
+		auto pDigits = _String.f_GetStr();
+		if (*pDigits == '+' || *pDigits == '-')
+			++pDigits;
+
+		bool bDigits = *pDigits != 0;
+		bool bNonZero = false;
+		for (auto pChar = pDigits; *pChar; ++pChar)
+		{
+			bDigits = bDigits && fg_CharIsNumber(*pChar);
+			bNonZero |= *pChar != '0';
+		}
+
+		return bDigits && bNonZero;
 	}
 
 	TCVector<CStr> const *CGitConfigParser::f_GetValues(CStr const &_Section, CStr const &_SubSection, CStr const &_Key) const
@@ -231,7 +244,16 @@ namespace NMib::NGit
 			fg_ParseAlphaNumericAndChars(pParse, "-");
 			auto KeyName = CStr(CInitByRange(), pParseStart, pParse).f_LowerCase();
 
-			fg_ParseWhiteSpace(pParse);
+			// A value stays on its key's line: a key alone is a boolean set to true, and one with nothing behind its '='
+			// is empty.
+			fg_ParseWhiteSpaceNoLines(pParse);
+
+			if (!*pParse || fg_CharIsNewLine(*pParse) || fg_ParseComment(pParse))
+			{
+				Parser.m_Sections[Section].m_SubSections[SubSection].m_Values[KeyName].f_Insert("true");
+
+				continue;
+			}
 
 			if (*pParse != '=')
 			{
@@ -241,13 +263,23 @@ namespace NMib::NGit
 			}
 
 			++pParse;
-			fg_ParseWhiteSpace(pParse);
+			fg_ParseWhiteSpaceNoLines(pParse);
 
 			CStr Value;
 
+			// Blanks behind a value are no part of it unless quoted.
+			auto fRaw = [](ch8 const *_pStart, ch8 const *_pEnd)
+				{
+					while (_pEnd > _pStart && (_pEnd[-1] == ' ' || _pEnd[-1] == '\t'))
+						--_pEnd;
+
+					return CStr(CInitByRange(), _pStart, _pEnd);
+				}
+			;
+
 			pParseStart = pParse;
 			fg_ParseEscape(pParse);
-			Value = fg_RemoveEscape(CStr(CInitByRange(), pParseStart, pParse));
+			Value = fg_RemoveEscape(fRaw(pParseStart, pParse));
 			while (*pParse && fg_CharIsNewLine(*pParse) && pParse[-1] == '\\')
 			{
 				Value = Value.f_RemoveSuffix("\\");
@@ -255,7 +287,7 @@ namespace NMib::NGit
 				fg_ParseWhiteSpaceNoLines(pParse);
 				pParseStart = pParse;
 				fg_ParseEscape(pParse);
-				Value += fg_RemoveEscape(CStr(CInitByRange(), pParseStart, pParse));
+				Value += fg_RemoveEscape(fRaw(pParseStart, pParse));
 			}
 
 			Parser.m_Sections[Section].m_SubSections[SubSection].m_Values[KeyName].f_Insert(fg_Move(Value));

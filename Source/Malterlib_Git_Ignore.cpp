@@ -4,12 +4,19 @@
 #include "Malterlib_Git_Ignore.h"
 
 #include <Mib/File/File>
+#include <Mib/Git/Helpers/ConfigParser>
 
 namespace NMib::NGit
 {
 	using namespace NStr;
 	using namespace NContainer;
 	using namespace NFile;
+
+	// git's spelling of a boolean, its words in any case.
+	static bool fg_GitBoolean(CStr const &_Value)
+	{
+		return CGitConfigParser::fs_ToBoolean(_Value.f_LowerCase());
+	}
 
 	// The name a path ends in, after its last '/': a backslash is a byte of the name in git's paths.
 	static CStr fg_GetGitBaseName(CStr const &_Path)
@@ -105,5 +112,154 @@ namespace NMib::NGit
 		}
 
 		return false;
+	}
+
+	CGitEnvironment CGitEnvironment::fs_FromProcess()
+	{
+		auto *pSys = fg_GetSys();
+		CGitEnvironment Environment;
+		Environment.m_Home = pSys->f_GetEnvironmentVariable("HOME");
+		if (!Environment.m_Home)
+			Environment.m_Home = pSys->f_GetEnvironmentVariable("USERPROFILE");
+		Environment.m_ConfigHome = pSys->f_GetEnvironmentVariable("XDG_CONFIG_HOME");
+		Environment.m_GlobalConfiguration = pSys->f_GetEnvironmentVariable("GIT_CONFIG_GLOBAL", {}, &Environment.m_bGlobalConfigurationSet);
+		Environment.m_SystemConfiguration = pSys->f_GetEnvironmentVariable("GIT_CONFIG_SYSTEM", {}, &Environment.m_bSystemConfigurationSet);
+		Environment.m_bNoSystem = fg_GitBoolean(pSys->f_GetEnvironmentVariable("GIT_CONFIG_NOSYSTEM"));
+
+		return Environment;
+	}
+
+	CGitDirectories fg_GetGitDirectories(CStr const &_Root)
+	{
+		CGitDirectories Directories;
+		auto GitDirectory = _Root / ".git";
+		if (CFile::fs_FileExists(GitDirectory, EFileAttrib_File))
+		{
+			auto Contents = CFile::fs_ReadStringFromFile(GitDirectory, true).f_TrimRight("\r\n");
+			if (!Contents.f_StartsWith("gitdir: "))
+				return Directories;
+
+			GitDirectory = CFile::fs_GetExpandedPath(Contents.f_Extract(8), _Root);
+		}
+
+		if (!CFile::fs_FileExists(GitDirectory, EFileAttrib_Directory))
+			return Directories;
+
+		Directories.m_GitDirectory = GitDirectory;
+		Directories.m_CommonDirectory = GitDirectory;
+		auto CommonDirectoryFile = GitDirectory / "commondir";
+		if (CFile::fs_FileExists(CommonDirectoryFile, EFileAttrib_File))
+		{
+			auto Contents = CFile::fs_ReadStringFromFile(CommonDirectoryFile, true).f_TrimRight("\r\n");
+			Directories.m_CommonDirectory = CFile::fs_GetExpandedPath(Contents, GitDirectory);
+		}
+
+		return Directories;
+	}
+
+	// The configuration files in the order git reads them, so that a later value wins: the
+	// system file, the two global files, the repository's, and a worktree's own when the
+	// repository has opted into worktree configuration. The system file is '/etc/gitconfig'
+	// unless GIT_CONFIG_SYSTEM names another: a git installed under another prefix, as
+	// Homebrew's or Git for Windows, reads its own, which is not looked for without asking git.
+	static TCVector<CStr> fg_GetGitConfigurationFiles(CGitDirectories const &_Directories, CGitEnvironment const &_Environment)
+	{
+		// A variable set empty reads no file in place of the default.
+		TCVector<CStr> Files;
+		if (!_Environment.m_bNoSystem && _Environment.m_SystemConfiguration)
+			Files.f_Insert(_Environment.m_SystemConfiguration);
+		else if (!_Environment.m_bNoSystem && !_Environment.m_bSystemConfigurationSet)
+			Files.f_Insert("/etc/gitconfig");
+
+		if (_Environment.m_GlobalConfiguration)
+			Files.f_Insert(_Environment.m_GlobalConfiguration);
+		else if (!_Environment.m_bGlobalConfigurationSet)
+		{
+			if (_Environment.m_ConfigHome)
+				Files.f_Insert(_Environment.m_ConfigHome / "git/config");
+			else if (_Environment.m_Home)
+				Files.f_Insert(_Environment.m_Home / ".config/git/config");
+
+			if (_Environment.m_Home)
+				Files.f_Insert(_Environment.m_Home / ".gitconfig");
+		}
+
+		if (_Directories.m_CommonDirectory)
+			Files.f_Insert(_Directories.m_CommonDirectory / "config");
+
+		return Files;
+	}
+
+	// git expands a leading '~/' in a pathname value; a relative path is taken from the
+	// working tree root, where git resolves the ignore files of a walk.
+	static CStr fg_ExpandGitPath(CStr const &_Value, CStr const &_Root, CGitEnvironment const &_Environment)
+	{
+		if (_Value == "~" || _Value.f_StartsWith("~/"))
+		{
+			if (!_Environment.m_Home)
+				return {};
+
+			return _Value == "~" ? _Environment.m_Home : _Environment.m_Home / _Value.f_Extract(2);
+		}
+
+		if (_Value.f_StartsWith("~"))
+			return {};
+
+		return CFile::fs_GetExpandedPath(_Value, _Root);
+	}
+
+	CGitRepositoryExcludes fg_GetGitRepositoryExcludes(CStr const &_Root, CGitDirectories const &_Directories, CGitEnvironment const &_Environment)
+	{
+		CGitRepositoryExcludes Excludes;
+		if (_Directories.m_CommonDirectory)
+		{
+			auto InfoExclude = _Directories.m_CommonDirectory / "info/exclude";
+			if (CFile::fs_FileExists(InfoExclude, EFileAttrib_File))
+				Excludes.m_InfoExclude = InfoExclude;
+		}
+
+		// Files that [include] and [includeIf] name are not followed: a core.excludesFile or core.ignoreCase set only
+		// through one is not seen, which is out of scope for the formatting walk this serves.
+		CStr ExcludesFile;
+		bool bExcludesFileSet = false; // An empty value turns the default file off.
+		bool bWorktreeConfiguration = false;
+		auto fRead = [&](CStr const &_File)
+			{
+				if (!CFile::fs_FileExists(_File, EFileAttrib_File))
+					return;
+
+				auto Configuration = CGitConfigParser::fs_Parse(CFile::fs_ReadStringFromFile(_File, true));
+
+				// Only the repository's own configuration opts it into worktree configuration.
+				bool bRepositoryConfiguration = _Directories.m_CommonDirectory && _File == _Directories.m_CommonDirectory / "config";
+				if (auto pValue = Configuration.f_GetValue("extensions", "worktreeconfig"); pValue && bRepositoryConfiguration)
+					bWorktreeConfiguration = fg_GitBoolean(*pValue);
+
+				if (auto pValue = Configuration.f_GetValue("core", "excludesfile"))
+				{
+					ExcludesFile = fg_ExpandGitPath(*pValue, _Root, _Environment);
+					bExcludesFileSet = true;
+				}
+			}
+		;
+		for (auto const &File : fg_GetGitConfigurationFiles(_Directories, _Environment))
+			fRead(File);
+
+		// A worktree's own file is read only once the repository has opted into it.
+		if (bWorktreeConfiguration && _Directories.m_GitDirectory)
+			fRead(_Directories.m_GitDirectory / "config.worktree");
+
+		if (!bExcludesFileSet)
+		{
+			if (_Environment.m_ConfigHome)
+				ExcludesFile = _Environment.m_ConfigHome / "git/ignore";
+			else if (_Environment.m_Home)
+				ExcludesFile = _Environment.m_Home / ".config/git/ignore";
+		}
+
+		if (ExcludesFile && CFile::fs_FileExists(ExcludesFile, EFileAttrib_File))
+			Excludes.m_ExcludesFile = ExcludesFile;
+
+		return Excludes;
 	}
 }
