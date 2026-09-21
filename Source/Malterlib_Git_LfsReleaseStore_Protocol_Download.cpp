@@ -280,17 +280,36 @@ namespace NMib::NGit
 
 		if (bCompressed)
 		{
-			auto CleanupFileStateCompressed = g_BlockingActorSubscription / [pFileReadState, FilePath]
+			// The archive member is named after the object, so concurrent downloads of one object would extract to the same path
+			CStr ExtractDirectory = TempDir / ("{}.extract"_f << fg_FastRandomID());
+			CStr ExtractedPath = TempDir / ("{}.bin"_f << fg_FastRandomID());
+
+			auto CleanupFileStateCompressed = g_BlockingActorSubscription / [FilePath, ExtractDirectory]
 				{
 					CFile::fs_DeleteFile(FilePath);
+
+					if (CFile::fs_FileExists(ExtractDirectory))
+						CFile::fs_DeleteDirectoryRecursive(ExtractDirectory);
 				}
 			;
+
+			{
+				auto BlockingActorCheckout = fg_BlockingActor();
+				co_await
+					(
+						g_Dispatch(BlockingActorCheckout) / [ExtractDirectory]
+						{
+							CFile::fs_CreateDirectory(ExtractDirectory);
+						}
+					)
+				;
+			}
 
 			CProcessLaunchActor::CSimpleLaunch Launch
 				(
 					CFile::fs_GetProgramDirectory() / ("bsdtar" + CFile::mc_ExecutableExtension)
 					, {"-xvf", FilePath}
-					, TempDir
+					, ExtractDirectory
 					, CProcessLaunchActor::ESimpleLaunchFlag_GenerateExceptionOnNonZeroExitCode
 				)
 			;
@@ -302,28 +321,29 @@ namespace NMib::NGit
 			{
 				auto File = Line.f_RemovePrefix("x ");
 				if (File.f_StartsWith("._"))
-				{
-					auto BlockingActorCheckout = fg_BlockingActor();
-					co_await
-						(
-							g_Dispatch(BlockingActorCheckout) / [ToDelete = TempDir / File]
-							{
-								CFile::fs_DeleteFile(ToDelete);
-							}
-						)
-					;
-
 					continue;
-				}
+
 				Files.f_Insert(fg_Move(File));
 			}
 
 			if (Files.f_GetLen() != 1)
 				co_return DMibErrorInstance("Expected only one file in tar archive. Got: {vs}"_f << Files);
 
+			{
+				auto BlockingActorCheckout = fg_BlockingActor();
+				co_await
+					(
+						g_Dispatch(BlockingActorCheckout) / [From = ExtractDirectory / Files[0], ExtractedPath]
+						{
+							CFile::fs_RenameFile(From, ExtractedPath);
+						}
+					)
+				;
+			}
+
 			co_await CleanupFileStateCompressed->f_Destroy();
 
-			co_return TempDir / Files[0];
+			co_return ExtractedPath;
 		}
 
 		co_return FilePath;
