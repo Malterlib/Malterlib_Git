@@ -429,13 +429,8 @@ namespace NMib::NGit
 		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::fp_PublicDownloadFile
-		(
-			CStr _Url
-			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
-			, CStr _ErrorDescription
-			, uint32 _ExpectedStatus
-		)
+	auto CGitHostingProvider_GitHub::fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus)
+		-> TCFuture<void>
 	{
 		CHttpClientActor::CRequest Request;
 

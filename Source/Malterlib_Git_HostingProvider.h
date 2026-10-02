@@ -20,7 +20,6 @@ namespace NMib::NGit
 		, mc_InvalidParameter
 		, mc_ParametersInvalid
 		, mc_Custom
-
 	};
 
 	struct CGitHostingProviderError
@@ -381,7 +380,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitAuthorEmail
 		{
- 			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -391,7 +390,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitterEmail
 		{
- 			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -401,7 +400,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_BranchName
 		{
- 			auto operator <=> (CGenericRule_BranchName const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_BranchName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -411,7 +410,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_TagName
 		{
- 			auto operator <=> (CGenericRule_TagName const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_TagName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -421,7 +420,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Workflow
 		{
- 			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -464,7 +463,7 @@ namespace NMib::NGit
 
 		struct CGenericRuleset
 		{
- 			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
 			bool f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const;
 
 			NStorage::TCOptional<NStr::CStr> m_Name;
@@ -525,7 +524,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_HasDownloads;
 			NStorage::TCOptional<bool> m_AllowForking;
 			NStorage::TCOptional<bool> m_AllowSquashMerge;
- 			NStorage::TCOptional<bool> m_AllowMergeCommit;
+			NStorage::TCOptional<bool> m_AllowMergeCommit;
 			NStorage::TCOptional<bool> m_AllowRebaseMerge;
 			NStorage::TCOptional<bool> m_AllowAutoMerge;
 			NStorage::TCOptional<bool> m_AllowUpdateBranch;
@@ -595,7 +594,7 @@ namespace NMib::NGit
 
 		struct CRelease
 		{
- 			NStr::CStr m_Identifier;
+			NStr::CStr m_Identifier;
 			NStr::CStr m_TagName;
 			NContainer::TCVector<CReleaseAsset> m_Assets;
 			NStr::CStr m_Name;
@@ -821,13 +820,7 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetCollaboratorPermission(NStr::CStr _Repository, NStr::CStr _User) = 0;
 		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions) = 0;
-		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions
-			(
-				NStr::CStr _Repository
-				, NContainer::TCSet<NStr::CStr> _Teams
-				, NContainer::TCSet<NStr::CStr> _Users
-			) = 0
-		;
+		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions(NStr::CStr _Repository, NContainer::TCSet<NStr::CStr> _Teams, NContainer::TCSet<NStr::CStr> _Users) = 0;
 
 		virtual NConcurrency::TCFuture<CRelease> f_CreateRelease(NStr::CStr _Repository, CCreateRelease _CreateRelease) = 0;
 		virtual NConcurrency::TCFuture<NStorage::TCOptional<CRelease>> f_GetRelease(NStr::CStr _Repository, NStr::CStr _ReleaseTag) = 0;

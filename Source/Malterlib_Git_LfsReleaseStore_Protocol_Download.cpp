@@ -51,8 +51,7 @@ namespace NMib::NGit
 		// construction in a factory so the retry loop below can hand a fresh
 		// callback (with reset byte counters) to each attempt without duplicating
 		// the lambda body.
-		auto fGetWriteData = [this, Size, CompressionRatio, FilePath, pFileReadState]
-			() -> TCActorFunctor<TCFuture<void> (CByteVector)>
+		auto fGetWriteData = [this, Size, CompressionRatio, FilePath, pFileReadState]() -> TCActorFunctor<TCFuture<void> (CByteVector)>
 			{
 				return g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
 					(CByteVector _Data) mutable -> TCFuture<void>
@@ -106,7 +105,7 @@ namespace NMib::NGit
 		TCVector<uint32> AttemptStatusCodes;
 		CStr PrivateLoginFailure;
 		bool bPrivateRetry = false;
-		for (umint iAttempt = 0; ; ++iAttempt)
+		for (umint iAttempt = 0;; ++iAttempt)
 		{
 			if (iAttempt > 0)
 			{
@@ -201,7 +200,8 @@ namespace NMib::NGit
 						<< PrivateLoginMessage
 						, fg_Move(pException)
 						, false
-					).f_ExceptionPointer()
+					)
+					.f_ExceptionPointer()
 				;
 			}
 
@@ -213,15 +213,7 @@ namespace NMib::NGit
 			{
 				auto fLogPrivateRetry = [&]
 					{
-						DMibLog
-							(
-								Info
-								, "Release asset download failed (attempt {}/{}); retrying with authenticated download: {}"
-								, iAttempt + 1
-								, c_MaxAttempts
-								, Result.f_GetExceptionStr()
-							)
-						;
+						DMibLog(Info, "Release asset download failed (attempt {}/{}); retrying with authenticated download: {}", iAttempt + 1, c_MaxAttempts, Result.f_GetExceptionStr());
 					}
 				;
 				if (mp_bLoggedIn)
@@ -245,28 +237,13 @@ namespace NMib::NGit
 					else if (!LoginResult)
 					{
 						PrivateLoginFailure = LoginResult.f_GetExceptionStr();
-						DMibLog
-							(
-								Info
-								, "Release asset private-download fallback login failed; continuing with public URL: {}"
-								, PrivateLoginFailure
-							)
-						;
+						DMibLog(Info, "Release asset private-download fallback login failed; continuing with public URL: {}", PrivateLoginFailure);
 					}
 				}
 			}
 
 			fp64 BackoffSeconds = fg_Min(fp64(60), fp64(uint64(1) << iAttempt));
-			DMibLog
-				(
-					Info
-					, "Release asset download failed (attempt {}/{}); retrying in {fe1}s: {}"
-					, iAttempt + 1
-					, c_MaxAttempts
-					, BackoffSeconds
-					, Result.f_GetExceptionStr()
-				)
-			;
+			DMibLog(Info, "Release asset download failed (attempt {}/{}); retrying in {fe1}s: {}", iAttempt + 1, c_MaxAttempts, BackoffSeconds, Result.f_GetExceptionStr());
 			co_await fg_Timeout(BackoffSeconds);
 		}
 
@@ -408,9 +385,7 @@ namespace NMib::NGit
 			{
 				co_return DMibErrorInstance
 					(
-						"Could not find release asset for object ID '{}' with tag '{}' on any remote in the chain of forked repositories"_f
-						<< mp_CurrentObjectID
-						<< TagName
+						"Could not find release asset for object ID '{}' with tag '{}' on any remote in the chain of forked repositories"_f << mp_CurrentObjectID << TagName
 					)
 				;
 			}

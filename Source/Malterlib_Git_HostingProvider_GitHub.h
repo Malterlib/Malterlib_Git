@@ -181,18 +181,12 @@ namespace NMib::NGit
 			)
 		;
 		TCFuture<CJsonSorted> fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
-		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription,CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
+		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
 		TCFuture<void> fp_RestApiPut(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 204);
 		TCFuture<void> fp_RestApiDelete(CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus = 204);
 
-		TCFuture<CJsonSorted> fp_RestApiUploadFile
-			(
-				CStr _Path
-				, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData
-				, uint64 _DataSize
-				, CStr _ErrorDescription
-				, uint32 _ExpectedStatus = 201
-			)
+		auto fp_RestApiUploadFile(CStr _Path, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData, uint64 _DataSize, CStr _ErrorDescription, uint32 _ExpectedStatus = 201)
+			-> TCFuture<CJsonSorted>
 		;
 		TCFuture<void> fp_RestApiDownloadFile
 			(

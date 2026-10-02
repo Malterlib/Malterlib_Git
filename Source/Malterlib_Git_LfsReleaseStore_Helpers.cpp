@@ -366,7 +366,7 @@ namespace NMib::NGit
 		CGitHostingProvider::CRelease Release;
 
 		bool bTryGetRelease = true;
-		for (umint iRetry = 0; ; ++iRetry)
+		for (umint iRetry = 0;; ++iRetry)
 		{
 			if (bTryGetRelease)
 			{

@@ -12,7 +12,7 @@ namespace NMib::NGit
 	struct CLfsReleaseStoreService : public CActor
 	{
 		enum class EUpdateReleaseIndexOption : uint32
- 		{
+		{
 			mc_None = 0
 			, mc_Pretend = DMibBit(0)
 			, mc_PruneOrphanedAssets = DMibBit(1)
@@ -22,20 +22,14 @@ namespace NMib::NGit
 
 		TCFuture<void> f_InitService();
 		TCFuture<void> f_WaitForExit();
-		TCFuture<void> f_UpdateReleaseIndex
-			(
-				CStr _Remote
-				, EUpdateReleaseIndexOption _Options
-				, TCFunction<void (CStr const &_Output)> _fOutputConsole
-			)
-		;
+		TCFuture<void> f_UpdateReleaseIndex(CStr _Remote, EUpdateReleaseIndexOption _Options, TCFunction<void (CStr const &_Output)> _fOutputConsole);
 
 		static constexpr umint mc_ReleaseBuckets = 1024;
 
 	private:
 		struct CCachedReleaseAsset
 		{
-			CGitHostingProvider::CReleaseAsset const * m_pSource = nullptr;
+			CGitHostingProvider::CReleaseAsset const *m_pSource = nullptr;
 			CStr m_ObjectID;
 			CStr m_PublicDownloadUrl;
 			uint64 m_AssetSize = 0;

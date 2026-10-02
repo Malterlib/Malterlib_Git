@@ -63,7 +63,7 @@ Property
 Property
 {
 	!!MalterlibEnableInternalTests true
-	
+
 	MalterlibTests =+ "Malterlib_Git"
 	MalterlibTestFiles_Malterlib_Git: [type(CEntity)] = ["Test/*"->MakeAbsolute()]
 	MalterlibTestDependencies_Malterlib_Git: [type(CEntity)] = ["Lib_Malterlib_Git"]

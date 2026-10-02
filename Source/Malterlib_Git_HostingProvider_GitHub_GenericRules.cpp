@@ -367,7 +367,8 @@ namespace NMib::NGit
 				, CJsonSorted &o_Output
 				, CStr const &_Name
 				, auto const &_OptionalValue
-			) -> TCUnsafeFuture<void>
+			)
+			-> TCUnsafeFuture<void>
 			{
 #if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
 #define _fThis(...) _fThis(_fThis, __VA_ARGS__)

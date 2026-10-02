@@ -32,7 +32,6 @@ namespace NMib::NGit
 				co_await fg_ParseRuleSetting(RuleValue, "BypassActors", OutRule.m_BypassActors);
 				co_await fg_ParseRuleSetting(RuleValue, "Rules", OutRule.m_Rules);
 				co_await fg_ParseRuleSetting(RuleValue, "Enforcement", OutRule.m_Enforcement);
-
 			}
 
 			co_return fg_Move(OutRules);
@@ -55,7 +54,7 @@ namespace NMib::NGit
 			auto &Ruleset = RulesetEntry.f_Value();
 
 			if (!Ruleset.m_Name)
-				continue;;
+				continue;
 
 			auto &Name = *Ruleset.m_Name;
 			AlreadyCreated[Name];
