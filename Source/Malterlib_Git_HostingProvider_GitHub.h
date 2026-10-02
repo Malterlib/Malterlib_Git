@@ -37,7 +37,7 @@ namespace NMib::NGit
 		{
 			CStr m_AppID;
 			CSecureByteVector m_PrivateKey; // DER. Secret
-			CStr m_InstallationID; // Empty: looked up from m_Repository
+			CStr m_InstallationID;          // Empty: looked up from m_Repository
 			CStr m_Repository;
 			NTime::CTime m_TokenExpires;
 		};
@@ -99,13 +99,8 @@ namespace NMib::NGit
 		static CPullRequest fs_ParsePullRequest(CJsonSorted const &_Json);
 		static TCVector<CPullRequest> fs_ParsePullRequests(CJsonSorted const &_Json);
 		static CStr fs_ParseCollaboratorPermission(CJsonSorted const &_Json);
-		static TCVector<CPullRequestFeedback> fs_ParsePullRequestFeedback
-			(
-				CJsonSorted const &_Reviews
-				, CJsonSorted const &_ReviewComments
-				, CJsonSorted const &_IssueComments
-				, NTime::CTime const &_Since
-			)
+		static auto fs_ParsePullRequestFeedback(CJsonSorted const &_Reviews, CJsonSorted const &_ReviewComments, CJsonSorted const &_IssueComments, NTime::CTime const &_Since)
+			-> TCVector<CPullRequestFeedback>
 		;
 
 		static NTime::CTime fs_ParseTime(CStr const &_Time);
@@ -114,14 +109,7 @@ namespace NMib::NGit
 
 		static bool fs_MergeRestPage(CJsonSorted &o_Result, CJsonSorted &&_Page, CStr const &_PagedArrayMember, umint _MaxItems);
 		static CStr fs_GetNextPageUrl(CStr const &_LinkHeader);
-		static TCOptional<CGitHostingProviderRateLimit> fs_GetRateLimit
-			(
-				uint32 _StatusCode
-				, TCMap<CStr, CStr, CCompareNoCase> const &_Headers
-				, CStr const &_Body
-				, NTime::CTime const &_Now
-			)
-		;
+		static TCOptional<CGitHostingProviderRateLimit> fs_GetRateLimit(uint32 _StatusCode, TCMap<CStr, CStr, CCompareNoCase> const &_Headers, CStr const &_Body, NTime::CTime const &_Now);
 
 	private:
 		struct CRepositorySlug
@@ -181,18 +169,12 @@ namespace NMib::NGit
 			)
 		;
 		TCFuture<CJsonSorted> fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
-		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription,CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
+		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
 		TCFuture<void> fp_RestApiPut(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 204);
 		TCFuture<void> fp_RestApiDelete(CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus = 204);
 
-		TCFuture<CJsonSorted> fp_RestApiUploadFile
-			(
-				CStr _Path
-				, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData
-				, uint64 _DataSize
-				, CStr _ErrorDescription
-				, uint32 _ExpectedStatus = 201
-			)
+		auto fp_RestApiUploadFile(CStr _Path, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData, uint64 _DataSize, CStr _ErrorDescription, uint32 _ExpectedStatus = 201)
+			-> TCFuture<CJsonSorted>
 		;
 		TCFuture<void> fp_RestApiDownloadFile
 			(
@@ -240,8 +222,8 @@ namespace NMib::NGit
 
 		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(CHttpClientActor::CCertificateConfig{}, mc_StallTimeout)};
 		CStr mp_Token;
-		uint64 mp_LoginGeneration = 0; // Changes with every f_Login, so a token renewal that a new login overlapped is discarded
-		TCOptional<CAppLogin> mp_AppLogin; // Set when logged in as a GitHub App installation, which renews mp_Token
+		uint64 mp_LoginGeneration = 0;                                      // Changes with every f_Login, so a token renewal that a new login overlapped is discarded
+		TCOptional<CAppLogin> mp_AppLogin;                                  // Set when logged in as a GitHub App installation, which renews mp_Token
 		TCOptional<TCVector<TCPromise<void>>> mp_AccessTokenRenewalWaiters; // Set while a renewal runs, with the calls waiting for it
 	};
 }

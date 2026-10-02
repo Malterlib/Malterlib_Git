@@ -11,13 +11,7 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules
-		(
-			CEJsonSorted _Rules
-			, CStr _Repository
-			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
-			, CStr _PolicyName
-		)
+	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules(CEJsonSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		auto Auditor = mp_State.f_Auditor();
 
@@ -32,11 +26,7 @@ namespace NMib::NGit::NGitPolicyManager
 				{
 					Auditor.f_Info
 						(
-							"{}Appying policy '{}' resulted in created generic ruleset for branch pattern '{}' on '{}'"_f
-							<< fp_PretendDescription()
-							<< _PolicyName
-							<< _Name
-							<< _Repository
+							"{}Appying policy '{}' resulted in created generic ruleset for branch pattern '{}' on '{}'"_f << fp_PretendDescription() << _PolicyName << _Name << _Repository
 						)
 					;
 

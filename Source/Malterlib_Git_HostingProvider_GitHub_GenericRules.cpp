@@ -367,10 +367,11 @@ namespace NMib::NGit
 				, CJsonSorted &o_Output
 				, CStr const &_Name
 				, auto const &_OptionalValue
-			) -> TCUnsafeFuture<void>
+			)
+			-> TCUnsafeFuture<void>
 			{
 #if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
-#define _fThis(...) _fThis(_fThis, __VA_ARGS__)
+#	define _fThis(...) _fThis(_fThis, __VA_ARGS__)
 #endif
 				using CValueType = TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>;
 				using CType = TCOptionalType<CValueType>;
@@ -582,7 +583,7 @@ namespace NMib::NGit
 		CJsonSorted Output;
 
 #if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
-#define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__)
+#	define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__)
 #endif
 
 		co_await fAddOptional(Output, "name", _Ruleset.m_Name);

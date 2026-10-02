@@ -20,7 +20,6 @@ namespace NMib::NGit
 		, mc_InvalidParameter
 		, mc_ParametersInvalid
 		, mc_Custom
-
 	};
 
 	struct CGitHostingProviderError
@@ -66,8 +65,8 @@ namespace NMib::NGit
 
 	DMibImpErrorSpecificClassDefine(CGitHostingProviderException, NMib::NException::CException, CGitHostingProviderExceptionData);
 
-#	define DMibErrorGitHostingProvider(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
-#	define DMibErrorInstanceGitHostingProvider(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
+#define DMibErrorGitHostingProvider(d_Description, d_Specific) DMibImpErrorSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
+#define DMibErrorInstanceGitHostingProvider(d_Description, d_Specific) DMibImpExceptionInstanceSpecific(NMib::NGit::CGitHostingProviderException, d_Description, d_Specific)
 
 	struct CGitHostingProvider;
 
@@ -381,7 +380,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitAuthorEmail
 		{
- 			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_CommitAuthorEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -391,7 +390,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_CommitterEmail
 		{
- 			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_CommitterEmail const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -401,7 +400,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_BranchName
 		{
- 			auto operator <=> (CGenericRule_BranchName const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_BranchName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -411,7 +410,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_TagName
 		{
- 			auto operator <=> (CGenericRule_TagName const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_TagName const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -421,7 +420,7 @@ namespace NMib::NGit
 
 		struct CGenericRule_Workflow
 		{
- 			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
 
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
@@ -464,7 +463,7 @@ namespace NMib::NGit
 
 		struct CGenericRuleset
 		{
- 			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
+			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
 			bool f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const;
 
 			NStorage::TCOptional<NStr::CStr> m_Name;
@@ -525,7 +524,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_HasDownloads;
 			NStorage::TCOptional<bool> m_AllowForking;
 			NStorage::TCOptional<bool> m_AllowSquashMerge;
- 			NStorage::TCOptional<bool> m_AllowMergeCommit;
+			NStorage::TCOptional<bool> m_AllowMergeCommit;
 			NStorage::TCOptional<bool> m_AllowRebaseMerge;
 			NStorage::TCOptional<bool> m_AllowAutoMerge;
 			NStorage::TCOptional<bool> m_AllowUpdateBranch;
@@ -595,7 +594,7 @@ namespace NMib::NGit
 
 		struct CRelease
 		{
- 			NStr::CStr m_Identifier;
+			NStr::CStr m_Identifier;
 			NStr::CStr m_TagName;
 			NContainer::TCVector<CReleaseAsset> m_Assets;
 			NStr::CStr m_Name;
@@ -689,7 +688,7 @@ namespace NMib::NGit
 		{
 			NStr::CStr m_Branch;
 			NStr::CStr m_Event;
-			NStr::CStr m_Status; // Empty lists runs in every status
+			NStr::CStr m_Status;   // Empty lists runs in every status
 			NStr::CStr m_HeadSha;
 			umint m_MaxRuns = 100; // Stops paging once reached, 0 pages through every run
 		};
@@ -724,7 +723,7 @@ namespace NMib::NGit
 			uint32 m_RunAttempt = 0;
 			NStr::CStr m_Name;
 			NStr::CStr m_Status;
-			NStr::CStr m_Conclusion; // Empty until the job has completed
+			NStr::CStr m_Conclusion;    // Empty until the job has completed
 			NStr::CStr m_HtmlUrl;
 			NStr::CStr m_HeadSha;
 			NTime::CTime m_StartedAt;
@@ -735,7 +734,7 @@ namespace NMib::NGit
 		struct CPullRequestFilter
 		{
 			NStr::CStr m_State = "open"; // open, closed or all
-			NStr::CStr m_Head; // owner:branch
+			NStr::CStr m_Head;           // owner:branch
 			NStr::CStr m_Base;
 		};
 
@@ -758,16 +757,16 @@ namespace NMib::NGit
 
 		enum class EPullRequestFeedbackKind : uint8
 		{
-			mc_Review // m_State is APPROVED, CHANGES_REQUESTED, COMMENTED or DISMISSED
+			mc_Review          // m_State is APPROVED, CHANGES_REQUESTED, COMMENTED or DISMISSED
 			, mc_ReviewComment // Inline on a file and line
-			, mc_IssueComment // The pull request conversation
+			, mc_IssueComment  // The pull request conversation
 		};
 
 		struct CPullRequestFeedback
 		{
 			EPullRequestFeedbackKind m_Kind = EPullRequestFeedbackKind::mc_IssueComment;
 			uint64 m_ID = 0;
-			uint64 m_ReviewID = 0; // The review an inline comment belongs to; a review's own ID for reviews
+			uint64 m_ReviewID = 0;          // The review an inline comment belongs to; a review's own ID for reviews
 			uint64 m_InReplyToID = 0;
 			NStr::CStr m_User;
 			NStr::CStr m_AuthorAssociation; // OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, NONE, ...
@@ -776,13 +775,13 @@ namespace NMib::NGit
 			NStr::CStr m_Path;
 			uint32 m_Line = 0;
 			NStr::CStr m_HtmlUrl;
-			NTime::CTime m_CreatedAt; // Submission time for reviews
+			NTime::CTime m_CreatedAt;       // Submission time for reviews
 			NTime::CTime m_UpdatedAt;
 		};
 
 		struct CAccessToken
 		{
-			NStr::CStr m_Token; // Secret
+			NStr::CStr m_Token;     // Secret
 			NTime::CTime m_Expires; // Invalid for a token that doesn't expire on its own
 		};
 
@@ -821,13 +820,7 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetCollaboratorPermission(NStr::CStr _Repository, NStr::CStr _User) = 0;
 		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions) = 0;
-		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions
-			(
-				NStr::CStr _Repository
-				, NContainer::TCSet<NStr::CStr> _Teams
-				, NContainer::TCSet<NStr::CStr> _Users
-			) = 0
-		;
+		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions(NStr::CStr _Repository, NContainer::TCSet<NStr::CStr> _Teams, NContainer::TCSet<NStr::CStr> _Users) = 0;
 
 		virtual NConcurrency::TCFuture<CRelease> f_CreateRelease(NStr::CStr _Repository, CCreateRelease _CreateRelease) = 0;
 		virtual NConcurrency::TCFuture<NStorage::TCOptional<CRelease>> f_GetRelease(NStr::CStr _Repository, NStr::CStr _ReleaseTag) = 0;
@@ -887,7 +880,7 @@ namespace NMib::NGit
 #define	DMibGitHostingProviderMakeActive(d_ClassName) fg_Malterlib_MakeActive_##d_ClassName()
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NGit;
+using namespace NMib::NGit;
 #endif
 
 #include "Malterlib_Git_HostingProvider.hpp"

@@ -134,12 +134,12 @@ namespace NMib::NGit
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		if constexpr
-			(
-				requires ()
-				{
-					_Actor.template f_GetAsType<CUser>();
-				}
-			)
+		(
+			requires ()
+			{
+				_Actor.template f_GetAsType<CUser>();
+			}
+		)
 		{
 			if (_Actor.template f_IsOfType<CUser>())
 			{
@@ -187,12 +187,12 @@ namespace NMib::NGit
 			co_return "1";
 
 		if constexpr
-			(
-				requires ()
-				{
-					_Actor.template f_GetAsType<CRepositoryRole>();
-				}
-			)
+		(
+			requires ()
+			{
+				_Actor.template f_GetAsType<CRepositoryRole>();
+			}
+		)
 		{
 			if (_Actor.template f_IsOfType<CRepositoryRole>())
 			{
