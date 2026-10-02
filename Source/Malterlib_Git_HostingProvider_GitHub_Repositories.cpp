@@ -193,7 +193,7 @@ namespace NMib::NGit
 				o_Json["has_wiki"] = *_Repository.m_HasWiki;
 			if (_Repository.m_AllowSquashMerge)
 				o_Json["allow_squash_merge"] = *_Repository.m_AllowSquashMerge;
- 			if (_Repository.m_AllowMergeCommit)
+			if (_Repository.m_AllowMergeCommit)
 				o_Json["allow_merge_commit"] = *_Repository.m_AllowMergeCommit;
 			if (_Repository.m_AllowRebaseMerge)
 				o_Json["allow_rebase_merge"] = *_Repository.m_AllowRebaseMerge;

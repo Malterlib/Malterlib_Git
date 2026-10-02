@@ -244,7 +244,7 @@ namespace NMib::NGit
 
 	CStr fg_FindGitWorkingTreeRoot(CStr const &_Directory)
 	{
-		for (auto Directory = _Directory; Directory; )
+		for (auto Directory = _Directory; Directory;)
 		{
 			if (CFile::fs_FileExists(Directory / ".git"))
 				return Directory;

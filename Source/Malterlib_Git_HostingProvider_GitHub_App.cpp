@@ -73,7 +73,8 @@ namespace NMib::NGit
 
 		CStr Url = NWeb::NHTTP::CURL("https://api.github.com/{}"_f << _Path).f_Encode();
 
-		auto Result = _Method == CHttpClientActor::EMethod_POST
+		auto Result
+			= _Method == CHttpClientActor::EMethod_POST
 			? co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url, fg_Move(Headers), CJsonSorted(EJsonType_Object))
 			: co_await mp_HttpClientActor(&CHttpClientActor::f_Get, Url, fg_Move(Headers))
 		;
@@ -158,14 +159,7 @@ namespace NMib::NGit
 			InstallationID = "{}"_f << ID;
 		}
 
-		auto Token = co_await fp_AppApi
-			(
-				CHttpClientActor::EMethod_POST
-				, "app/installations/{}/access_tokens"_f << InstallationID
-				, "Failed to create a GitHub App installation token"
-				, 201
-			)
-		;
+		auto Token = co_await fp_AppApi(CHttpClientActor::EMethod_POST, "app/installations/{}/access_tokens"_f << InstallationID, "Failed to create a GitHub App installation token", 201);
 
 		CStr NewToken = fsp_GetJsonString(Token, "token");
 		NTime::CTime Expires = fsp_GetJsonTime(Token, "expires_at");

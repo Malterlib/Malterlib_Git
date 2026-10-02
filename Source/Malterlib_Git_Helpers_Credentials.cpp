@@ -15,7 +15,7 @@ namespace NMib::NGit
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 
-		CStr CredentialFillQuery ="url={}\n"_f << _Url.f_Encode();
+		CStr CredentialFillQuery = "url={}\n"_f << _Url.f_Encode();
 
 		if (_Url.f_HasUsername())
 			CredentialFillQuery += "username={}\n"_f << _Url.f_GetUsername();

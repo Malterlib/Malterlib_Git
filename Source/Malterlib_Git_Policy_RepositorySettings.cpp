@@ -108,7 +108,8 @@ namespace NMib::NGit
 						(
 							"Cannot create repository under '{}': the target is a user account that is not the authenticated user '{}'. "
 							"Repositories can only be created in the authenticated user's own namespace or in an organization they can write to."_f
-							<< Owner << AuthUser.m_Login
+							<< Owner
+							<< AuthUser.m_Login
 						)
 					;
 				}

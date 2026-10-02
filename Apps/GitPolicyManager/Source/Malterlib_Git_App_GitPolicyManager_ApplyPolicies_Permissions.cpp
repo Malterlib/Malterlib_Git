@@ -11,7 +11,8 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJsonSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	auto CGitPolicyManagerActor::fp_ApplyPolicies_Permissions(CEJsonSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+		-> TCFuture<void>
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -26,15 +27,7 @@ namespace NMib::NGit::NGitPolicyManager
 				, .m_HostingProvider = _HostingProvider
 				, .m_fOnCreate = g_ActorFunctor / [=, this](CStr _Name, CStr _CreatedValues) -> TCFuture<void>
 				{
-					Auditor.f_Info
-						(
-							"{}Appying policy '{}' resulted in add permissions to repository '{}': {}"_f
-							<< fp_PretendDescription()
-							<< _PolicyName
-							<< _Repository
-							<< _CreatedValues
-						)
-					;
+					Auditor.f_Info("{}Appying policy '{}' resulted in add permissions to repository '{}': {}"_f << fp_PretendDescription() << _PolicyName << _Repository << _CreatedValues);
 
 					co_return {};
 				}
@@ -42,11 +35,7 @@ namespace NMib::NGit::NGitPolicyManager
 				{
 					Auditor.f_Warning
 						(
-							"{}Appying policy '{}' resulted in updated permissions on repository '{}': {}"_f
-							<< fp_PretendDescription()
-							<< _PolicyName
-							<< _Repository
-							<< _UpdatedValues
+							"{}Appying policy '{}' resulted in updated permissions on repository '{}': {}"_f << fp_PretendDescription() << _PolicyName << _Repository << _UpdatedValues
 						)
 					;
 
@@ -56,11 +45,7 @@ namespace NMib::NGit::NGitPolicyManager
 				{
 					Auditor.f_Warning
 						(
-							"{}Appying policy '{}' resulted in removed permissions on repository '{}': {}"_f
-							<< fp_PretendDescription()
-							<< _PolicyName
-							<< _Repository
-							<< _DeletedValues
+							"{}Appying policy '{}' resulted in removed permissions on repository '{}': {}"_f << fp_PretendDescription() << _PolicyName << _Repository << _DeletedValues
 						)
 					;
 
