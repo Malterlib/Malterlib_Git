@@ -7,14 +7,7 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		TCMap<CStr, CStr> fg_GetChangedPermissions
-			(
-				TCMap<CStr, CStr> &_CurrentPermissions
-				, TCMap<CStr, CStr> &_WantedPermissions
-				, TCSet<CStr> &o_Removed
-				, CStr &o_Added
-				, CStr &o_Updated
-			)
+		TCMap<CStr, CStr> fg_GetChangedPermissions(TCMap<CStr, CStr> &_CurrentPermissions, TCMap<CStr, CStr> &_WantedPermissions, TCSet<CStr> &o_Removed, CStr &o_Added, CStr &o_Updated)
 		{
 			TCMap<CStr, CStr> AddedOrUpdatedPermissions;
 

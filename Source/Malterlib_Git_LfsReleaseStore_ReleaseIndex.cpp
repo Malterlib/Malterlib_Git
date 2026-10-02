@@ -18,12 +18,7 @@ namespace NMib::NGit
 		constexpr CStr gc_IndexTagName = gc_Str<"lfs/index">;
 	}
 
-	TCFuture<void> CLfsReleaseStoreService::f_UpdateReleaseIndex
-		(
-			CStr _Remote
-			, EUpdateReleaseIndexOption _Options
-			, TCFunction<void (CStr const &_Output)> _fOutputConsole
-		)
+	TCFuture<void> CLfsReleaseStoreService::f_UpdateReleaseIndex(CStr _Remote, EUpdateReleaseIndexOption _Options, TCFunction<void (CStr const &_Output)> _fOutputConsole)
 	{
 		mp_fOutputConsole = _fOutputConsole;
 
@@ -91,10 +86,7 @@ namespace NMib::NGit
 					{
 						co_return DMibErrorInstance
 							(
-								"{}: Could not find release for tag '{}' on any remote in the chain of forked repositories: {}"_f
-								<< mp_WorkingDirectory
-								<< TagName
-								<< _Remote
+								"{}: Could not find release for tag '{}' on any remote in the chain of forked repositories: {}"_f << mp_WorkingDirectory << TagName << _Remote
 							)
 						;
 						break;
@@ -225,7 +217,7 @@ namespace NMib::NGit
 		;
 
 		constexpr umint c_MaxAttempts = 6;
-		for (umint iAttempt = 0; ; ++iAttempt)
+		for (umint iAttempt = 0;; ++iAttempt)
 		{
 			if (iAttempt > 0)
 				pReleaseData->f_Clear();
@@ -239,7 +231,8 @@ namespace NMib::NGit
 						.m_Url = PublicDownloadUrl
 						, .m_fWriteData = fGetWriteData()
 					}
-				).f_Wrap()
+				)
+				.f_Wrap()
 			;
 
 			if (PublicDownloadResult)
@@ -262,16 +255,7 @@ namespace NMib::NGit
 				co_return {};
 
 			fp64 BackoffSeconds = fg_Min(fp64(60), fp64(uint64(1) << iAttempt));
-			DMibLog
-				(
-					Info
-					, "Release index download failed (attempt {}/{}); retrying in {fe1}s: {}"
-					, iAttempt + 1
-					, c_MaxAttempts
-					, BackoffSeconds
-					, PublicDownloadResult.f_GetExceptionStr()
-				)
-			;
+			DMibLog(Info, "Release index download failed (attempt {}/{}); retrying in {fe1}s: {}", iAttempt + 1, c_MaxAttempts, BackoffSeconds, PublicDownloadResult.f_GetExceptionStr());
 			co_await fg_Timeout(BackoffSeconds);
 		}
 	}

@@ -119,9 +119,7 @@ namespace NMib::NGit
 	void CGitHostingProvider::CGenericRule_Deployments::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "Deployments\n";
-		o_Str += typename tf_CStr::CFormat("    RequiredEnvironments: {}")
-			<< CStr::fs_ToStr(m_RequiredDeploymentEnvironments).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    RequiredEnvironments: {}") << CStr::fs_ToStr(m_RequiredDeploymentEnvironments).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
@@ -186,72 +184,42 @@ namespace NMib::NGit
 	void CGitHostingProvider::CGenericRule_CommitMessage::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitMessage";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    StringMatch: {}"
-			)
-			<< CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_CommitAuthorEmail::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitAuthorEmail";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    StringMatch: {}"
-			)
-			<< CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_CommitterEmail::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitterEmail";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    StringMatch: {}"
-			)
-			<< CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_BranchName::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "BranchName";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    StringMatch: {}"
-			)
-			<< CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_TagName::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "TagName";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    StringMatch: {}"
-			)
-			<< CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_Workflow::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "Workflow";
-		o_Str += typename tf_CStr::CFormat
-			(
-				"    Workflows: {}"
-			)
-			<< CStr::fs_ToStr(m_Workflows).f_Indent("        ", false)
-		;
+		o_Str += typename tf_CStr::CFormat("    Workflows: {}") << CStr::fs_ToStr(m_Workflows).f_Indent("        ", false);
 		o_Str += typename tf_CStr::CFormat("{}");
 	}
 

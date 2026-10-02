@@ -58,7 +58,7 @@ namespace NMib::NGit
 		return f_GetValue(_Section, CStr(), _Key);
 	}
 
-	static bool fg_ParseComment(ch8 const *&_pParse)
+	static bool fg_ParseComment(ch8 const * &_pParse)
 	{
 		if (*_pParse != '#' && *_pParse != ';')
 			return false;
@@ -68,7 +68,7 @@ namespace NMib::NGit
 		return true;
 	}
 
-	static void fg_ParseEscape(ch8 const *&_pParse)
+	static void fg_ParseEscape(ch8 const * &_pParse)
 	{
 		auto *pParse = _pParse;
 		auto *pParseStartFunction = pParse;
@@ -211,7 +211,7 @@ namespace NMib::NGit
 					SubSection = fg_RemoveEscape(CStr(CInitByRange(), pParseStart, pParse));
 				}
 
-				while(*pParse && *pParse != ']' && !fg_CharIsNewLine(*pParse))
+				while (*pParse && *pParse != ']' && !fg_CharIsNewLine(*pParse))
 					++pParse;
 
 				continue;

@@ -160,7 +160,7 @@ namespace NMib::NGit
 	namespace
 	{
 		template <typename tf_CClass>
-		bool fg_IsUpdated(auto &_Wanted, auto &_Current, auto (tf_CClass::*_pMember), CStr const &_Name, CStr &o_UpdateValues)
+		bool fg_IsUpdated(auto &_Wanted, auto &_Current, auto(tf_CClass:: *_pMember), CStr const &_Name, CStr &o_UpdateValues)
 		{
 			auto &Wanted = _Wanted.*_pMember;
 			auto &Current = _Current.*_pMember;
@@ -173,12 +173,12 @@ namespace NMib::NGit
 
 			CStr NewValue;
 			if constexpr
-				(
-					requires ()
-					{
-						fg_EnumToString(*Wanted);
-					}
-				)
+			(
+				requires ()
+				{
+					fg_EnumToString(*Wanted);
+				}
+			)
 			{
 				NewValue = fg_EnumToString(*Wanted);
 			}
@@ -189,12 +189,12 @@ namespace NMib::NGit
 			{
 				CStr OldValue;
 				if constexpr
-					(
-						requires ()
-						{
-							fg_EnumToString(*Current);
-						}
-					)
+				(
+					requires ()
+					{
+						fg_EnumToString(*Current);
+					}
+				)
 				{
 					OldValue = fg_EnumToString(*Current);
 				}
@@ -248,7 +248,7 @@ namespace NMib::NGit
 	{
 		bool bRet = false;
 
-		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CBranchProtectionRule::*_pMember), CStr const &_Name)
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto(CBranchProtectionRule:: *_pMember), CStr const &_Name)
 			{
 				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
 					bRet = true;
@@ -286,7 +286,7 @@ namespace NMib::NGit
 	{
 		bool bRet = false;
 
-		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CGenericRuleset::*_pMember), CStr const &_Name)
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto(CGenericRuleset:: *_pMember), CStr const &_Name)
 			{
 				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
 					bRet = true;
@@ -308,7 +308,7 @@ namespace NMib::NGit
 	{
 		bool bRet = false;
 
-		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CRepository::*_pMember), CStr const &_Name)
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto(CRepository:: *_pMember), CStr const &_Name)
 			{
 				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
 					bRet = true;
@@ -352,7 +352,7 @@ namespace NMib::NGit
 	{
 		bool bRet = false;
 
-		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto (CActionsSettings::*_pMember), CStr const &_Name)
+		auto fCheckValue = [&](auto &_Wanted, auto &_Current, auto(CActionsSettings:: *_pMember), CStr const &_Name)
 			{
 				if (fg_IsUpdated(_Wanted, _Current, _pMember, _Name, o_UpdateValues))
 					bRet = true;

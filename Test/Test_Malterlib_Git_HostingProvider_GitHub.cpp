@@ -501,14 +501,7 @@ namespace
 
 					DMibTestCategory("Since")
 					{
-						auto Feedback = CGitHub::fs_ParsePullRequestFeedback
-							(
-								Reviews
-								, ReviewComments
-								, IssueComments
-								, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 10, 0, 0)
-							)
-						;
+						auto Feedback = CGitHub::fs_ParsePullRequestFeedback(Reviews, ReviewComments, IssueComments, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 10, 0, 0));
 						DMibAssert(Feedback.f_GetLen(), ==, 4);
 
 						auto &IssueComment = Feedback[0];

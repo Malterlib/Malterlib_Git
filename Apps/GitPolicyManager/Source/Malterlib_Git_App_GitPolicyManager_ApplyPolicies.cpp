@@ -37,23 +37,17 @@ namespace NMib::NGit::NGitPolicyManager
 			bool f_Matches(CStr const &_Name) const
 			{
 				if
-					(
-						f_IsActive()
-						&& m_Include.f_Contains(_Name) < 0
-						&& !NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_IncludeWildcards)
-					)
+				(
+					f_IsActive()
+					&& m_Include.f_Contains(_Name) < 0
+					&& !NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_IncludeWildcards)
+				)
 				{
 					return false;
 				}
 
-				if
-					(
-						m_Exclude.f_Contains(_Name) >= 0
-						|| NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_ExcludeWildcards)
-					)
-				{
+				if (m_Exclude.f_Contains(_Name) >= 0 || NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_ExcludeWildcards))
 					return false;
-				}
 
 				return true;
 			}
@@ -154,12 +148,7 @@ namespace NMib::NGit::NGitPolicyManager
 
 			auto HostingProvider = CGitHostingProvider::fs_CreateHostingProvider(*pProvider);
 
-			co_await HostingProvider
-				(
-					&CGitHostingProvider::f_Login
-					, CEJsonSorted::fs_FromCompatible(Config["Authentication"])
-				)
-			;
+			co_await HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted::fs_FromCompatible(Config["Authentication"]));
 
 			auto Repositories = co_await HostingProvider(&CGitHostingProvider::f_GetRepositories, Config["Organizations"].f_StringArray(), false);
 

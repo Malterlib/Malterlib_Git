@@ -9,13 +9,8 @@ namespace NMib::NGit
 {
 	namespace
 	{
-		CGitHostingProvider::CActionsSettings fg_ParseActionsSettings
-			(
-				CJsonSorted const &_Permissions
-				, CJsonSorted const &_SelectedActions
-				, CJsonSorted const &_LevelOfAccess
-				, CJsonSorted const &_WorkflowPermissions
-			)
+		auto fg_ParseActionsSettings(CJsonSorted const &_Permissions, CJsonSorted const &_SelectedActions, CJsonSorted const &_LevelOfAccess, CJsonSorted const &_WorkflowPermissions)
+			-> CGitHostingProvider::CActionsSettings
 		{
 			CGitHostingProvider::CActionsSettings ActionsSettings;
 
@@ -181,7 +176,8 @@ namespace NMib::NGit
 					"repos/{}/{}/actions/permissions/access"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
 					, "Failed to get repository actions permissions (level of access) '{}'"_f << _Repository
 				)
-			).f_Wrap()
+			)
+			.f_Wrap()
 		;
 
 		if (!LevelOfAccess && LevelOfAccess.f_GetExceptionStr().f_Find("Access policy only applies to internal and private repositories.") < 0)
@@ -211,15 +207,7 @@ namespace NMib::NGit
 		CJsonSorted LevelOfAccess;
 		CJsonSorted WorkflowPermissions;
 
-		fg_ActionsSettingsToJson
-			(
-				_ActionsSettings
-				, Permissions
-				, SelectedActions
-				, LevelOfAccess
-				, WorkflowPermissions
-			)
-		;
+		fg_ActionsSettingsToJson(_ActionsSettings, Permissions, SelectedActions, LevelOfAccess, WorkflowPermissions);
 
 		if (Permissions.f_IsValid())
 		{

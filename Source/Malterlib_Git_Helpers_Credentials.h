@@ -12,5 +12,5 @@ namespace NMib::NGit
 }
 
 #ifndef DMibPNoShortCuts
-	using namespace NMib::NGit;
+using namespace NMib::NGit;
 #endif

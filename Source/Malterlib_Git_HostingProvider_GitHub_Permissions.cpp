@@ -39,11 +39,7 @@ namespace NMib::NGit
 		for (auto &Team : Teams.f_Array())
 			OutPermissions.m_TeamPermissions[Team["slug"].f_String()] = fg_PermissionToRole(Team["permission"].f_String());
 
-		auto const Users = co_await
-			(
-				fp_RestApi("repos/{}/collaborators"_f << _Repository, "Failed to get collaborators from repository '{}'"_f << _Repository, {{"affiliation", "direct"}})
-			)
-		;
+		auto const Users = co_await (fp_RestApi("repos/{}/collaborators"_f << _Repository, "Failed to get collaborators from repository '{}'"_f << _Repository, {{"affiliation", "direct"}}));
 
 		for (auto &User : Users.f_Array())
 			OutPermissions.m_UserPermissions[User["login"].f_String()] = User["role_name"].f_String();
