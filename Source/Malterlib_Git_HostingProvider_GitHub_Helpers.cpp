@@ -23,6 +23,93 @@ namespace NMib::NGit
 		co_return CRepositorySlug{.m_Owner = RepoSplit[0], .m_Name = RepoSplit[1]};
 	}
 
+	// Parses the UTC timestamps GitHub returns, such as 2026-10-12T07:43:04Z. Returns an invalid time for anything else.
+	NTime::CTime CGitHostingProvider_GitHub::fs_ParseTime(CStr const &_Time)
+	{
+		int64 Year = 0;
+		int32 Month = 0;
+		int32 Day = 0;
+		int32 Hour = 0;
+		int32 Minute = 0;
+		int32 Second = 0;
+		aint nParsed = 0;
+
+		(CStr::CParse("{}-{}-{}T{}:{}:{}Z") >> Year >> Month >> Day >> Hour >> Minute >> Second).f_Parse(_Time, nParsed);
+
+		if (nParsed != 6)
+			return {};
+
+		if (Month < 1 || Month > 12 || Day < 1 || Day > NTime::CTimeConvert::fs_GetDaysInMonth(Year, Month - 1))
+			return {};
+
+		if (Hour < 0 || Hour > 23 || Minute < 0 || Minute > 59 || Second < 0 || Second > 59)
+			return {};
+
+		return NTime::CTimeConvert::fs_CreateTime(Year, Month, Day, Hour, Minute, Second);
+	}
+
+	CStr CGitHostingProvider_GitHub::fs_FormatTime(NTime::CTime const &_Time)
+	{
+		auto DateTime = NTime::CTimeConvert{_Time}.f_ExtractDateTime();
+
+		return "{}-{sj2,sf0}-{sj2,sf0}T{sj2,sf0}:{sj2,sf0}:{sj2,sf0}Z"_f
+			<< DateTime.m_Year
+			<< DateTime.m_Month
+			<< DateTime.m_DayOfMonth
+			<< DateTime.m_Hour
+			<< DateTime.m_Minute
+			<< DateTime.m_Second
+		;
+	}
+
+	CStr CGitHostingProvider_GitHub::fsp_GetJsonString(CJsonSorted const &_Json, CStr const &_Member)
+	{
+		if (auto *pValue = _Json.f_GetMember(_Member, EJsonType_String))
+			return pValue->f_String();
+
+		return {};
+	}
+
+	uint64 CGitHostingProvider_GitHub::fsp_GetJsonUnsigned(CJsonSorted const &_Json, CStr const &_Member)
+	{
+		if (auto *pValue = _Json.f_GetMember(_Member, EJsonType_Integer); pValue && pValue->f_Integer() >= 0)
+			return pValue->f_Integer();
+
+		return 0;
+	}
+
+	bool CGitHostingProvider_GitHub::fsp_GetJsonBool(CJsonSorted const &_Json, CStr const &_Member)
+	{
+		if (auto *pValue = _Json.f_GetMember(_Member, EJsonType_Boolean))
+			return pValue->f_Boolean();
+
+		return false;
+	}
+
+	NTime::CTime CGitHostingProvider_GitHub::fsp_GetJsonTime(CJsonSorted const &_Json, CStr const &_Member)
+	{
+		if (auto *pValue = _Json.f_GetMember(_Member, EJsonType_String))
+			return fs_ParseTime(pValue->f_String());
+
+		return {};
+	}
+
+	CStr CGitHostingProvider_GitHub::fsp_GetJsonUserLogin(CJsonSorted const &_Json)
+	{
+		if (auto *pUser = _Json.f_GetMember("user", EJsonType_Object))
+			return fsp_GetJsonString(*pUser, "login");
+
+		return {};
+	}
+
+	CJsonSorted::CArray const &CGitHostingProvider_GitHub::fsp_GetJsonArray(CJsonSorted const &_Json, CStr const &_Member)
+	{
+		if (auto *pValue = _Json.f_GetMember(_Member, EJsonType_Array))
+			return pValue->f_Array();
+
+		DMibError("GitHub response has no '{}' array"_f << _Member);
+	}
+
 	TCFuture<CStr> CGitHostingProvider_GitHub::fp_GetAppID(CApp _App, bool _bGraphQL)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;

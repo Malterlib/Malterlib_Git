@@ -9,7 +9,9 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive)
+	/// _Environment is merged over the process's own for git and its credential helper, such as a PATH that finds a helper like
+	/// `gh auth git-credential` when the process itself was started with a minimal one
+	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive, CSystemEnvironment _Environment)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 
@@ -46,13 +48,15 @@ namespace NMib::NGit
 		// such users should either configure `credential.helper` (the
 		// conventional non-interactive path) or export GIT_ASKPASS pointing at
 		// their script.
-		CSystemEnvironment Env;
+		CSystemEnvironment Env = fg_Move(_Environment);
 		Env["GIT_TERMINAL_PROMPT"] = "0";
 		auto *pSystem = fg_GetSys();
-		bool bHasGitAskPass = false;
-		bool bHasSshAskPass = false;
-		pSystem->f_GetEnvironmentVariable("GIT_ASKPASS", {}, &bHasGitAskPass);
-		pSystem->f_GetEnvironmentVariable("SSH_ASKPASS", {}, &bHasSshAskPass);
+		bool bHasGitAskPass = Env.f_FindEqual("GIT_ASKPASS") != nullptr;
+		bool bHasSshAskPass = Env.f_FindEqual("SSH_ASKPASS") != nullptr;
+		if (!bHasGitAskPass)
+			pSystem->f_GetEnvironmentVariable("GIT_ASKPASS", {}, &bHasGitAskPass);
+		if (!bHasSshAskPass)
+			pSystem->f_GetEnvironmentVariable("SSH_ASKPASS", {}, &bHasSshAskPass);
 
 		auto fEnvVarIsTruthy = [&](CStr const &_Name)
 			{

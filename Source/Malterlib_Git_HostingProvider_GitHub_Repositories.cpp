@@ -615,6 +615,10 @@ namespace NMib::NGit
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
+		// An installation token can't read GET /user
+		if (mp_AppLogin)
+			co_return co_await fp_GetAppUser();
+
 		// GET /user returns the authenticated user's profile (login, id, name).
 		auto const Data = co_await fp_RestApi("user", "Failed to get authenticated user");
 

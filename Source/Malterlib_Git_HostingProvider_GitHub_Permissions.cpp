@@ -51,6 +51,43 @@ namespace NMib::NGit
 		co_return fg_Move(OutPermissions);
 	}
 
+	/// The legacy permission of GET repos/{o}/{r}/collaborators/{username}/permission: "admin", "write", "read" or "none". Unlike
+	/// role_name it folds maintain into write and triage into read, so callers compare against four values only.
+	CStr CGitHostingProvider_GitHub::fs_ParseCollaboratorPermission(CJsonSorted const &_Json)
+	{
+		if (!_Json.f_IsObject())
+			DMibError("GitHub collaborator permission is not an object");
+
+		CStr Permission = fsp_GetJsonString(_Json, "permission");
+		if (Permission != "admin" && Permission != "write" && Permission != "read" && Permission != "none")
+			DMibError("GitHub returned an unknown collaborator permission '{}'"_f << Permission);
+
+		return Permission;
+	}
+
+	/// The user's effective permission on the repository, including access through teams and the organization, unlike
+	/// f_GetRepositoryPermissions, which lists direct collaborators only. A user GitHub doesn't know has "none".
+	auto CGitHostingProvider_GitHub::f_GetCollaboratorPermission(CStr _Repository, CStr _User) -> TCFuture<CStr>
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto Data = co_await fp_RestApi
+			(
+				"repos/{}/{}/collaborators/{}/permission"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _User
+				, "Failed to get the permission of '{}' in repository '{}'"_f << _User << _Repository
+				, {}
+				, 404
+			)
+		;
+
+		if (!Data.f_IsValid())
+			co_return CStr("none");
+
+		auto CaptureExceptions = co_await g_CaptureExceptions;
+
+		co_return fs_ParseCollaboratorPermission(Data);
+	}
+
 	TCFuture<void> CGitHostingProvider_GitHub::f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;

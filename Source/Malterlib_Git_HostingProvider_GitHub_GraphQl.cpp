@@ -9,6 +9,8 @@ namespace NMib::NGit
 {
 	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_GraphQlApi(CStr _Query, CJsonSorted _Variables)
 	{
+		co_await fp_EnsureAccessToken();
+
 		CJsonSorted QueryJson;
 		QueryJson["query"] = fg_Move(_Query);
 		QueryJson["variables"] = fg_Move(_Variables);

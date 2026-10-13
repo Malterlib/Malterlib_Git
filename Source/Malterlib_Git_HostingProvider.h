@@ -6,6 +6,7 @@
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Concurrency/DistributedActorTrustManager>
 #include <Mib/Core/RuntimeType>
+#include <Mib/Time/Time>
 #include <Mib/Web/HttpClient>
 
 namespace NMib::NGit
@@ -39,8 +40,20 @@ namespace NMib::NGit
 		EGitHostingProviderErrorCode m_Code = EGitHostingProviderErrorCode::mc_None;
 	};
 
+	struct CGitHostingProviderRateLimit
+	{
+		template <typename tf_CStream>
+		void f_Stream(tf_CStream &_Stream);
+
+		NTime::CTime m_ResetTime; // Invalid when the response did not say when the limit resets
+		NStorage::TCOptional<uint64> m_Remaining;
+		NStorage::TCOptional<uint64> m_RetryAfterSeconds;
+	};
+
 	struct CGitHostingProviderExceptionData : public CHttpClientRequestExceptionData
 	{
+		static constexpr uint32 mc_StreamVersion = 1; // 1: m_RateLimit
+
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
@@ -48,6 +61,7 @@ namespace NMib::NGit
 
 		CStr m_GitRawError;
 		TCVector<CGitHostingProviderError> m_GitErrors;
+		NStorage::TCOptional<CGitHostingProviderRateLimit> m_RateLimit; // Set when the provider rejected the request because a rate limit was exceeded
 	};
 
 	DMibImpErrorSpecificClassDefine(CGitHostingProviderException, NMib::NException::CException, CGitHostingProviderExceptionData);
@@ -671,9 +685,114 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_CanApprovePullRequestReviews;
 		};
 
+		struct CWorkflowRunFilter
+		{
+			NStr::CStr m_Branch;
+			NStr::CStr m_Event;
+			NStr::CStr m_Status; // Empty lists runs in every status
+			NStr::CStr m_HeadSha;
+			umint m_MaxRuns = 100; // Stops paging once reached, 0 pages through every run
+		};
+
+		struct CWorkflowRun
+		{
+			uint64 m_ID = 0;
+			uint32 m_RunAttempt = 0;
+			NStr::CStr m_Name;
+			NStr::CStr m_Event;
+			NStr::CStr m_HeadBranch;
+			NStr::CStr m_HeadSha;
+			NStr::CStr m_Status;
+			NStr::CStr m_Conclusion; // Empty until the run has completed
+			NStr::CStr m_HtmlUrl;
+			NTime::CTime m_CreatedAt;
+			NTime::CTime m_UpdatedAt;
+		};
+
+		struct CWorkflowStep
+		{
+			uint32 m_Number = 0;
+			NStr::CStr m_Name;
+			NStr::CStr m_Status;
+			NStr::CStr m_Conclusion; // Empty until the step has completed
+		};
+
+		struct CWorkflowJob
+		{
+			uint64 m_ID = 0;
+			uint64 m_RunID = 0;
+			uint32 m_RunAttempt = 0;
+			NStr::CStr m_Name;
+			NStr::CStr m_Status;
+			NStr::CStr m_Conclusion; // Empty until the job has completed
+			NStr::CStr m_HtmlUrl;
+			NStr::CStr m_HeadSha;
+			NTime::CTime m_StartedAt;
+			NTime::CTime m_CompletedAt; // Invalid until the job has completed
+			NContainer::TCVector<CWorkflowStep> m_Steps;
+		};
+
+		struct CPullRequestFilter
+		{
+			NStr::CStr m_State = "open"; // open, closed or all
+			NStr::CStr m_Head; // owner:branch
+			NStr::CStr m_Base;
+		};
+
+		struct CPullRequest
+		{
+			uint64 m_Number = 0;
+			NStr::CStr m_Title;
+			NStr::CStr m_Body;
+			NStr::CStr m_State;
+			bool m_bDraft = false;
+			bool m_bMerged = false;
+			NStr::CStr m_HeadRef;
+			NStr::CStr m_HeadSha;
+			NStr::CStr m_BaseRef;
+			NStr::CStr m_User;
+			NStr::CStr m_HtmlUrl;
+			NContainer::TCSet<NStr::CStr> m_Labels;
+			NTime::CTime m_CreatedAt;
+		};
+
+		enum class EPullRequestFeedbackKind : uint8
+		{
+			mc_Review // m_State is APPROVED, CHANGES_REQUESTED, COMMENTED or DISMISSED
+			, mc_ReviewComment // Inline on a file and line
+			, mc_IssueComment // The pull request conversation
+		};
+
+		struct CPullRequestFeedback
+		{
+			EPullRequestFeedbackKind m_Kind = EPullRequestFeedbackKind::mc_IssueComment;
+			uint64 m_ID = 0;
+			uint64 m_ReviewID = 0; // The review an inline comment belongs to; a review's own ID for reviews
+			uint64 m_InReplyToID = 0;
+			NStr::CStr m_User;
+			NStr::CStr m_AuthorAssociation; // OWNER, MEMBER, COLLABORATOR, CONTRIBUTOR, NONE, ...
+			NStr::CStr m_State;
+			NStr::CStr m_Body;
+			NStr::CStr m_Path;
+			uint32 m_Line = 0;
+			NStr::CStr m_HtmlUrl;
+			NTime::CTime m_CreatedAt; // Submission time for reviews
+			NTime::CTime m_UpdatedAt;
+		};
+
+		struct CAccessToken
+		{
+			NStr::CStr m_Token; // Secret
+			NTime::CTime m_Expires; // Invalid for a token that doesn't expire on its own
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
+
+		// The token the provider authenticates with, renewed first when it is about to expire. Lets tools outside the provider,
+		// such as git and command line clients, act as the same identity.
+		virtual NConcurrency::TCFuture<CAccessToken> f_GetAccessToken() = 0;
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;
@@ -700,6 +819,7 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_DeleteBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID) = 0;
 
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_GetCollaboratorPermission(NStr::CStr _Repository, NStr::CStr _User) = 0;
 		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions) = 0;
 		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions
 			(
@@ -728,6 +848,14 @@ namespace NMib::NGit
 
 		virtual NConcurrency::TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) = 0;
+
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowRun>> f_GetWorkflowRuns(NStr::CStr _Repository, NStr::CStr _Workflow, CWorkflowRunFilter _Filter) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowJob>> f_GetWorkflowRunJobs(NStr::CStr _Repository, uint64 _RunID, bool _bAllAttempts) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_GetWorkflowJobLog(NStr::CStr _Repository, uint64 _JobID) = 0;
+
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequest>> f_GetPullRequests(NStr::CStr _Repository, CPullRequestFilter _Filter) = 0;
+		virtual NConcurrency::TCFuture<CPullRequest> f_GetPullRequest(NStr::CStr _Repository, uint64 _Number) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequestFeedback>> f_GetPullRequestFeedback(NStr::CStr _Repository, uint64 _Number, NTime::CTime _Since) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);

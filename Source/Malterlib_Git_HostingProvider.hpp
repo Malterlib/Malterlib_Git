@@ -15,11 +15,27 @@ namespace NMib::NGit
 	}
 
 	template <typename tf_CStream>
+	void CGitHostingProviderRateLimit::f_Stream(tf_CStream &_Stream)
+	{
+		_Stream % m_ResetTime;
+		_Stream % m_Remaining;
+		_Stream % m_RetryAfterSeconds;
+	}
+
+	template <typename tf_CStream>
 	void CGitHostingProviderExceptionData::f_Stream(tf_CStream &_Stream)
 	{
-		CHttpClientRequestExceptionData::f_Stream(_Stream);
+		uint32 Version = _Stream.f_GetVersion();
+		{
+			// Every version of this data so far has version 0 of CHttpClientRequestExceptionData
+			DMibBinaryStreamVersion(_Stream, 0u);
+			CHttpClientRequestExceptionData::f_Stream(_Stream);
+		}
+
 		_Stream % m_GitRawError;
 		_Stream % m_GitErrors;
+		if (Version >= 1)
+			_Stream % m_RateLimit;
 	}
 
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value);

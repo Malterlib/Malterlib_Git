@@ -7,20 +7,26 @@
 
 namespace NMib::NGit
 {
-	TCMap<CStr, CStr> CGitHostingProvider_GitHub::fp_GetRestHeaders(bool _bAuthorize)
+	TCMap<CStr, CStr> CGitHostingProvider_GitHub::fsp_GetPublicRestHeaders()
 	{
-		TCMap<CStr, CStr> Headers =
+		return
 			{
 				{"Accept", "application/vnd.github+json"}
 				, {"User-Agent", "MalterlibGitHostingProvider"}
 				, {"X-GitHub-Api-Version", "2022-11-28"}
 			}
 		;
+	}
 
-		if (_bAuthorize && mp_Token)
+	TCFuture<TCMap<CStr, CStr>> CGitHostingProvider_GitHub::fp_GetRestHeaders()
+	{
+		co_await fp_EnsureAccessToken();
+
+		TCMap<CStr, CStr> Headers = fsp_GetPublicRestHeaders();
+		if (mp_Token)
 			Headers["Authorization"] = "Bearer {}"_f << mp_Token;
 
-		return Headers;
+		co_return fg_Move(Headers);
 	}
 
 	CStr const *CGitHostingProvider_GitHub::CFieldTranslations::f_GetMalterlibField(CStr const &_GitHubField) const
@@ -102,6 +108,16 @@ namespace NMib::NGit
 		{
 		}
 
+		if (auto RateLimit = fs_GetRateLimit(_Result.m_StatusCode, _Result.m_Headers, _Result.m_Body, NTime::CTime::fs_NowUTC()))
+		{
+			if (RateLimit->m_ResetTime.f_IsValid())
+				fg_AddStrSep(Error, "Rate limited until {} UTC"_f << RateLimit->m_ResetTime, ". ");
+			else
+				fg_AddStrSep(Error, "Rate limited", ". ");
+
+			ExceptionData.m_RateLimit = fg_Move(*RateLimit);
+		}
+
 		return DMibErrorInstanceGitHostingProvider
 			(
 				"{} failed with status {} ({}): {}"_f << _Description << _Result.m_StatusCode << _Result.m_StatusMessage << Error
@@ -110,7 +126,142 @@ namespace NMib::NGit
 		;
 	}
 
-	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams, uint32 _EmptyStatus, uint32 _ExpectedStatus)
+	// Primary limits answer with X-RateLimit-Remaining 0 and the reset as Unix seconds in X-RateLimit-Reset. Secondary limits
+	// answer with Retry-After in seconds, which takes precedence, or with neither and a message naming the secondary rate limit,
+	// after which GitHub says to wait at least a minute. Any other 403 is a permission error, not a rate limit.
+	auto CGitHostingProvider_GitHub::fs_GetRateLimit
+		(
+			uint32 _StatusCode
+			, TCMap<CStr, CStr, CCompareNoCase> const &_Headers
+			, CStr const &_Body
+			, NTime::CTime const &_Now
+		)
+		-> TCOptional<CGitHostingProviderRateLimit>
+	{
+		if (_StatusCode != 403 && _StatusCode != 429)
+			return {};
+
+		auto fGetHeader = [&](CStr const &_Name) -> TCOptional<uint64>
+			{
+				auto *pValue = _Headers.f_FindEqual(_Name);
+				if (!pValue)
+					return {};
+
+				int64 Value = pValue->f_Trim().f_ToInt(int64(-1));
+				if (Value < 0)
+					return {};
+
+				return uint64(Value);
+			}
+		;
+
+		CGitHostingProviderRateLimit RateLimit;
+		RateLimit.m_Remaining = fGetHeader("X-RateLimit-Remaining");
+		RateLimit.m_RetryAfterSeconds = fGetHeader("Retry-After");
+		auto ResetUnixSeconds = fGetHeader("X-RateLimit-Reset");
+
+		bool bPrimaryLimitExceeded = RateLimit.m_Remaining && *RateLimit.m_Remaining == 0;
+		bool bSecondaryLimitMessage = _Body.f_FindNoCase("secondary rate limit") >= 0;
+
+		if (_StatusCode != 429 && !RateLimit.m_RetryAfterSeconds && !bPrimaryLimitExceeded && !bSecondaryLimitMessage)
+			return {};
+
+		if (!RateLimit.m_RetryAfterSeconds && !bPrimaryLimitExceeded && bSecondaryLimitMessage)
+			RateLimit.m_RetryAfterSeconds = 60;
+
+		if (RateLimit.m_RetryAfterSeconds)
+			RateLimit.m_ResetTime = _Now + NTime::CTimeSpanConvert::fs_CreateSecondSpan(int64(*RateLimit.m_RetryAfterSeconds));
+		else if (ResetUnixSeconds && bPrimaryLimitExceeded)
+			RateLimit.m_ResetTime = NTime::CTimeConvert::fs_FromUnixSeconds(*ResetUnixSeconds);
+
+		return RateLimit;
+	}
+
+	CStr CGitHostingProvider_GitHub::fs_GetNextPageUrl(CStr const &_LinkHeader)
+	{
+		CStr Rel;
+		aint nParsed = 0;
+		ch8 const *pParse = _LinkHeader;
+		while (*pParse)
+		{
+			CStr NextPage;
+
+			pParse = (CStr::CParse("<{}>; rel=\"{}\"") >> NextPage >> Rel).f_ByPointer().f_Parse(pParse, nParsed);
+
+			if (nParsed != 2)
+				break;
+
+			if (NextPage.f_StartsWith("https://api.github.com/") && Rel == "next")
+				return NextPage;
+
+			if (*pParse == ',')
+				++pParse;
+			fg_ParseWhiteSpace(pParse);
+
+			if (*pParse != '<')
+				break;
+		}
+
+		return {};
+	}
+
+	// Appends the items of _Page to o_Result. Without _PagedArrayMember both are arrays; with it both are objects whose
+	// _PagedArrayMember holds the items, and the other members of the first page are kept. Returns true once o_Result holds
+	// _MaxItems items, truncating it to that count; 0 means no limit.
+	bool CGitHostingProvider_GitHub::fs_MergeRestPage(CJsonSorted &o_Result, CJsonSorted &&_Page, CStr const &_PagedArrayMember, umint _MaxItems)
+	{
+		auto fGetItems = [&](CJsonSorted &_Json, ch8 const *_pWhich) -> CJsonSorted::CArray &
+			{
+				if (!_PagedArrayMember)
+				{
+					if (!_Json.f_IsArray())
+					{
+						DMibError
+							(
+								"Unexpected paged GitHub request where {} result wasn't an array. Type: {}."_f
+								<< _pWhich
+								<< fg_EJsonTypeToString((EEJsonType)_Json.f_Type()) // EJsonType is a subset of EEJsonType
+							)
+						;
+					}
+
+					return _Json.f_Array();
+				}
+
+				if (auto *pItems = _Json.f_GetMember(_PagedArrayMember, EJsonType_Array))
+					return pItems->f_Array();
+
+				DMibError("Unexpected paged GitHub request where {} result has no '{}' array"_f << _pWhich << _PagedArrayMember);
+			}
+		;
+
+		if (!o_Result.f_IsValid())
+			o_Result = fg_Move(_Page);
+		else
+			fGetItems(o_Result, "previous").f_Insert(fg_Move(fGetItems(_Page, "new")));
+
+		if (!_MaxItems)
+			return false;
+
+		auto &Items = fGetItems(o_Result, "merged");
+		if (Items.f_GetLen() < _MaxItems)
+			return false;
+
+		Items.f_SetLen(_MaxItems);
+
+		return true;
+	}
+
+	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApi
+		(
+			CStr _Path
+			, CStr _ErrorDescription
+			, TCMap<CStr, CStr> _QueryParams
+			, uint32 _EmptyStatus
+			, uint32 _ExpectedStatus
+			, CStr _PagedArrayMember
+			, umint _MaxItems
+		)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -121,7 +272,13 @@ namespace NMib::NGit
 		TCVector<NWeb::NHTTP::CURL::CQueryEntry> QueryEntries;
 
 		if (!_QueryParams.f_FindEqual("per_page"))
-			QueryEntries.f_Insert({"per_page", "100"});
+		{
+			umint PerPage = 100;
+			if (_MaxItems && _MaxItems < PerPage)
+				PerPage = _MaxItems;
+
+			QueryEntries.f_Insert({"per_page", CStr::fs_ToStr(PerPage)});
+		}
 
 		for (auto &Value : _QueryParams)
 			QueryEntries.f_Insert({_QueryParams.fs_GetKey(Value), Value});
@@ -130,15 +287,16 @@ namespace NMib::NGit
 
 		CStr PageUrl = Url.f_Encode();
 
-		TCMap<CStr, CStr> Headers = fp_GetRestHeaders();
-
 		while (PageUrl)
 		{
+			// Per page, since an App's installation token can expire during a long enumeration
+			auto Headers = co_await fp_GetRestHeaders();
+
 			auto Result = co_await mp_HttpClientActor
 				(
 					&CHttpClientActor::f_Get
 					, PageUrl
-					, Headers
+					, fg_Move(Headers)
 				)
 			;
 
@@ -153,53 +311,11 @@ namespace NMib::NGit
 			{
 				auto CaptureScope = co_await g_CaptureExceptions;
 
-				auto PageJson = CJsonSorted::fs_FromString(Result.m_Body);
-				if (!ReturnJson.f_IsValid())
-					ReturnJson = fg_Move(PageJson);
-				else
-				{
-					if (ReturnJson.f_IsArray() && PageJson.f_IsArray())
-						ReturnJson.f_Array().f_Insert(fg_Move(PageJson.f_Array()));
-					else
-					{
-						co_return DMibErrorInstance
-							(
-								"Unexpected paged GitHub request where previous or new result wasn't an array. Previous type: {}. New type: {}."_f
-								<< fg_EJsonTypeToString((EEJsonType)ReturnJson.f_Type()) // EJsonType is a subset of EEJsonType
-								<< fg_EJsonTypeToString((EEJsonType)PageJson.f_Type())
-							)
-						;
-					}
-				}
+				if (fs_MergeRestPage(ReturnJson, CJsonSorted::fs_FromString(Result.m_Body), _PagedArrayMember, _MaxItems))
+					break;
 
 				if (auto *pLink = Result.m_Headers.f_FindEqual("link"))
-				{
-					CStr Rel;
-					aint nParsed = 0;
-					ch8 const *pParse = *pLink;
-					while (*pParse)
-					{
-						CStr NextPage;
-
-						pParse = (CStr::CParse("<{}>; rel=\"{}\"") >> NextPage >> Rel).f_ByPointer().f_Parse(pParse, nParsed);
-
-						if (nParsed != 2)
-							break;
-
-						if (nParsed == 2 && NextPage.f_StartsWith("https://api.github.com/") && Rel == "next")
-						{
-							PageUrl = NextPage;
-							break;
-						}
-
-						if (*pParse == ',')
-							++pParse;
-						fg_ParseWhiteSpace(pParse);
-
-						if (*pParse != '<')
-							break;
-					}
-				}
+					PageUrl = fs_GetNextPageUrl(*pLink);
 			}
 		}
 
@@ -212,11 +328,13 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
+		auto Headers = co_await fp_GetRestHeaders();
+
 		auto Result = co_await mp_HttpClientActor
 			(
 				&CHttpClientActor::f_Put
 				, Url.f_Encode()
-				, fp_GetRestHeaders()
+				, fg_Move(Headers)
 				, fg_Move(_Value)
 			)
 		;
@@ -233,11 +351,13 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
+		auto Headers = co_await fp_GetRestHeaders();
+
 		auto Result = co_await mp_HttpClientActor
 			(
 				&CHttpClientActor::f_Post
 				, Url.f_Encode()
-				, fp_GetRestHeaders()
+				, fg_Move(Headers)
 				, fg_Move(_Value)
 			)
 		;
@@ -256,11 +376,13 @@ namespace NMib::NGit
 
 		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
 
+		auto Headers = co_await fp_GetRestHeaders();
+
 		auto Result = co_await mp_HttpClientActor
 			(
 				&CHttpClientActor::f_Patch
 				, Url.f_Encode()
-				, fp_GetRestHeaders()
+				, fg_Move(Headers)
 				, fg_Move(_Value)
 			)
 		;
@@ -290,7 +412,7 @@ namespace NMib::NGit
 
 		Request.m_URL = Url.f_Encode();
 		Request.m_Method = CHttpClientActor::EMethod_POST;
-		Request.m_Headers = fp_GetRestHeaders();
+		Request.m_Headers = co_await fp_GetRestHeaders();
 		Request.m_Headers["Content-Type"] = "application/octet-stream";
 
 		auto &SendData = Request.f_AsyncSend();
@@ -319,7 +441,7 @@ namespace NMib::NGit
 
 		Request.m_URL = _Url;
 		Request.m_Method = CHttpClientActor::EMethod_GET;
-		Request.m_Headers = fp_GetRestHeaders(false);
+		Request.m_Headers = fsp_GetPublicRestHeaders();
 		Request.m_Headers["Accept"] = "application/octet-stream";
 
 		auto &ReceiveData = Request.f_AsyncReceive();
@@ -341,6 +463,7 @@ namespace NMib::NGit
 			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
 			, CStr _ErrorDescription
 			, uint32 _ExpectedStatus
+			, CStr _Accept
 		)
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
@@ -351,8 +474,8 @@ namespace NMib::NGit
 
 		Request.m_URL = Url.f_Encode();
 		Request.m_Method = CHttpClientActor::EMethod_GET;
-		Request.m_Headers = fp_GetRestHeaders();
-		Request.m_Headers["Accept"] = "application/octet-stream";
+		Request.m_Headers = co_await fp_GetRestHeaders();
+		Request.m_Headers["Accept"] = _Accept;
 
 		auto &ReceiveData = Request.f_AsyncReceive();
 		ReceiveData.m_fWrite = fg_Move(_fWriteData);
@@ -375,11 +498,13 @@ namespace NMib::NGit
 
 		CStr PageUrl = Url.f_Encode();
 
+		auto Headers = co_await fp_GetRestHeaders();
+
 		auto Result = co_await mp_HttpClientActor
 			(
 				&CHttpClientActor::f_Delete
 				, PageUrl
-				, fp_GetRestHeaders()
+				, fg_Move(Headers)
 			)
 		;
 

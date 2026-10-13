@@ -8,7 +8,7 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive = true);
+	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive = true, CSystemEnvironment _Environment = {});
 }
 
 #ifndef DMibPNoShortCuts
