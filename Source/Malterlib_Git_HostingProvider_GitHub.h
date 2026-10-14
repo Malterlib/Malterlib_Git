@@ -46,6 +46,7 @@ namespace NMib::NGit
 		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
 		TCFuture<CAccessToken> f_GetAccessToken() override;
 		TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) override;
+		TCFuture<TCVector<CInstallationRepository>> f_ListInstallationRepositories() override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
 		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
