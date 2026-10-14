@@ -788,6 +788,13 @@ namespace NMib::NGit
 			NTime::CTime m_Expires; // Invalid for a token that doesn't expire on its own
 		};
 
+		struct CCreateAccessToken
+		{
+			NStr::CStr m_Owner;                              // For a login with an installation, empty or its owner; else the owner of m_Repositories[0], or an organization without them
+			NContainer::TCVector<NStr::CStr> m_Repositories; // Names without the owner; empty leaves the token every repository that the installation can access
+			NEncoding::CJsonSorted m_Permissions;            // Permission name to level, such as {"contents": "read"}; unset keeps the installation's permissions
+		};
+
 		/// An installation token restricted to a subset of the installation's permissions and repositories
 		struct CRestrictedAccessTokenRequest
 		{
@@ -978,6 +985,8 @@ namespace NMib::NGit
 		// The token the provider authenticates with, renewed first when it is about to expire. Lets tools outside the provider,
 		// such as git and command line clients, act as the same identity.
 		virtual NConcurrency::TCFuture<CAccessToken> f_GetAccessToken() = 0;
+
+		virtual NConcurrency::TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) = 0;
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;

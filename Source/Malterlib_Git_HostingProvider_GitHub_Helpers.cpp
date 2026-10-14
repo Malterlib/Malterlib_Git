@@ -36,7 +36,8 @@ namespace NMib::NGit
 
 		(CStr::CParse("{}-{}-{}T{}:{}:{}Z") >> Year >> Month >> Day >> Hour >> Minute >> Second).f_Parse(_Time, nParsed);
 
-		if (nParsed != 6)
+		// RFC 3339 years have four digits, and CTimeConvert::fs_CreateTime throws for a year outside the range of CTime
+		if (nParsed != 6 || Year < 0 || Year > 9999)
 			return {};
 
 		if (Month < 1 || Month > 12 || Day < 1 || Day > NTime::CTimeConvert::fs_GetDaysInMonth(Year, Month - 1))

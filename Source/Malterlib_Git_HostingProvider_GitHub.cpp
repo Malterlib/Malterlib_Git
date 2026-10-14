@@ -9,9 +9,11 @@
 namespace NMib::NGit
 {
 	/// _LoginDetails is {"Token": "..."} for a token GitHub issued to a user, or a GitHub App installation:
-	/// {"App": {"AppID": "...", "PrivateKey": "<PEM>", "InstallationID": "..."}}, with "Repository": "owner/name" in place of
-	/// "InstallationID" to look the installation up. An App login may also pass the installation token it already holds as
-	/// "Token" with its expiry as the date "TokenExpires", which saves creating a new one until it is about to expire.
+	/// {"App": {"AppID": "...", "PrivateKey": "<PEM>", "InstallationID": "..."}}. In place of "InstallationID", the App can set
+	/// "Repository": "owner/name" or the organization "Owner" to look the installation up; "InstallationID" comes first, then "Repository",
+	/// then "Owner". An App login without any of them can't renew its token. An App login can also pass the installation token it already
+	/// holds as "Token" beside "App", with its expiry as the date "TokenExpires", and the token is used until it expires within
+	/// gc_AccessTokenRenewMargin seconds.
 	TCFuture<void> CGitHostingProvider_GitHub::f_Login(CEJsonSorted _LoginDetails)
 	{
 		++mp_LoginGeneration;
@@ -26,12 +28,18 @@ namespace NMib::NGit
 		AppLogin.m_AppID = pApp->f_GetMemberValue("AppID", "").f_String();
 		AppLogin.m_InstallationID = pApp->f_GetMemberValue("InstallationID", "").f_String();
 		AppLogin.m_Repository = pApp->f_GetMemberValue("Repository", "").f_String();
+		AppLogin.m_Owner = pApp->f_GetMemberValue("Owner", "").f_String();
 
 		if (AppLogin.m_AppID.f_IsEmpty())
 			co_return DMibErrorInstance("The GitHub App login has no AppID");
 
-		if (AppLogin.m_InstallationID.f_IsEmpty() && AppLogin.m_Repository.f_IsEmpty())
-			co_return DMibErrorInstance("The GitHub App login needs an InstallationID, or a Repository to find the installation from");
+		// A Repository beside an InstallationID selects nothing, so it isn't checked
+		if (AppLogin.m_Repository && AppLogin.m_InstallationID.f_IsEmpty())
+		{
+			auto iSlash = AppLogin.m_Repository.f_FindChar('/');
+			if (iSlash <= 0 || iSlash == AppLogin.m_Repository.f_GetLen() - 1)
+				co_return DMibErrorInstance("The GitHub App login's Repository '{}' isn't of the form owner/name"_f << AppLogin.m_Repository);
+		}
 
 		{
 			CStr PrivateKey = pApp->f_GetMemberValue("PrivateKey", "").f_String();

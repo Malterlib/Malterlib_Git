@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Core/Core>
+#include <Mib/Concurrency/AsyncDestroy>
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Cryptography/PublicCrypto>
 #include <Mib/Encoding/Base64>
+#include <Mib/Encoding/JsonShortcuts>
 #include <Mib/Concurrency/DistributedActorTrustManager>
 #include <Mib/Test/Exception>
 #include <Mib/Web/HttpClient>
@@ -1057,6 +1059,8 @@ namespace
 				DMibExpectFalse(CGitHub::fs_ParseTime("").f_IsValid());
 				DMibExpectFalse(CGitHub::fs_ParseTime("2026-13-12T07:43:04Z").f_IsValid());
 				DMibExpectFalse(CGitHub::fs_ParseTime("yesterday").f_IsValid());
+				DMibExpectFalse(CGitHub::fs_ParseTime("10000-10-12T07:43:04Z").f_IsValid());
+				DMibExpectFalse(CGitHub::fs_ParseTime("999999999999999-10-12T07:43:04Z").f_IsValid());
 			};
 		};
 
@@ -1281,6 +1285,88 @@ namespace
 				DMibExpectTrue(NCryptography::CPublicCrypto::fs_VerifySignature(Message, PublicKey, Signature, NCryptography::EDigestType_SHA256));
 			};
 
+			DMibTestCategory("AccessTokenOwner")
+			{
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("octo-org", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("Octo-Org", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("octo-org", ""));
+				DMibExpectTrue(CGitHub::fs_CheckAccessTokenOwner("other-org", "octo-org"));
+			};
+
+			DMibTestCategory("AccessTokenPermissions")
+			{
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted()));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted::fs_FromString(R"-----({"contents": "read", "issues": "write"})-----")));
+
+				CJsonSorted Unset(EJsonType_Object);
+				Unset["contents"];
+				DMibExpect
+					(
+						NException::fg_ExceptionString(CGitHub::fs_CheckAccessTokenPermissions(Unset))
+						, ==
+						, "The access token request's permission 'contents' needs a level such as \"read\""
+					)
+				;
+				DMibExpectTrue(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted::fs_FromString(R"-----({"contents": 1})-----")));
+
+				auto fCheckNotObject = [&](CStr const &_Case, CJsonSorted const &_Permissions)
+					{
+						DMibTestPath(_Case);
+						DMibExpect
+							(
+								NException::fg_ExceptionString(CGitHub::fs_CheckAccessTokenPermissions(_Permissions))
+								, ==
+								, "The access token request's permissions must be an object of permission names to levels, such as {\"contents\": \"read\"}"
+							)
+						;
+					}
+				;
+
+				fCheckNotObject("Null", CJsonSorted(EJsonType_Null));
+				fCheckNotObject("String", CJsonSorted("read"));
+				fCheckNotObject("Array", CJsonSorted(EJsonType_Array));
+			};
+
+			DMibTestCategory("FallbackInstallationPath")
+			{
+				DMibExpect(CGitHub::fs_FallbackInstallationPath("octo-org", ""), ==, "orgs/octo-org/installation");
+				DMibExpect(CGitHub::fs_FallbackInstallationPath("Octo_Org-2", "octo.repo_1-x"), ==, "repos/Octo_Org-2/octo.repo_1-x/installation");
+
+				auto fCheckRejected = [&](CStr const &_Owner, CStr const &_Repository, CStr const &_Name, CStr const &_Kind)
+					{
+						DMibTestPath("{}/{}"_f << _Owner << _Repository);
+						DMibExpectException(CGitHub::fs_FallbackInstallationPath(_Owner, _Repository), DMibErrorInstance("'{}' isn't a valid GitHub {} name"_f << _Name << _Kind));
+					}
+				;
+
+				fCheckRejected("", "", "", "owner");
+				fCheckRejected("..", "", "..", "owner");
+				fCheckRejected("octo-org/..", "", "octo-org/..", "owner");
+				fCheckRejected("octo-org", "..", "..", "repository");
+				fCheckRejected("octo-org", ".", ".", "repository");
+				fCheckRejected("octo-org", "repo/../../app/installations/1", "repo/../../app/installations/1", "repository");
+				fCheckRejected("octo-org", "repo?x", "repo?x", "repository");
+				fCheckRejected("octo-org", "repo#x", "repo#x", "repository");
+				fCheckRejected("octo-org", "repo%2F", "repo%2F", "repository");
+			};
+
+			DMibTestCategory("AccessTokenScope")
+			{
+				auto fCheckScope = [&](CStr const &_Case, bool _bScoped, CStr const &_TargetType, bool _bRejected)
+					{
+						DMibTestPath(_Case);
+						DMibExpect(bool(CGitHub::fs_CheckAccessTokenScope(_bScoped, _TargetType)), ==, _bRejected);
+					}
+				;
+
+				fCheckScope("ScopedEnterprise", true, "Enterprise", true);
+				fCheckScope("ScopedEnterpriseOtherCase", true, "enterprise", true);
+				fCheckScope("UnscopedEnterprise", false, "Enterprise", false);
+				fCheckScope("ScopedOrganization", true, "Organization", false);
+				fCheckScope("ScopedUser", true, "User", false);
+			};
+
 			DMibTestCategory("PemPrivateKey")
 			{
 				// GitHub hands out App private keys as PKCS #1 PEM, which is the DER above in base64 lines between the RSA markers
@@ -1295,6 +1381,34 @@ namespace
 
 				DMibExpectTrue(NCryptography::CPublicCrypto::fs_ConvertToDer_PrivateKey(PemData) == PrivateKey);
 			};
+		};
+
+		DMibTestSuite("AppLogin") -> TCFuture<void>
+		{
+			TCActor<CGitHub> Provider = fg_ConstructActor<CGitHub>();
+			auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+			for (CStr Repository : {"octo-repo", "/octo-repo", "octo-org/"})
+			{
+				DMibTestPath(Repository);
+
+				auto Result = co_await Provider(&CGitHub::f_Login, CEJsonSorted{"App"_= {"AppID"_= "123456", "Repository"_= Repository}}).f_Wrap();
+				DMibExpect(Result.f_GetExceptionStr(), ==, CStr("The GitHub App login's Repository '{}' isn't of the form owner/name"_f << Repository));
+			}
+
+			{
+				DMibTestPath("Repository beside InstallationID");
+
+				// The InstallationID selects the installation, so the login fails on the next missing field
+				auto Result = co_await Provider(&CGitHub::f_Login, CEJsonSorted{"App"_= {"AppID"_= "123456", "InstallationID"_= "654321", "Repository"_= "octo-repo"}}).f_Wrap();
+				DMibExpect(Result.f_GetExceptionStr(), ==, "The GitHub App login has no PrivateKey");
+			}
+
+			// A repository of the form owner/name passes, so the login fails on the next missing field
+			auto Result = co_await Provider(&CGitHub::f_Login, CEJsonSorted{"App"_= {"AppID"_= "123456", "Repository"_= "octo-org/octo-repo"}}).f_Wrap();
+			DMibExpect(Result.f_GetExceptionStr(), ==, "The GitHub App login has no PrivateKey");
+
+			co_return {};
 		};
 	}
 }

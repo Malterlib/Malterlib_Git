@@ -31,13 +31,22 @@ namespace NMib::NGit
 		{
 			CStr m_AppID;
 			CSecureByteVector m_PrivateKey; // DER. Secret
-			CStr m_InstallationID;          // Empty: looked up from m_Repository
+			CStr m_InstallationID;          // Empty until the login names its installation or finds it from m_Repository or m_Owner; never an installation that a request found
 			CStr m_Repository;
+			CStr m_Owner;
+			CStr m_InstallationTargetType;  // GitHub's target_type of m_InstallationID, such as Organization or Enterprise, also known when its account has no login
 			NTime::CTime m_TokenExpires;
+		};
+
+		struct CLoginInstallation
+		{
+			CStr m_Owner; // Empty for an enterprise installation, whose account has no login
+			CStr m_TargetType;
 		};
 
 		TCFuture<void> f_Login(CEJsonSorted _LoginDetails) override;
 		TCFuture<CAccessToken> f_GetAccessToken() override;
+		TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) override;
 		TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) override;
 		TCFuture<CGetRepository> f_ForkRepository(CStr _Repository, CForkRepository _ForkRepository) override;
 		TCFuture<CGetRepository> f_UpdateRepository(CStr _Repository, CRepository _RepositorySettings) override;
@@ -145,6 +154,10 @@ namespace NMib::NGit
 
 		static NTime::CTime fs_ParseTime(CStr const &_Time);
 		static CStr fs_CreateAppJwt(CStr const &_AppID, CSecureByteVector const &_PrivateKey, NTime::CTime const &_Now);
+		static CStr fs_FallbackInstallationPath(CStr const &_Owner, CStr const &_Repository);
+		static CExceptionPointer fs_CheckAccessTokenOwner(CStr const &_RequestOwner, CStr const &_InstallationOwner);
+		static CExceptionPointer fs_CheckAccessTokenScope(bool _bScoped, CStr const &_InstallationTargetType);
+		static CExceptionPointer fs_CheckAccessTokenPermissions(CJsonSorted const &_Permissions);
 		static CStr fs_FormatTime(NTime::CTime const &_Time);
 
 		static bool fs_MergeRestPage(CJsonSorted &o_Result, CJsonSorted &&_Page, CStr const &_PagedArrayMember, umint _MaxItems);
@@ -247,7 +260,10 @@ namespace NMib::NGit
 		TCFuture<void> fp_EnsureAccessToken();
 		TCFuture<void> fp_RenewAccessToken();
 		TCFuture<CJsonSorted> fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus, CJsonSorted _PostBody = {});
-		TCFuture<CStr> fp_InstallationID();
+		TCFuture<CStr> fp_InstallationID(CStr _FallbackOwner, CStr _FallbackRepository);
+		TCFuture<CStr> fp_InstallationOwner();
+		TCFuture<CLoginInstallation> fp_LookUpLoginInstallation();
+		TCFuture<void> fp_CheckLoginInstallationScope(bool _bScoped);
 		TCFuture<CUser> fp_GetAppUser();
 		TCFuture<TCMap<CStr, CStr>> fp_GetRestHeaders();
 		static TCMap<CStr, CStr> fsp_GetPublicRestHeaders();
@@ -259,7 +275,7 @@ namespace NMib::NGit
 		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(CHttpClientActor::CCertificateConfig{}, mcp_StallTimeout)};
 		CStr mp_Token;
 		uint64 mp_LoginGeneration = 0;                                      // Changes with every f_Login, so a token renewal that a new login overlapped is discarded
-		TCOptional<CAppLogin> mp_AppLogin;                                  // Set when logged in as a GitHub App installation, which renews mp_Token
+		TCOptional<CAppLogin> mp_AppLogin;
 		TCOptional<TCVector<TCPromise<void>>> mp_AccessTokenRenewalWaiters; // Set while a renewal runs, with the calls waiting for it
 	};
 }
