@@ -978,6 +978,14 @@ namespace NMib::NGit
 			bool m_bUpdatesRestrictedByRuleset = false;   // Only the bypass actors of a ruleset may push, and they aren't listed here
 		};
 
+		struct CInstallationRepository
+		{
+			NStr::CStr m_Owner;
+			NStr::CStr m_Name;
+			NStr::CStr m_CloneUrl; // HTTPS
+			NStr::CStr m_WebUrl;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
@@ -987,6 +995,8 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<CAccessToken> f_GetAccessToken() = 0;
 
 		virtual NConcurrency::TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) = 0;
+
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CInstallationRepository>> f_ListInstallationRepositories() = 0;
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;
