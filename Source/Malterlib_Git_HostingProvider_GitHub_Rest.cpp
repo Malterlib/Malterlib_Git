@@ -277,10 +277,30 @@ namespace NMib::NGit
 
 		CStr PageUrl = Url.f_Encode();
 
+		// Every page of a result comes from the login that was current when it was requested. Headers acquired while another login replaced it
+		// can be either login's, and the pages of a replaced login are not requested, so that they neither mix accounts nor spend the new
+		// login's rate limit.
+		uint64 const LoginGeneration = mp_LoginGeneration;
+		auto fLoginChangedError = [&]() -> CExceptionPointer
+			{
+				if (mp_LoginGeneration == LoginGeneration)
+					return {};
+
+				return DMibErrorInstance("{}: The GitHub login changed while the result was being requested"_f << _ErrorDescription);
+			}
+		;
+
 		while (PageUrl)
 		{
+			// Before the headers too, since acquiring them can renew the token of the login that replaced this one
+			if (auto pError = fLoginChangedError())
+				co_return fg_Move(pError);
+
 			// Per page, since an App's installation token can expire during a long enumeration
 			auto Headers = co_await fp_GetRestHeaders();
+
+			if (auto pError = fLoginChangedError())
+				co_return fg_Move(pError);
 
 			auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Get, PageUrl, fg_Move(Headers));
 
