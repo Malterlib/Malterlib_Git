@@ -793,6 +793,14 @@ namespace NMib::NGit
 			NEncoding::CJsonSorted m_Permissions; // Permission name to level, such as {"contents": "read"}; narrows what the token can do
 		};
 
+		struct CInstallationRepository
+		{
+			NStr::CStr m_Owner;
+			NStr::CStr m_Name;
+			NStr::CStr m_CloneUrl; // HTTPS
+			NStr::CStr m_WebUrl;
+		};
+
 		CGitHostingProvider();
 
 		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
@@ -803,6 +811,9 @@ namespace NMib::NGit
 
 		// A new token limited to some repositories and permissions, separate from the one the provider authenticates with
 		virtual NConcurrency::TCFuture<CAccessToken> f_CreateAccessToken(CCreateAccessToken _Request) = 0;
+
+		// The repositories the installation the provider authenticates as can access
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CInstallationRepository>> f_ListInstallationRepositories() = 0;
 
 		virtual NConcurrency::TCFuture<CGetRepository> f_CreateRepository(CCreateRepository _CreateRepository) = 0;
 		virtual NConcurrency::TCFuture<CGetRepository> f_ForkRepository(NStr::CStr _Repository, CForkRepository _ForkRepository) = 0;
