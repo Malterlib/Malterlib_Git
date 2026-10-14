@@ -1281,6 +1281,99 @@ namespace
 				DMibExpectTrue(NCryptography::CPublicCrypto::fs_VerifySignature(Message, PublicKey, Signature, NCryptography::EDigestType_SHA256));
 			};
 
+			DMibTestCategory("InstallationOwner")
+			{
+				CGitHub::CAppLogin Login;
+				auto fCheckOwner = [&](CStr const &_Case, CStr const &_Expected)
+					{
+						DMibTestPath(_Case);
+						DMibExpect(CGitHub::fs_LoginInstallationOwner(Login), ==, _Expected);
+					}
+				;
+
+				fCheckOwner("NoInstallation", "");
+
+				Login.m_Owner = "octo-org";
+				fCheckOwner("Owner", "octo-org");
+
+				// fp_InstallationID finds the installation from Repository before Owner
+				Login.m_Repository = "other-org/octo-repo";
+				fCheckOwner("RepositoryBeforeOwner", "other-org");
+
+				// The installation ID mints the tokens, and it can name another account's installation than Repository and Owner
+				Login.m_InstallationID = "123";
+				fCheckOwner("InstallationIDNotLookedUp", "");
+
+				Login.m_InstallationOwner = "third-org";
+				fCheckOwner("InstallationIDLookedUp", "third-org");
+			};
+
+			DMibTestCategory("AccessTokenOwner")
+			{
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("octo-org", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("Octo-Org", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("", "octo-org"));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenOwner("octo-org", ""));
+				DMibExpectTrue(CGitHub::fs_CheckAccessTokenOwner("other-org", "octo-org"));
+			};
+
+			DMibTestCategory("AccessTokenPermissions")
+			{
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted()));
+				DMibExpectFalse(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted::fs_FromString(R"-----({"contents": "read", "issues": "write"})-----")));
+
+				CJsonSorted Unset(EJsonType_Object);
+				Unset["contents"];
+				DMibExpect
+					(
+						NException::fg_ExceptionString(CGitHub::fs_CheckAccessTokenPermissions(Unset))
+						, ==
+						, "The access token request's permission 'contents' needs a level such as \"read\""
+					)
+				;
+				DMibExpectTrue(CGitHub::fs_CheckAccessTokenPermissions(CJsonSorted::fs_FromString(R"-----({"contents": 1})-----")));
+			};
+
+			DMibTestCategory("FallbackInstallationPath")
+			{
+				DMibExpect(CGitHub::fs_FallbackInstallationPath("octo-org", ""), ==, "orgs/octo-org/installation");
+				DMibExpect(CGitHub::fs_FallbackInstallationPath("Octo_Org-2", "octo.repo_1-x"), ==, "repos/Octo_Org-2/octo.repo_1-x/installation");
+
+				auto fCheckRejected = [&](CStr const &_Owner, CStr const &_Repository, CStr const &_Name, CStr const &_Kind)
+					{
+						DMibTestPath("{}/{}"_f << _Owner << _Repository);
+						DMibExpectException(CGitHub::fs_FallbackInstallationPath(_Owner, _Repository), DMibErrorInstance("'{}' isn't a valid GitHub {} name"_f << _Name << _Kind));
+					}
+				;
+
+				fCheckRejected("", "", "", "owner");
+				fCheckRejected("..", "", "..", "owner");
+				fCheckRejected("octo-org/..", "", "octo-org/..", "owner");
+				fCheckRejected("octo-org", "..", "..", "repository");
+				fCheckRejected("octo-org", ".", ".", "repository");
+				fCheckRejected("octo-org", "repo/../../app/installations/1", "repo/../../app/installations/1", "repository");
+				fCheckRejected("octo-org", "repo?x", "repo?x", "repository");
+				fCheckRejected("octo-org", "repo#x", "repo#x", "repository");
+				fCheckRejected("octo-org", "repo%2F", "repo%2F", "repository");
+			};
+
+			DMibTestCategory("AccessTokenScope")
+			{
+				auto fCheckScope = [&](CStr const &_Case, bool _bScoped, CStr const &_TargetType, bool _bRejected)
+					{
+						DMibTestPath(_Case);
+						DMibExpect(bool(CGitHub::fs_CheckAccessTokenScope(_bScoped, _TargetType)), ==, _bRejected);
+					}
+				;
+
+				fCheckScope("ScopedEnterprise", true, "Enterprise", true);
+				fCheckScope("ScopedEnterpriseOtherCase", true, "enterprise", true);
+				fCheckScope("UnscopedEnterprise", false, "Enterprise", false);
+				fCheckScope("ScopedOrganization", true, "Organization", false);
+				fCheckScope("ScopedUser", true, "User", false);
+				fCheckScope("ScopedFallback", true, "", false);
+			};
+
 			DMibTestCategory("PemPrivateKey")
 			{
 				// GitHub hands out App private keys as PKCS #1 PEM, which is the DER above in base64 lines between the RSA markers
