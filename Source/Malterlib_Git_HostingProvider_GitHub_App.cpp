@@ -279,6 +279,30 @@ namespace NMib::NGit
 		co_return fg_Move(AccessToken);
 	}
 
+	auto CGitHostingProvider_GitHub::f_ListInstallationRepositories() -> TCFuture<TCVector<CInstallationRepository>>
+	{
+		auto Result = co_await fp_RestApi("installation/repositories", "Failed to list the repositories of the GitHub App installation", {}, 0, 200, "repositories");
+
+		auto CaptureScope = co_await g_CaptureExceptions;
+
+		TCVector<CInstallationRepository> Repositories;
+		for (auto &Repository : fsp_GetJsonArray(Result, "repositories"))
+		{
+			CStr Name = fsp_GetJsonString(Repository, "name");
+			if (Name.f_IsEmpty())
+				continue;
+
+			auto &Entry = Repositories.f_Insert();
+			Entry.m_Name = fg_Move(Name);
+			Entry.m_CloneUrl = fsp_GetJsonString(Repository, "clone_url");
+			Entry.m_WebUrl = fsp_GetJsonString(Repository, "html_url");
+			if (auto *pOwner = Repository.f_GetMember("owner", EJsonType_Object))
+				Entry.m_Owner = fsp_GetJsonString(*pOwner, "login");
+		}
+
+		co_return fg_Move(Repositories);
+	}
+
 	/// The bot user GitHub acts as for the App's installations, `<app-slug>[bot]`, which is the author of what the App creates
 	auto CGitHostingProvider_GitHub::fp_GetAppUser() -> TCFuture<CUser>
 	{
