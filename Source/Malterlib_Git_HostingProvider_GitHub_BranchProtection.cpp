@@ -181,7 +181,8 @@ namespace NMib::NGit
 					CGitHostingProvider::CUser User;
 					User.m_ID = Actor["id"].f_String();
 					User.m_Login = Actor["login"].f_String();
-					User.m_Name = Actor["name"].f_String();
+					if (auto pName = Actor.f_GetMember("name", EJsonType_String))
+						User.m_Name = pName->f_String();
 					OutActors.f_Insert(fg_Move(User));
 				}
 				else if (Type == "Team")
