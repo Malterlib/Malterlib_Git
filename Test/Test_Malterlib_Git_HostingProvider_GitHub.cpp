@@ -1115,6 +1115,21 @@ namespace
 						)
 					;
 				};
+
+				DMibTestCategory("TransientServerErrors")
+				{
+					DMibExpectTrue(CGitHub::fs_IsTransientServerError(500));
+					DMibExpectTrue(CGitHub::fs_IsTransientServerError(502));
+					DMibExpectTrue(CGitHub::fs_IsTransientServerError(503));
+					DMibExpectTrue(CGitHub::fs_IsTransientServerError(504));
+
+					// Rate limits wait for their reset, and other errors don't pass by asking again
+					DMibExpectFalse(CGitHub::fs_IsTransientServerError(200));
+					DMibExpectFalse(CGitHub::fs_IsTransientServerError(403));
+					DMibExpectFalse(CGitHub::fs_IsTransientServerError(404));
+					DMibExpectFalse(CGitHub::fs_IsTransientServerError(429));
+					DMibExpectFalse(CGitHub::fs_IsTransientServerError(501));
+				};
 			};
 
 			DMibTestCategory("ArrayPaging")

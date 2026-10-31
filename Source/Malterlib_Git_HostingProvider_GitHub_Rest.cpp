@@ -166,6 +166,36 @@ namespace NMib::NGit
 		return RateLimit;
 	}
 
+	// Errors on GitHub's side that pass, such as a 502 from its load balancer
+	bool CGitHostingProvider_GitHub::fs_IsTransientServerError(uint32 _StatusCode)
+	{
+		return _StatusCode == 500 || _StatusCode == 502 || _StatusCode == 503 || _StatusCode == 504;
+	}
+
+	// Sends a GET request, and again after a pause while GitHub answers with a transient server error. Only reads are repeated:
+	// GitHub may have done a write before it failed.
+	TCFuture<CHttpClientActor::CResult> CGitHostingProvider_GitHub::fp_RestGet(CStr _Url, TCMap<CStr, CStr> _Headers, bool _bFollowRedirects, umint _MaxBodySize)
+	{
+		constexpr uint32 c_MaxRetries = 3;
+		for (uint32 iRetry = 0;; ++iRetry)
+		{
+			CHttpClientActor::CRequest Request
+				{
+					.m_URL = _Url
+					, .m_Headers = _Headers
+					, .m_Method = CHttpClientActor::EMethod_GET
+					, .m_bFollowRedirects = _bFollowRedirects
+					, .m_MaxBodySize = _MaxBodySize
+				}
+			;
+			auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));
+			if (!fs_IsTransientServerError(Result.m_StatusCode) || iRetry == c_MaxRetries)
+				co_return fg_Move(Result);
+
+			co_await fg_Timeout(fp64(uint64(2) << iRetry));
+		}
+	}
+
 	CStr CGitHostingProvider_GitHub::fs_GetNextPageUrl(CStr const &_LinkHeader)
 	{
 		CStr Rel;
@@ -282,7 +312,7 @@ namespace NMib::NGit
 			// Per page, since an App's installation token can expire during a long enumeration
 			auto Headers = co_await fp_GetRestHeaders();
 
-			auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Get, PageUrl, fg_Move(Headers));
+			auto Result = co_await fp_RestGet(PageUrl, fg_Move(Headers), false, 0);
 
 			PageUrl.f_Clear();
 

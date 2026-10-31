@@ -149,6 +149,7 @@ namespace NMib::NGit
 
 		static bool fs_MergeRestPage(CJsonSorted &o_Result, CJsonSorted &&_Page, CStr const &_PagedArrayMember, umint _MaxItems);
 		static CStr fs_GetNextPageUrl(CStr const &_LinkHeader);
+		static bool fs_IsTransientServerError(uint32 _StatusCode);
 		static TCOptional<CGitHostingProviderRateLimit> fs_GetRateLimit(uint32 _StatusCode, TCMap<CStr, CStr, CCompareNoCase> const &_Headers, CStr const &_Body, NTime::CTime const &_Now);
 
 	private:
@@ -250,6 +251,7 @@ namespace NMib::NGit
 		TCFuture<CStr> fp_InstallationID();
 		TCFuture<CUser> fp_GetAppUser();
 		TCFuture<TCMap<CStr, CStr>> fp_GetRestHeaders();
+		TCFuture<CHttpClientActor::CResult> fp_RestGet(CStr _Url, TCMap<CStr, CStr> _Headers, bool _bFollowRedirects, umint _MaxBodySize);
 		static TCMap<CStr, CStr> fsp_GetPublicRestHeaders();
 		CExceptionPointer fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
 

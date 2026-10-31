@@ -136,17 +136,20 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CHttpClientActor::CRequest Request;
-		Request.m_URL = NWeb::NHTTP::CURL("https://api.github.com/repos/{}/{}/actions/jobs/{}/logs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _JobID).f_Encode();
-		Request.m_Method = CHttpClientActor::EMethod_GET;
-		Request.m_Headers = co_await fp_GetRestHeaders();
+		auto Headers = co_await fp_GetRestHeaders();
 		// The endpoint redirects to blob storage and rejects application/octet-stream with 415
-		Request.m_Headers["Accept"] = "application/vnd.github+json";
-		Request.m_bFollowRedirects = true;
-		Request.m_MaxBodySize = _MaxSize;
+		Headers["Accept"] = "application/vnd.github+json";
 
 		// Not streamed, so an error keeps its body, which tells a secondary rate limit from other refusals
-		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));
+		auto Result = co_await fp_RestGet
+			(
+				NWeb::NHTTP::CURL("https://api.github.com/repos/{}/{}/actions/jobs/{}/logs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _JobID).f_Encode()
+				, fg_Move(Headers)
+				, true
+				, _MaxSize
+			)
+		;
+
 		if (Result.m_StatusCode != 200)
 			co_return fp_GetRestError("Failed to get log of workflow job {} in repository '{}'"_f << _JobID << _Repository, Result, {});
 
