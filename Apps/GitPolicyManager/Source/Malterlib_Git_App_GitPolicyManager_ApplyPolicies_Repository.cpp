@@ -11,13 +11,14 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_RepositorySettings
+	auto CGitPolicyManagerActor::fp_ApplyPolicies_RepositorySettings
 		(
 			CEJsonSorted _Properties
 			, CStr _Repository
 			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
 			, CStr _PolicyName
 		)
+		-> TCFuture<void>
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 

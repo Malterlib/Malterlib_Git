@@ -65,7 +65,7 @@ namespace NMib::NGit
 		// One word of a rule about 'diff' or the 'binary' macro.
 		struct CAssignment
 		{
-			bool m_bMacro = false;						// Assigns 'binary', which sets the macro or not; otherwise assigns 'diff'.
+			bool m_bMacro = false; // Assigns 'binary', which sets the macro or not; otherwise assigns 'diff'.
 			bool m_bMacroSet = false;
 			EGitTextAttribute m_Diff = EGitTextAttribute::mc_Unspecified;
 		};
@@ -115,12 +115,12 @@ namespace NMib::NGit
 		static CGitEnvironment fs_FromProcess();
 
 		NStr::CStr m_Home;
-		NStr::CStr m_ConfigHome;						// XDG_CONFIG_HOME
-		NStr::CStr m_GlobalConfiguration;				// GIT_CONFIG_GLOBAL replaces both global files.
-		NStr::CStr m_SystemConfiguration;				// GIT_CONFIG_SYSTEM
-		bool m_bGlobalConfigurationSet = false;			// GIT_CONFIG_GLOBAL is set, also when empty, which reads no global file.
-		bool m_bSystemConfigurationSet = false;			// GIT_CONFIG_SYSTEM is set, also when empty, which reads no system file.
-		bool m_bNoSystem = false;						// GIT_CONFIG_NOSYSTEM
+		NStr::CStr m_ConfigHome;                // XDG_CONFIG_HOME
+		NStr::CStr m_GlobalConfiguration;       // GIT_CONFIG_GLOBAL replaces both global files.
+		NStr::CStr m_SystemConfiguration;       // GIT_CONFIG_SYSTEM
+		bool m_bGlobalConfigurationSet = false; // GIT_CONFIG_GLOBAL is set, also when empty, which reads no global file.
+		bool m_bSystemConfigurationSet = false; // GIT_CONFIG_SYSTEM is set, also when empty, which reads no system file.
+		bool m_bNoSystem = false;               // GIT_CONFIG_NOSYSTEM
 	};
 
 	// The ignore files git applies to a whole repository below every .gitignore: the one
@@ -129,11 +129,11 @@ namespace NMib::NGit
 	// git's installation prefix, is not read, by decision, as the system configuration's is not.
 	struct CGitRepositoryExcludes
 	{
-		NStr::CStr m_ExcludesFile;						// Empty when no file applies.
+		NStr::CStr m_ExcludesFile;   // Empty when no file applies.
 		NStr::CStr m_InfoExclude;
-		NStr::CStr m_AttributesFile;					// The one core.attributesFile names, or its default, below every .gitattributes.
-		NStr::CStr m_InfoAttributes;					// The repository's info/attributes, below every .gitattributes.
-		bool m_bIgnoreCase = false;						// core.ignoreCase, which its ignore and attribute patterns match by.
+		NStr::CStr m_AttributesFile; // The one core.attributesFile names, or its default, below every .gitattributes.
+		NStr::CStr m_InfoAttributes; // The repository's info/attributes, below every .gitattributes.
+		bool m_bIgnoreCase = false;  // core.ignoreCase, which its ignore and attribute patterns match by.
 	};
 
 	// Both empty when the root holds no '.git' entry this understands.

@@ -60,7 +60,6 @@ namespace NMib::NGit
 
 			return {};
 		}
-
 	}
 
 	auto CGitHostingProvider_GitHub::f_CreateRelease(CStr _Repository, CCreateRelease _CreateRelease) -> TCFuture<CRelease>
@@ -148,11 +147,7 @@ namespace NMib::NGit
 		if (!RestID)
 			co_return DMibErrorInstance("Release identifier does not contain a REST ID: {}"_f << _ReleaseID);
 
-		CStr URL = "repos/{}/{}/releases/{}"_f
-			<< RepositorySlug.m_Owner
-			<< RepositorySlug.m_Name
-			<< RestID
-		;
+		CStr URL = "repos/{}/{}/releases/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID;
 
 		co_await fp_RestApiDelete(URL, "Failed to delete release");
 
@@ -191,24 +186,12 @@ namespace NMib::NGit
 		if (!RestID)
 			co_return DMibErrorInstance("Release identifier does not contain a REST ID: {}"_f << _ReleaseIdentifier);
 
-		CStr URL = "repos/{}/{}/releases/{}/assets?name={}"_f
-			<< RepositorySlug.m_Owner
-			<< RepositorySlug.m_Name
-			<< RestID
-			<< NWeb::NHTTP::CURL::fs_PercentEncode(_UploadRelease.m_Name)
-		;
+		CStr URL = "repos/{}/{}/releases/{}/assets?name={}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID << NWeb::NHTTP::CURL::fs_PercentEncode(_UploadRelease.m_Name);
 
 		if (_UploadRelease.m_Label)
 			URL += "&label={}"_f << NWeb::NHTTP::CURL::fs_PercentEncode(*_UploadRelease.m_Label);
 
-		auto Data = co_await fp_RestApiUploadFile
-			(
-				URL
-				, fg_Move(_UploadRelease.m_fReadData)
-				, _UploadRelease.m_AssetSize
-				, "Failed to upload release asset"
-			)
-		;
+		auto Data = co_await fp_RestApiUploadFile(URL, fg_Move(_UploadRelease.m_fReadData), _UploadRelease.m_AssetSize, "Failed to upload release asset");
 
 		co_return fg_ParseReleaseAsset(Data);
 	}
@@ -221,19 +204,9 @@ namespace NMib::NGit
 		if (!RestID)
 			co_return DMibErrorInstance("Release asset identifier does not contain a REST ID: {}"_f << _DownloadRelease.m_Identifier);
 
-		CStr URL = "repos/{}/{}/releases/assets/{}"_f
-			<< RepositorySlug.m_Owner
-			<< RepositorySlug.m_Name
-			<< RestID
-		;
+		CStr URL = "repos/{}/{}/releases/assets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID;
 
-		co_await fp_RestApiDownloadFile
-			(
-				URL
-				, fg_Move(_DownloadRelease.m_fWriteData)
-				, "Failed to download release asset"
-			)
-		;
+		co_await fp_RestApiDownloadFile(URL, fg_Move(_DownloadRelease.m_fWriteData), "Failed to download release asset");
 
 		co_return {};
 	}
@@ -242,13 +215,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		co_await fp_PublicDownloadFile
-			(
-				_DownloadRelease.m_Url
-				, fg_Move(_DownloadRelease.m_fWriteData)
-				, "Failed to download release asset"
-			)
-		;
+		co_await fp_PublicDownloadFile(_DownloadRelease.m_Url, fg_Move(_DownloadRelease.m_fWriteData), "Failed to download release asset");
 
 		co_return {};
 	}
@@ -266,11 +233,7 @@ namespace NMib::NGit
 		if (!RestID)
 			co_return DMibErrorInstance("Release asset identifier does not contain a REST ID: {}"_f << _Identifier);
 
-		CStr URL = "repos/{}/{}/releases/assets/{}"_f
-			<< RepositorySlug.m_Owner
-			<< RepositorySlug.m_Name
-			<< RestID
-		;
+		CStr URL = "repos/{}/{}/releases/assets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID;
 
 		co_await fp_RestApiDelete(URL, "Failed to delete release asset");
 

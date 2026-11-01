@@ -13,11 +13,6 @@ namespace NMib::NGit::NGitPolicyManager
 	{
 		CDistributedAppActor::fp_BuildCommandLine(o_CommandLine);
 
-		o_CommandLine.f_SetProgramDescription
-			(
-				"Malterlib Git Policy Manager"
-				, "Manages policy setup on Git hosting providers."
-			)
-		;
+		o_CommandLine.f_SetProgramDescription("Malterlib Git Policy Manager", "Manages policy setup on Git hosting providers.");
 	}
 }

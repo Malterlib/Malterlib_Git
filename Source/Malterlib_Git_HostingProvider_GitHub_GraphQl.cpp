@@ -20,14 +20,7 @@ namespace NMib::NGit
 		if (mp_Token)
 			Headers["Authorization"] = "Bearer {}"_f << mp_Token;
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, "https://api.github.com/graphql"
-				, fg_Move(Headers)
-				, fg_Move(QueryJson)
-			)
-		;
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Post, "https://api.github.com/graphql", fg_Move(Headers), fg_Move(QueryJson));
 
 		if (Result.m_StatusCode != 200)
 		{

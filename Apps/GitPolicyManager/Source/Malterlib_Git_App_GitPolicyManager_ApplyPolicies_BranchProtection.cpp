@@ -11,13 +11,14 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_BranchProtection
+	auto CGitPolicyManagerActor::fp_ApplyPolicies_BranchProtection
 		(
 			CEJsonSorted _BranchProtection
 			, CStr _Repository
 			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
 			, CStr _PolicyName
 		)
+		-> TCFuture<void>
 	{
 		auto Auditor = mp_State.f_Auditor();
 

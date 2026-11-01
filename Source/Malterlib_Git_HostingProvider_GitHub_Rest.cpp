@@ -118,24 +118,13 @@ namespace NMib::NGit
 			ExceptionData.m_RateLimit = fg_Move(*RateLimit);
 		}
 
-		return DMibErrorInstanceGitHostingProvider
-			(
-				"{} failed with status {} ({}): {}"_f << _Description << _Result.m_StatusCode << _Result.m_StatusMessage << Error
-				, fg_Move(ExceptionData)
-			)
-		;
+		return DMibErrorInstanceGitHostingProvider("{} failed with status {} ({}): {}"_f << _Description << _Result.m_StatusCode << _Result.m_StatusMessage << Error, fg_Move(ExceptionData));
 	}
 
 	// Primary limits answer with X-RateLimit-Remaining 0 and the reset as Unix seconds in X-RateLimit-Reset. Secondary limits
 	// answer with Retry-After in seconds, which takes precedence, or with neither and a message naming the secondary rate limit,
 	// after which GitHub says to wait at least a minute. Any other 403 is a permission error, not a rate limit.
-	auto CGitHostingProvider_GitHub::fs_GetRateLimit
-		(
-			uint32 _StatusCode
-			, TCMap<CStr, CStr, CCompareNoCase> const &_Headers
-			, CStr const &_Body
-			, NTime::CTime const &_Now
-		)
+	auto CGitHostingProvider_GitHub::fs_GetRateLimit(uint32 _StatusCode, TCMap<CStr, CStr, CCompareNoCase> const &_Headers, CStr const &_Body, NTime::CTime const &_Now)
 		-> TCOptional<CGitHostingProviderRateLimit>
 	{
 		if (_StatusCode != 403 && _StatusCode != 429)
@@ -252,7 +241,7 @@ namespace NMib::NGit
 		return true;
 	}
 
-	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApi
+	auto CGitHostingProvider_GitHub::fp_RestApi
 		(
 			CStr _Path
 			, CStr _ErrorDescription
@@ -262,6 +251,7 @@ namespace NMib::NGit
 			, CStr _PagedArrayMember
 			, umint _MaxItems
 		)
+		-> TCFuture<CJsonSorted>
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -292,13 +282,7 @@ namespace NMib::NGit
 			// Per page, since an App's installation token can expire during a long enumeration
 			auto Headers = co_await fp_GetRestHeaders();
 
-			auto Result = co_await mp_HttpClientActor
-				(
-					&CHttpClientActor::f_Get
-					, PageUrl
-					, fg_Move(Headers)
-				)
-			;
+			auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Get, PageUrl, fg_Move(Headers));
 
 			PageUrl.f_Clear();
 
@@ -330,14 +314,7 @@ namespace NMib::NGit
 
 		auto Headers = co_await fp_GetRestHeaders();
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Put
-				, Url.f_Encode()
-				, fg_Move(Headers)
-				, fg_Move(_Value)
-			)
-		;
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Put, Url.f_Encode(), fg_Move(Headers), fg_Move(_Value));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub put request"_f << _ErrorDescription, Result, _FieldTranslation);
@@ -353,14 +330,7 @@ namespace NMib::NGit
 
 		auto Headers = co_await fp_GetRestHeaders();
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Post
-				, Url.f_Encode()
-				, fg_Move(Headers)
-				, fg_Move(_Value)
-			)
-		;
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url.f_Encode(), fg_Move(Headers), fg_Move(_Value));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub post request"_f << _ErrorDescription, Result, _FieldTranslation);
@@ -378,14 +348,7 @@ namespace NMib::NGit
 
 		auto Headers = co_await fp_GetRestHeaders();
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Patch
-				, Url.f_Encode()
-				, fg_Move(Headers)
-				, fg_Move(_Value)
-			)
-		;
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Patch, Url.f_Encode(), fg_Move(Headers), fg_Move(_Value));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub patch request"_f << _ErrorDescription, Result, _FieldTranslation);
@@ -395,7 +358,7 @@ namespace NMib::NGit
 		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
-	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_RestApiUploadFile
+	auto CGitHostingProvider_GitHub::fp_RestApiUploadFile
 		(
 			CStr _Path
 			, TCActorFunctor<TCFuture<CByteVector> (umint _nBytes)> _fReadData
@@ -403,6 +366,7 @@ namespace NMib::NGit
 			, CStr _ErrorDescription
 			, uint32 _ExpectedStatus
 		)
+		-> TCFuture<CJsonSorted>
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -429,13 +393,8 @@ namespace NMib::NGit
 		co_return CJsonSorted::fs_FromString(Result.m_Body);
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::fp_PublicDownloadFile
-		(
-			CStr _Url
-			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
-			, CStr _ErrorDescription
-			, uint32 _ExpectedStatus
-		)
+	auto CGitHostingProvider_GitHub::fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus)
+		-> TCFuture<void>
 	{
 		CHttpClientActor::CRequest Request;
 
@@ -457,7 +416,7 @@ namespace NMib::NGit
 		co_return {};
 	}
 
-	TCFuture<void> CGitHostingProvider_GitHub::fp_RestApiDownloadFile
+	auto CGitHostingProvider_GitHub::fp_RestApiDownloadFile
 		(
 			CStr _Path
 			, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData
@@ -465,6 +424,7 @@ namespace NMib::NGit
 			, uint32 _ExpectedStatus
 			, CStr _Accept
 		)
+		-> TCFuture<void>
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
@@ -500,13 +460,7 @@ namespace NMib::NGit
 
 		auto Headers = co_await fp_GetRestHeaders();
 
-		auto Result = co_await mp_HttpClientActor
-			(
-				&CHttpClientActor::f_Delete
-				, PageUrl
-				, fg_Move(Headers)
-			)
-		;
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Delete, PageUrl, fg_Move(Headers));
 
 		if (Result.m_StatusCode != _ExpectedStatus)
 			co_return fp_GetRestError("{}: GitHub delete request"_f << _ErrorDescription, Result, {});

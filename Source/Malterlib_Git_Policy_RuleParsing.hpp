@@ -113,9 +113,9 @@ namespace NMib::NGit
 				auto &Value = _JsonValue.f_String();
 
 				if (Value == "PrTitle")
-					OutValue= CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_PrTitle;
+					OutValue = CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_PrTitle;
 				else if (Value == "CommitOrPrTitle")
-					OutValue= CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_CommitOrPrTitle;
+					OutValue = CGitHostingProvider::CRepository::ESquashMergeCommitTitle::mc_CommitOrPrTitle;
 				else
 					co_return DMibErrorInstance("Invalid squash merge commit title in '{}': {}"_f << _Name << Value);
 			}
@@ -358,10 +358,7 @@ namespace NMib::NGit
 				co_await fg_ParseRuleSetting(_JsonValue, "Actor", OutValue.m_Actor);
 				co_await fg_ParseRuleSetting(_JsonValue, "Mode", OutValue.m_BypassMode);
 			}
-			else if constexpr
-				(
-					cIsSame<CType, CGitHostingProvider::CRequiredStatusCheck> || cIsSame<CType, CGitHostingProvider::CGenericRule_StatusChecks::CRequiredStatusCheck>
-				)
+			else if constexpr (cIsSame<CType, CGitHostingProvider::CRequiredStatusCheck> || cIsSame<CType, CGitHostingProvider::CGenericRule_StatusChecks::CRequiredStatusCheck>)
 			{
 				OutValue.m_Context = _JsonValue["Context"].f_String();
 
