@@ -435,9 +435,15 @@ namespace NMib::NGit
 
 		co_await fp_EnsureLogin(true);
 
+		auto Releases = co_await mp_HostingProvider(&CGitHostingProvider::f_GetReleases, _Repository);
+
+		// A concurrent call may have filled in the releases while we were suspended. Don't replace them, as callers may hold pointers into the assets
+		if (pOutRepository->m_bInitedReleases)
+			co_return pOutRepository;
+
 		auto &OutReleases = pOutRepository->m_Releases;
 
-		for (auto &Release : co_await mp_HostingProvider(&CGitHostingProvider::f_GetReleases, _Repository))
+		for (auto &Release : Releases)
 		{
 			if (!Release.m_TagName.f_StartsWith("lfs/") || Release.m_TagName == gc_LfsReleaseTargetTagName)
 				continue;
