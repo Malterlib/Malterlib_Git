@@ -9,6 +9,7 @@ Import "Apps/*/*.MHeader"
 {
 	Property
 	{
+		MalterlibConcurrency_DistributedAppPrefixHeader true
 		MalterlibNoShortcuts false
 		AddIncludePaths_p4api true
 	}
