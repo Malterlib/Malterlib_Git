@@ -138,7 +138,9 @@ namespace NMib::NGit::NGitPolicyManager
 		TCVector<CGitHostingProvider::CRepository> AllRepositories;
 		TCSet<CStr> AllMatchedRepositories;
 
-		for (auto &Config : pConfigs->f_Array())
+		// A copy: the config can be reloaded while the hosting providers are awaited
+		auto Configs = pConfigs->f_Array();
+		for (auto &Config : Configs)
 		{
 			auto &Provider = Config["Provider"].f_String();
 
