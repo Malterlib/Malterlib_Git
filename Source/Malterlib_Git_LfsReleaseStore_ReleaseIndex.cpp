@@ -315,7 +315,7 @@ namespace NMib::NGit
 
 	auto CLfsReleaseStoreService::fp_GetReleaseIndexCache(CStr _Repository) -> TCFuture<TCSharedPointer<CReleaseIndexCache>>
 	{
-		auto &pCache = *mp_ReleaseIndexCache(_Repository, fg_Construct());
+		auto pCache = *mp_ReleaseIndexCache(_Repository, fg_Construct());
 		auto &Cache = *pCache;
 
 		if (Cache.m_bInitialized)

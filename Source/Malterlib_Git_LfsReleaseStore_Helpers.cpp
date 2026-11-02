@@ -428,7 +428,7 @@ namespace NMib::NGit
 	{
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
-		auto &pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
+		auto pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
 
 		if (pOutRepository->m_bInitedReleases)
 			co_return pOutRepository;
@@ -489,7 +489,7 @@ namespace NMib::NGit
 	{
 		auto CheckDestroy = co_await f_CheckDestroyedOnResume();
 
-		auto &pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
+		auto pOutRepository = *mp_RepositoryCache(_Repository, fg_Construct());
 		if (pOutRepository->m_pRepository)
 			co_return pOutRepository->m_pRepository;
 
