@@ -359,7 +359,7 @@ namespace NMib::NGit
 
 		auto fAddOptional = [&]
 			(
-#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
+#if defined(DCompiler_MSVC_Workaround)
 				auto &&_fThis
 #else
 				this auto &&_fThis
@@ -370,8 +370,8 @@ namespace NMib::NGit
 			)
 			-> TCUnsafeFuture<void>
 			{
-#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
-#	define _fThis(...) _fThis(_fThis, __VA_ARGS__)
+#if defined(DCompiler_MSVC_Workaround)
+#	define _fThis(...) _fThis(_fThis, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
 #endif
 				using CValueType = TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>;
 				using CType = TCOptionalType<CValueType>;
@@ -582,8 +582,8 @@ namespace NMib::NGit
 
 		CJsonSorted Output;
 
-#if defined(DCompiler_MSVC_Workaround) || defined(DCompiler_Workaround_Apple_clang)
-#	define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__)
+#if defined(DCompiler_MSVC_Workaround)
+#	define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
 #endif
 
 		co_await fAddOptional(Output, "name", _Ruleset.m_Name);
