@@ -14,6 +14,12 @@ namespace NMib::NGit
 		_Stream % m_Code;
 	}
 
+	template <typename tf_CStr>
+	void CGitHostingProviderError::f_Format(tf_CStr &o_String) const
+	{
+		o_String += typename tf_CStr::CFormat("Code: {} Resource: {} Field: {} Message: {}") << m_Code << m_Resource << m_Field << m_Message;
+	}
+
 	template <typename tf_CStream>
 	void CGitHostingProviderRateLimit::f_Stream(tf_CStream &_Stream)
 	{

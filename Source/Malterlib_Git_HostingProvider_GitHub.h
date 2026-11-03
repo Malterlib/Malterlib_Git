@@ -16,18 +16,12 @@ namespace NMib::NGit
 #ifndef DCompiler_MSVC_Workaround
 			constexpr
 #endif
-			COrdering_Strong operator <=> (CFieldTranslationPair const &_Right) const noexcept
-			{
-				return fg_StrCmp(m_GitHubField.m_pStr, _Right.m_GitHubField.m_pStr) <=> 0;
-			}
+			COrdering_Strong operator <=> (CFieldTranslationPair const &_Right) const noexcept;
 
 #ifndef DCompiler_MSVC_Workaround
 			constexpr
 #endif
-			COrdering_Strong operator <=> (CStr const &_Right) const noexcept
-			{
-				return m_GitHubField.m_Str <=> _Right;
-			}
+			COrdering_Strong operator <=> (CStr const &_Right) const noexcept;
 
 			TCStrConst<NStr::CStr> m_GitHubField;
 			NStr::CStr m_MalterlibField;
@@ -137,14 +131,7 @@ namespace NMib::NGit
 		template <umint t_nFields>
 		struct TCFieldTranslations : public CFieldTranslations
 		{
-			constexpr TCFieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields])
-				: CFieldTranslations
-				{
-					.m_pFields = _Pairs
-					, .m_nFields = t_nFields
-				}
-			{
-			}
+			constexpr TCFieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields]);
 		};
 
 #ifdef DCompiler_MSVC_Workaround

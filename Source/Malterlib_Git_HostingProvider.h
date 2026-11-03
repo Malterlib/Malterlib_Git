@@ -28,10 +28,7 @@ namespace NMib::NGit
 		void f_Stream(tf_CStream &_Stream);
 
 		template <typename tf_CStr>
-		void f_Format(tf_CStr &o_String) const
-		{
-			o_String += typename tf_CStr::CFormat("Code: {} Resource: {} Field: {} Message: {}") << m_Code << m_Resource << m_Field << m_Message;
-		}
+		void f_Format(tf_CStr &o_String) const;
 
 		CStr m_Resource;
 		CStr m_Field;
