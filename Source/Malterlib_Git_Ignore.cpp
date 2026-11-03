@@ -37,7 +37,7 @@ namespace NMib::NGit
 			{
 				umint nBackslashes = 0;
 				auto pLine = Line.f_GetStr();
-				for (auto i = Line.f_GetLen() - 1; i > 0 && pLine[i - 1] == '\\'; --i)
+				for (auto iChar = Line.f_GetLen() - 1; iChar > 0 && pLine[iChar - 1] == '\\'; --iChar)
 					++nBackslashes;
 
 				if (nBackslashes % 2)

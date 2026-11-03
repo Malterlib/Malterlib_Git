@@ -220,9 +220,9 @@ namespace NMib::NGit
 		CExceptionPointer fp_GetRestError(CStr const &_Description, CHttpClientActor::CResult const &_Result, CFieldTranslations const &_FieldTranslation);
 
 		// GitHub's API answers within seconds, so a request that gets almost nothing for this long has stalled and would otherwise wait forever
-		static constexpr fp64 mc_StallTimeout = 120.0;
+		static constexpr fp64 mcp_StallTimeout = 120.0;
 
-		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(CHttpClientActor::CCertificateConfig{}, mc_StallTimeout)};
+		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(CHttpClientActor::CCertificateConfig{}, mcp_StallTimeout)};
 		CStr mp_Token;
 		uint64 mp_LoginGeneration = 0;                                      // Changes with every f_Login, so a token renewal that a new login overlapped is discarded
 		TCOptional<CAppLogin> mp_AppLogin;                                  // Set when logged in as a GitHub App installation, which renews mp_Token
