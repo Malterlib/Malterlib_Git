@@ -9,8 +9,9 @@
 using namespace NMib;
 using namespace NMib::NGit::NGitPolicyManager;
 
-class CGitPolicyManager : public CApplication
+struct CGitPolicyManager : public CApplication
 {
+private:
 	aint f_Main()
 	{
 		NConcurrency::CDistributedDaemon Daemon

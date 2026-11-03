@@ -856,7 +856,7 @@ namespace NMib::NGit
 }
 
 #define	DMibGitHostingProviderRegister(d_ClassName) \
-	class CGitHostingProviderFactory_##d_ClassName : public NMib::NGit::ICGitHostingProviderFactory \
+	struct CGitHostingProviderFactory_##d_ClassName : public NMib::NGit::ICGitHostingProviderFactory \
 	{ \
 		NConcurrency::TCActor<CGitHostingProvider> operator () () override; \
 	}; \
