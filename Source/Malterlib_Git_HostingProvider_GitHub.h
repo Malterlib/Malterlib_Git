@@ -148,10 +148,10 @@ namespace NMib::NGit
 		};
 
 #ifdef DCompiler_MSVC_Workaround
-		template <umint t_nFields>
-		static CFieldTranslations fsp_FieldTranslations(CFieldTranslationPair const (&_Pairs)[t_nFields]);
+		template <umint tf_nFields>
+		static CFieldTranslations fsp_FieldTranslations(CFieldTranslationPair const (&_Pairs)[tf_nFields]);
 #else
-		template <TCFieldTranslations t_Fields>
+		template <TCFieldTranslations tf_Fields>
 		static CFieldTranslations fsp_FieldTranslations();
 #endif
 

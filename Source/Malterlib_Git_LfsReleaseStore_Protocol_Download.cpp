@@ -51,7 +51,7 @@ namespace NMib::NGit
 		// construction in a factory so the retry loop below can hand a fresh
 		// callback (with reset byte counters) to each attempt without duplicating
 		// the lambda body.
-		auto fGetWriteData = [this, Size, CompressionRatio, FilePath, pFileReadState]() -> TCActorFunctor<TCFuture<void> (CByteVector)>
+		auto fGetWriteData = [this, Size, CompressionRatio, FilePath, pFileReadState]() -> TCActorFunctor<TCFuture<void> (CByteVector _Data)>
 			{
 				return g_ActorFunctor / [this, Size, CompressionRatio, FilePath, pFileReadState, BytesSoFar = uint64(0), BytesLastTime = uint64(0), Stopwatch = CStopwatch{true}]
 					(CByteVector _Data) mutable -> TCFuture<void>

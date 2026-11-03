@@ -6,7 +6,6 @@ Checks: >-
   -*,
   malterlib-*,
   -malterlib-header-declarations-only,
-  -malterlib-variable-naming,
-  -malterlib-parameter-naming
+  -malterlib-variable-naming
 CheckOptions:
   malterlib.OptionsFile: ../Core/ClangTidyOptions.yaml

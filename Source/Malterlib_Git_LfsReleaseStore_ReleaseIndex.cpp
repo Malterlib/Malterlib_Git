@@ -204,7 +204,7 @@ namespace NMib::NGit
 		// Same factory pattern as fp_DownloadReleaseAsset: each retry consumes the
 		// move-only callback, so wrap construction so the loop can hand a fresh
 		// callback to each attempt.
-		auto fGetWriteData = [pReleaseData]() -> TCActorFunctor<TCFuture<void> (CByteVector)>
+		auto fGetWriteData = [pReleaseData]() -> TCActorFunctor<TCFuture<void> (CByteVector _Data)>
 			{
 				return g_ActorFunctor / [pReleaseData](CByteVector _Data) mutable -> TCFuture<void>
 					{
