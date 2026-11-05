@@ -82,7 +82,7 @@ namespace NMib::NGit
 
 		TCFuture<TCVector<CWorkflowRun>> f_GetWorkflowRuns(CStr _Repository, CStr _Workflow, CWorkflowRunFilter _Filter) override;
 		TCFuture<TCVector<CWorkflowJob>> f_GetWorkflowRunJobs(CStr _Repository, uint64 _RunID, bool _bAllAttempts) override;
-		TCFuture<CStr> f_GetWorkflowJobLog(CStr _Repository, uint64 _JobID) override;
+		TCFuture<CStr> f_GetWorkflowJobLog(CStr _Repository, uint64 _JobID, umint _MaxSize) override;
 
 		TCFuture<TCVector<CPullRequest>> f_GetPullRequests(CStr _Repository, CPullRequestFilter _Filter) override;
 		TCFuture<CPullRequest> f_GetPullRequest(CStr _Repository, uint64 _Number) override;

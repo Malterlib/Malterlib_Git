@@ -129,7 +129,8 @@ namespace NMib::NGit
 		co_return fs_ParseWorkflowJobs(Data);
 	}
 
-	TCFuture<CStr> CGitHostingProvider_GitHub::f_GetWorkflowJobLog(CStr _Repository, uint64 _JobID)
+	/// At most _MaxSize bytes from the start of the log, 0 for all of it
+	TCFuture<CStr> CGitHostingProvider_GitHub::f_GetWorkflowJobLog(CStr _Repository, uint64 _JobID, umint _MaxSize)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
@@ -140,6 +141,7 @@ namespace NMib::NGit
 		// The endpoint redirects to blob storage and rejects application/octet-stream with 415
 		Request.m_Headers["Accept"] = "application/vnd.github+json";
 		Request.m_bFollowRedirects = true;
+		Request.m_MaxBodySize = _MaxSize;
 
 		// Not streamed, so an error keeps its body, which tells a secondary rate limit from other refusals
 		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_SendRequest, fg_Move(Request));

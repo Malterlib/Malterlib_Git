@@ -841,7 +841,7 @@ namespace NMib::NGit
 
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowRun>> f_GetWorkflowRuns(NStr::CStr _Repository, NStr::CStr _Workflow, CWorkflowRunFilter _Filter) = 0;
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowJob>> f_GetWorkflowRunJobs(NStr::CStr _Repository, uint64 _RunID, bool _bAllAttempts) = 0;
-		virtual NConcurrency::TCFuture<NStr::CStr> f_GetWorkflowJobLog(NStr::CStr _Repository, uint64 _JobID) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_GetWorkflowJobLog(NStr::CStr _Repository, uint64 _JobID, umint _MaxSize) = 0;
 
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequest>> f_GetPullRequests(NStr::CStr _Repository, CPullRequestFilter _Filter) = 0;
 		virtual NConcurrency::TCFuture<CPullRequest> f_GetPullRequest(NStr::CStr _Repository, uint64 _Number) = 0;
