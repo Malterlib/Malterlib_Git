@@ -26,6 +26,8 @@ namespace NMib::NGit
 			Return.m_DownloadCount = _Data.f_GetMemberValue("download_count", uint64(0)).f_Integer();
 			Return.m_State = _Data.f_GetMemberValue("state", CStr()).f_String();
 			Return.m_DownloadUrl = _Data.f_GetMemberValue("browser_download_url", CStr()).f_String();
+			if (auto *pUploader = _Data.f_GetMember("uploader", EJsonType_Object))
+				Return.m_Uploader = pUploader->f_GetMemberValue("login", CStr()).f_String();
 
 			return Return;
 		}

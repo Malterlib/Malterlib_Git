@@ -83,16 +83,62 @@ namespace NMib::NGit
 		TCFuture<TCVector<CWorkflowRun>> f_GetWorkflowRuns(CStr _Repository, CStr _Workflow, CWorkflowRunFilter _Filter) override;
 		TCFuture<TCVector<CWorkflowJob>> f_GetWorkflowRunJobs(CStr _Repository, uint64 _RunID, bool _bAllAttempts) override;
 		TCFuture<CStr> f_GetWorkflowJobLog(CStr _Repository, uint64 _JobID, umint _MaxSize) override;
+		TCFuture<CByteVector> f_GetFileContents(CStr _Repository, CStr _Path, CStr _Ref) override;
 
 		TCFuture<TCVector<CPullRequest>> f_GetPullRequests(CStr _Repository, CPullRequestFilter _Filter) override;
 		TCFuture<CPullRequest> f_GetPullRequest(CStr _Repository, uint64 _Number) override;
 		TCFuture<TCVector<CPullRequestFeedback>> f_GetPullRequestFeedback(CStr _Repository, uint64 _Number, NTime::CTime _Since) override;
+		TCFuture<TCVector<CPullRequestReview>> f_GetPullRequestReviews(CStr _Repository, uint64 _Number) override;
+		TCFuture<CPullRequestReview> f_CreatePullRequestReview(CStr _Repository, uint64 _Number, CCreatePullRequestReview _Review) override;
+		TCFuture<void> f_DismissPullRequestReview(CStr _Repository, uint64 _Number, uint64 _ReviewID, CStr _Message) override;
+		TCFuture<TCVector<CPullRequestReviewThread>> f_GetPullRequestReviewThreads(CStr _Repository, uint64 _Number) override;
+		TCFuture<void> f_ResolveReviewThread(CStr _ThreadID) override;
+		TCFuture<CCommentEdits> f_GetCommentEdits(CStr _NodeID) override;
+		TCFuture<uint64> f_ReplyToReviewComment(CStr _Repository, uint64 _Number, uint64 _CommentID, CStr _Body) override;
+		TCFuture<TCVector<CPullRequestFile>> f_GetPullRequestFiles(CStr _Repository, uint64 _Number) override;
+
+		TCFuture<TCVector<CIssueSearchResult>> f_SearchIssues(CIssueSearchFilter _Filter) override;
+		TCFuture<TCVector<CIssueComment>> f_GetIssueComments(CStr _Repository, uint64 _Number, NTime::CTime _Since) override;
+		TCFuture<CIssueComment> f_CreateIssueComment(CStr _Repository, uint64 _Number, CStr _Body) override;
+		TCFuture<CIssueComment> f_UpdateIssueComment(CStr _Repository, uint64 _CommentID, CStr _Body) override;
+		TCFuture<TCVector<CIssueEvent>> f_GetIssueEvents(CStr _Repository, uint64 _Number) override;
+		TCFuture<void> f_CreateReaction(CStr _Repository, EReactionSubject _Subject, uint64 _ID, CStr _Content) override;
+
+		TCFuture<ETeamMembershipState> f_GetTeamMembership(CStr _Organization, CStr _TeamSlug, CStr _User) override;
+		TCFuture<TCVector<CApiRateLimitStatus>> f_GetApiRateLimits() override;
+		TCFuture<CBranchRequirements> f_GetBranchRequirements(CStr _Repository, CStr _Branch) override;
+
+		TCFuture<void> f_SetCommitStatus(CStr _Repository, CStr _Sha, CCommitStatus _Status) override;
+		TCFuture<CCombinedStatus> f_GetCombinedStatus(CStr _Repository, CStr _Ref) override;
+		TCFuture<TCVector<CCheckRun>> f_GetCheckRuns(CStr _Repository, CStr _Ref) override;
+
+		TCFuture<CAccessToken> f_CreateRestrictedAccessToken(CRestrictedAccessTokenRequest _Request) override;
 
 		static TCVector<CWorkflowRun> fs_ParseWorkflowRuns(CJsonSorted const &_Json);
 		static TCVector<CWorkflowJob> fs_ParseWorkflowJobs(CJsonSorted const &_Json);
 		static CPullRequest fs_ParsePullRequest(CJsonSorted const &_Json);
 		static TCVector<CPullRequest> fs_ParsePullRequests(CJsonSorted const &_Json);
 		static CStr fs_ParseCollaboratorPermission(CJsonSorted const &_Json);
+		static CPullRequestReview fs_ParsePullRequestReview(CJsonSorted const &_Json);
+		static TCVector<CPullRequestReview> fs_ParsePullRequestReviews(CJsonSorted const &_Json);
+		static TCVector<CPullRequestReviewThread> fs_ParseReviewThreads(CJsonSorted const &_ReviewThreads);
+		static NStorage::TCOptional<CCommentEdits> fs_ParseCommentEdits(CJsonSorted const &_Response);
+		static TCVector<CPullRequestFile> fs_ParsePullRequestFiles(CJsonSorted const &_Json);
+		static TCVector<CIssueSearchResult> fs_ParseIssueSearchResults(CJsonSorted const &_Json);
+		static CIssueComment fs_ParseIssueComment(CJsonSorted const &_Json);
+		static TCVector<CIssueComment> fs_ParseIssueComments(CJsonSorted const &_Json);
+		static TCVector<CIssueEvent> fs_ParseIssueEvents(CJsonSorted const &_Json);
+		static ETeamMembershipState fs_ParseTeamMembership(CJsonSorted const &_Json);
+		static TCVector<CApiRateLimitStatus> fs_ParseApiRateLimits(CJsonSorted const &_Json);
+		static void fs_ParseBranchProtection(CJsonSorted const &_Json, CBranchRequirements &o_Requirements);
+		static void fs_ParseBranchRules(CJsonSorted const &_Json, CBranchRequirements &o_Requirements);
+		static CCombinedStatus fs_ParseCombinedStatus(CJsonSorted const &_Json);
+		static TCVector<CCheckRun> fs_ParseCheckRuns(CJsonSorted const &_Json);
+		static CJsonSorted fs_CreatePullRequestReviewJson(CCreatePullRequestReview const &_Review);
+		static CJsonSorted fs_RestrictedAccessTokenJson(CRestrictedAccessTokenRequest const &_Request);
+		static CJsonSorted fs_CommitStatusJson(CCommitStatus const &_Status);
+		static CStr fs_ReactionPath(CStr const &_Owner, CStr const &_Name, EReactionSubject _Subject, uint64 _ID);
+		static CStr fs_FileContentsPath(CStr const &_Owner, CStr const &_Name, CStr const &_Path, CStr const &_Ref);
 		static auto fs_ParsePullRequestFeedback(CJsonSorted const &_Reviews, CJsonSorted const &_ReviewComments, CJsonSorted const &_IssueComments, NTime::CTime const &_Since)
 			-> TCVector<CPullRequestFeedback>
 		;
@@ -200,7 +246,8 @@ namespace NMib::NGit
 		static CPullRequestFeedback fsp_ParsePullRequestFeedbackItem(CJsonSorted const &_Json, EPullRequestFeedbackKind _Kind);
 		TCFuture<void> fp_EnsureAccessToken();
 		TCFuture<void> fp_RenewAccessToken();
-		TCFuture<CJsonSorted> fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus);
+		TCFuture<CJsonSorted> fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus, CJsonSorted _PostBody = {});
+		TCFuture<CStr> fp_InstallationID();
 		TCFuture<CUser> fp_GetAppUser();
 		TCFuture<TCMap<CStr, CStr>> fp_GetRestHeaders();
 		static TCMap<CStr, CStr> fsp_GetPublicRestHeaders();

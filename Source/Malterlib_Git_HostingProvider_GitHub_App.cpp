@@ -56,8 +56,9 @@ namespace NMib::NGit
 		return "{}.{}"_f << SigningInput << fg_Base64UrlEncode(Signature);
 	}
 
-	/// An API call authenticated as the GitHub App itself rather than as one of its installations. Only GET and POST are needed.
-	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus)
+	/// An API call authenticated as the GitHub App itself rather than as one of its installations. Only GET and POST are needed; a POST
+	/// sends _PostBody, or an empty object when it is unset.
+	auto CGitHostingProvider_GitHub::fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus, CJsonSorted _PostBody) -> TCFuture<CJsonSorted>
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 		DMibRequire(_Method == CHttpClientActor::EMethod_GET || _Method == CHttpClientActor::EMethod_POST);
@@ -75,7 +76,7 @@ namespace NMib::NGit
 
 		auto Result
 			= _Method == CHttpClientActor::EMethod_POST
-			? co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url, fg_Move(Headers), CJsonSorted(EJsonType_Object))
+			? co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url, fg_Move(Headers), _PostBody.f_IsValid() ? fg_Move(_PostBody) : CJsonSorted(EJsonType_Object))
 			: co_await mp_HttpClientActor(&CHttpClientActor::f_Get, Url, fg_Move(Headers))
 		;
 
@@ -126,6 +127,38 @@ namespace NMib::NGit
 		co_return {};
 	}
 
+	/// The installation of the GitHub App login, looked up from its repository the first time when the login didn't name it
+	TCFuture<CStr> CGitHostingProvider_GitHub::fp_InstallationID()
+	{
+		if (!mp_AppLogin)
+			co_return DMibErrorInstance("Not logged in as a GitHub App");
+
+		if (!mp_AppLogin->m_InstallationID.f_IsEmpty())
+			co_return mp_AppLogin->m_InstallationID;
+
+		uint64 LoginGeneration = mp_LoginGeneration;
+		CStr Repository = mp_AppLogin->m_Repository;
+		auto Installation = co_await fp_AppApi
+			(
+				CHttpClientActor::EMethod_GET
+				, "repos/{}/installation"_f << Repository
+				, "Failed to find the GitHub App installation for {}"_f << Repository
+				, 200
+			)
+		;
+
+		if (mp_LoginGeneration != LoginGeneration || !mp_AppLogin)
+			co_return DMibErrorInstance("The GitHub login changed while the GitHub App installation was being looked up");
+
+		uint64 ID = fsp_GetJsonUnsigned(Installation, "id");
+		if (!ID)
+			co_return DMibErrorInstance("GitHub returned no installation id for the GitHub App on {}"_f << Repository);
+
+		mp_AppLogin->m_InstallationID = "{}"_f << ID;
+
+		co_return mp_AppLogin->m_InstallationID;
+	}
+
 	/// Creates a new installation token for the GitHub App login
 	TCFuture<void> CGitHostingProvider_GitHub::fp_RenewAccessToken()
 	{
@@ -136,28 +169,7 @@ namespace NMib::NGit
 			}
 		;
 
-		CStr InstallationID = mp_AppLogin->m_InstallationID;
-		if (InstallationID.f_IsEmpty())
-		{
-			CStr Repository = mp_AppLogin->m_Repository;
-			auto Installation = co_await fp_AppApi
-				(
-					CHttpClientActor::EMethod_GET
-					, "repos/{}/installation"_f << Repository
-					, "Failed to find the GitHub App installation for {}"_f << Repository
-					, 200
-				)
-			;
-
-			if (fLoginChanged())
-				co_return DMibErrorInstance("The GitHub login changed while the GitHub App installation was being looked up");
-
-			uint64 ID = fsp_GetJsonUnsigned(Installation, "id");
-			if (!ID)
-				co_return DMibErrorInstance("GitHub returned no installation id for the GitHub App on {}"_f << Repository);
-
-			InstallationID = "{}"_f << ID;
-		}
+		CStr InstallationID = co_await fp_InstallationID();
 
 		auto Token = co_await fp_AppApi(CHttpClientActor::EMethod_POST, "app/installations/{}/access_tokens"_f << InstallationID, "Failed to create a GitHub App installation token", 201);
 
@@ -175,6 +187,57 @@ namespace NMib::NGit
 		mp_Token = NewToken;
 
 		co_return {};
+	}
+
+	CJsonSorted CGitHostingProvider_GitHub::fs_RestrictedAccessTokenJson(CRestrictedAccessTokenRequest const &_Request)
+	{
+		CJsonSorted Json(EJsonType_Object);
+
+		if (!_Request.m_Permissions.f_IsEmpty())
+		{
+			auto &Permissions = Json["permissions"];
+			Permissions = CJsonSorted(EJsonType_Object);
+			for (auto &Level : _Request.m_Permissions)
+				Permissions[_Request.m_Permissions.fs_GetKey(Level)] = Level;
+		}
+
+		if (!_Request.m_Repositories.f_IsEmpty())
+		{
+			auto &Repositories = Json["repositories"];
+			Repositories = CJsonSorted(EJsonType_Array);
+			for (auto &Repository : _Request.m_Repositories)
+				Repositories.f_Insert(Repository);
+		}
+
+		return Json;
+	}
+
+	/// A new installation token with at most the permissions and repositories of _Request. GitHub refuses a permission the installation
+	/// doesn't have. The provider keeps using its own token.
+	auto CGitHostingProvider_GitHub::f_CreateRestrictedAccessToken(CRestrictedAccessTokenRequest _Request) -> TCFuture<CAccessToken>
+	{
+		if (!mp_AppLogin)
+			co_return DMibErrorInstance("A restricted access token needs a GitHub App login");
+
+		CStr InstallationID = co_await fp_InstallationID();
+
+		auto Token = co_await fp_AppApi
+			(
+				CHttpClientActor::EMethod_POST
+				, "app/installations/{}/access_tokens"_f << InstallationID
+				, "Failed to create a restricted GitHub App installation token"
+				, 201
+				, fs_RestrictedAccessTokenJson(_Request)
+			)
+		;
+
+		CAccessToken AccessToken;
+		AccessToken.m_Token = fsp_GetJsonString(Token, "token");
+		AccessToken.m_Expires = fsp_GetJsonTime(Token, "expires_at");
+		if (AccessToken.m_Token.f_IsEmpty() || !AccessToken.m_Expires.f_IsValid())
+			co_return DMibErrorInstance("GitHub returned no installation token or expiry for the restricted GitHub App token");
+
+		co_return fg_Move(AccessToken);
 	}
 
 	auto CGitHostingProvider_GitHub::f_GetAccessToken() -> TCFuture<CAccessToken>

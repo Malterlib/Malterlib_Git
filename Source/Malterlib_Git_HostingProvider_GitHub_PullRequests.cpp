@@ -21,10 +21,18 @@ namespace NMib::NGit
 		else
 			PullRequest.m_bMerged = !!_Json.f_GetMember("merged_at", EJsonType_String);
 
+		// Before a merge GitHub keeps a test merge commit here
+		if (PullRequest.m_bMerged)
+			PullRequest.m_MergeCommitSha = fsp_GetJsonString(_Json, "merge_commit_sha");
+
 		if (auto *pHead = _Json.f_GetMember("head", EJsonType_Object))
 		{
 			PullRequest.m_HeadRef = fsp_GetJsonString(*pHead, "ref");
 			PullRequest.m_HeadSha = fsp_GetJsonString(*pHead, "sha");
+
+			// null when the fork was deleted
+			if (auto *pRepository = pHead->f_GetMember("repo", EJsonType_Object))
+				PullRequest.m_HeadRepository = fsp_GetJsonString(*pRepository, "full_name");
 		}
 
 		if (auto *pBase = _Json.f_GetMember("base", EJsonType_Object))
@@ -43,6 +51,7 @@ namespace NMib::NGit
 		}
 
 		PullRequest.m_CreatedAt = fsp_GetJsonTime(_Json, "created_at");
+		PullRequest.m_UpdatedAt = fsp_GetJsonTime(_Json, "updated_at");
 
 		return PullRequest;
 	}
@@ -66,6 +75,7 @@ namespace NMib::NGit
 
 		Feedback.m_Kind = _Kind;
 		Feedback.m_ID = fsp_GetJsonUnsigned(_Json, "id");
+		Feedback.m_NodeID = fsp_GetJsonString(_Json, "node_id");
 		Feedback.m_User = fsp_GetJsonUserLogin(_Json);
 		Feedback.m_AuthorAssociation = fsp_GetJsonString(_Json, "author_association");
 		Feedback.m_Body = fsp_GetJsonString(_Json, "body");
@@ -76,6 +86,7 @@ namespace NMib::NGit
 		case EPullRequestFeedbackKind::mc_Review:
 			Feedback.m_ReviewID = Feedback.m_ID;
 			Feedback.m_State = fsp_GetJsonString(_Json, "state");
+			Feedback.m_CommitID = fsp_GetJsonString(_Json, "commit_id");
 			Feedback.m_CreatedAt = fsp_GetJsonTime(_Json, "submitted_at");
 			Feedback.m_UpdatedAt = Feedback.m_CreatedAt;
 
@@ -83,6 +94,7 @@ namespace NMib::NGit
 		case EPullRequestFeedbackKind::mc_ReviewComment:
 			Feedback.m_ReviewID = fsp_GetJsonUnsigned(_Json, "pull_request_review_id");
 			Feedback.m_InReplyToID = fsp_GetJsonUnsigned(_Json, "in_reply_to_id");
+			Feedback.m_CommitID = fsp_GetJsonString(_Json, "commit_id");
 			Feedback.m_Path = fsp_GetJsonString(_Json, "path");
 
 			// line is null once the commented code is outdated

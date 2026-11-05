@@ -585,6 +585,7 @@ namespace NMib::NGit
 			NStr::CStr m_Label;
 			NStr::CStr m_State;
 			NStr::CStr m_DownloadUrl;
+			NStr::CStr m_Uploader; // The login of the user or bot that uploaded the asset
 			uint64 m_Size = 0;
 			uint64 m_DownloadCount = 0;
 		};
@@ -743,13 +744,16 @@ namespace NMib::NGit
 			NStr::CStr m_State;
 			bool m_bDraft = false;
 			bool m_bMerged = false;
+			NStr::CStr m_MergeCommitSha; // For a merged pull request: the commit that merged it, which is its head when its head was pushed to the base
 			NStr::CStr m_HeadRef;
 			NStr::CStr m_HeadSha;
+			NStr::CStr m_HeadRepository; // owner/name of the repository the head branch is in; a fork's for a pull request from a fork
 			NStr::CStr m_BaseRef;
 			NStr::CStr m_User;
 			NStr::CStr m_HtmlUrl;
 			NContainer::TCSet<NStr::CStr> m_Labels;
 			NTime::CTime m_CreatedAt;
+			NTime::CTime m_UpdatedAt;
 		};
 
 		enum class EPullRequestFeedbackKind : uint8
@@ -763,6 +767,8 @@ namespace NMib::NGit
 		{
 			EPullRequestFeedbackKind m_Kind = EPullRequestFeedbackKind::mc_IssueComment;
 			uint64 m_ID = 0;
+			NStr::CStr m_NodeID;            // Unique across issue comments, review comments and reviews, whose numeric IDs can collide
+			NStr::CStr m_CommitID;          // Reviews and review comments: the head commit the review was written on
 			uint64 m_ReviewID = 0;          // The review an inline comment belongs to; a review's own ID for reviews
 			uint64 m_InReplyToID = 0;
 			NStr::CStr m_User;
@@ -780,6 +786,189 @@ namespace NMib::NGit
 		{
 			NStr::CStr m_Token;     // Secret
 			NTime::CTime m_Expires; // Invalid for a token that doesn't expire on its own
+		};
+
+		/// An installation token restricted to a subset of the installation's permissions and repositories
+		struct CRestrictedAccessTokenRequest
+		{
+			NContainer::TCMap<NStr::CStr, NStr::CStr> m_Permissions; // Such as {"contents", "read"}; empty for the installation's own
+			NContainer::TCVector<NStr::CStr> m_Repositories;         // Repository names without the owner; empty for every repository of the installation
+		};
+
+		/// How much of one of the provider's API rate limits is left
+		struct CApiRateLimitStatus
+		{
+			NStr::CStr m_Resource; // core, graphql, search, ...
+			uint64 m_Limit = 0;
+			uint64 m_Remaining = 0;
+			NTime::CTime m_ResetTime;
+		};
+
+		enum class ETeamMembershipState : uint8
+		{
+			mc_None // Not a member, or the team doesn't exist
+			, mc_Pending
+			, mc_Active
+		};
+
+		struct CIssueSearchFilter
+		{
+			NStr::CStr m_Query;      // GitHub's search syntax, such as "org:Malterlib is:pr updated:>=2026-10-12T20:00:00Z"
+			umint m_MaxItems = 1000; // GitHub returns at most 1000 results for one query
+		};
+
+		struct CIssueSearchResult
+		{
+			NStr::CStr m_Repository; // owner/name
+			uint64 m_Number = 0;
+			bool m_bPullRequest = false;
+			NStr::CStr m_State;
+			NStr::CStr m_User;
+			NTime::CTime m_CreatedAt;
+			NTime::CTime m_UpdatedAt;
+		};
+
+		struct CIssueComment
+		{
+			uint64 m_ID = 0;
+			NStr::CStr m_NodeID;
+			NStr::CStr m_User;
+			NStr::CStr m_Body;
+			NStr::CStr m_HtmlUrl;
+			NTime::CTime m_CreatedAt;
+			NTime::CTime m_UpdatedAt;
+		};
+
+		struct CIssueEvent
+		{
+			uint64 m_ID = 0;
+			NStr::CStr m_Event; // Such as reopened, closed, head_ref_force_pushed
+			NStr::CStr m_Actor;
+			NTime::CTime m_CreatedAt;
+		};
+
+		enum class EReactionSubject : uint8
+		{
+			mc_IssueComment
+			, mc_ReviewComment
+			, mc_Issue
+		};
+
+		struct CPullRequestReviewComment
+		{
+			NStr::CStr m_Path;
+			uint32 m_Line = 0;           // The last line of the comment in the head commit's file
+			uint32 m_StartLine = 0;      // The first line of a comment over several lines; 0 for one line
+			NStr::CStr m_Side = "RIGHT"; // RIGHT for the head commit's lines, LEFT for the base's
+			NStr::CStr m_Body;
+		};
+
+		struct CCreatePullRequestReview
+		{
+			NStr::CStr m_CommitID; // The head the review is for; GitHub places the comments on its lines
+			NStr::CStr m_Event;    // APPROVE, REQUEST_CHANGES or COMMENT
+			NStr::CStr m_Body;
+			NContainer::TCVector<CPullRequestReviewComment> m_Comments;
+		};
+
+		struct CPullRequestReview
+		{
+			uint64 m_ID = 0;
+			NStr::CStr m_NodeID;
+			NStr::CStr m_User;
+			NStr::CStr m_AuthorAssociation;
+			NStr::CStr m_State; // APPROVED, CHANGES_REQUESTED, COMMENTED, DISMISSED or PENDING
+			NStr::CStr m_Body;
+			NStr::CStr m_CommitID;
+			NStr::CStr m_HtmlUrl;
+			NTime::CTime m_SubmittedAt;
+		};
+
+		struct CPullRequestReviewThreadComment
+		{
+			uint64 m_ID = 0;
+			NStr::CStr m_Author;         // The login; a GitHub App's without its "[bot]" suffix
+			bool m_bAuthorIsBot = false; // The author is a GitHub App, never a user account that shares its login
+			NStr::CStr m_Body;
+		};
+
+		/// Who wrote and who last edited an issue comment, a review or a review comment. GitHub lets people with write access edit others'.
+		struct CCommentEdits
+		{
+			NStr::CStr m_Author;         // Login; empty for a deleted account
+			NStr::CStr m_Editor;         // Login of the last editor; empty when it was never edited
+			NTime::CTime m_LastEditedAt; // Invalid when it was never edited
+		};
+
+		/// A thread of inline review comments
+		struct CPullRequestReviewThread
+		{
+			NStr::CStr m_ID;                                                  // GraphQL node id, which resolving takes
+			bool m_bResolved = false;
+			NStr::CStr m_Path;
+			uint32 m_Line = 0;
+			uint64 m_FirstCommentID = 0;
+			NStr::CStr m_FirstCommentAuthor;                                  // The login; a GitHub App's without its "[bot]" suffix
+			bool m_bFirstCommentAuthorIsBot = false;
+			NStr::CStr m_FirstCommentBody;
+			NContainer::TCVector<CPullRequestReviewThreadComment> m_Comments; // In order, the first 100
+		};
+
+		struct CPullRequestFile
+		{
+			NStr::CStr m_FileName;
+			NStr::CStr m_PreviousFileName; // Set for renames
+			NStr::CStr m_Status;           // added, removed, modified, renamed, copied, changed or unchanged
+			NStr::CStr m_Sha;
+			NStr::CStr m_Patch;            // Empty for binary files and patches GitHub considers too large
+			uint32 m_nAdditions = 0;
+			uint32 m_nDeletions = 0;
+		};
+
+		struct CCommitStatus
+		{
+			NStr::CStr m_State; // error, failure, pending or success
+			NStr::CStr m_Context;
+			NStr::CStr m_Description;
+			NStr::CStr m_TargetUrl;
+			NStr::CStr m_Creator;
+			NTime::CTime m_CreatedAt;
+			NTime::CTime m_UpdatedAt;
+		};
+
+		struct CCombinedStatus
+		{
+			NStr::CStr m_State;                             // failure, pending or success over every context
+			NStr::CStr m_Sha;
+			NContainer::TCVector<CCommitStatus> m_Statuses; // The latest status of each context
+		};
+
+		struct CCheckRun
+		{
+			uint64 m_ID = 0;
+			NStr::CStr m_Name;
+			NStr::CStr m_HeadSha;
+			NStr::CStr m_Status;     // queued, in_progress or completed
+			NStr::CStr m_Conclusion; // Empty until completed
+			NStr::CStr m_HtmlUrl;
+			NStr::CStr m_DetailsUrl;
+			NStr::CStr m_AppSlug;
+			NTime::CTime m_StartedAt;
+			NTime::CTime m_CompletedAt;
+		};
+
+		/// Who may push to a protected branch and what GitHub requires of pushes to it, from its branch protection and the rulesets
+		/// that apply to it
+		struct CBranchRequirements
+		{
+			bool m_bProtected = false;
+			bool m_bPushRestricted = false;               // Only m_PushUsers, m_PushTeams and m_PushApps may push
+			NContainer::TCVector<NStr::CStr> m_PushUsers;
+			NContainer::TCVector<NStr::CStr> m_PushTeams; // Team slugs
+			NContainer::TCVector<NStr::CStr> m_PushApps;  // App slugs
+			bool m_bRequiresLinearHistory = false;
+			bool m_bAllowsForcePushes = false;
+			bool m_bUpdatesRestrictedByRuleset = false;   // Only the bypass actors of a ruleset may push, and they aren't listed here
 		};
 
 		CGitHostingProvider();
@@ -842,10 +1031,37 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowRun>> f_GetWorkflowRuns(NStr::CStr _Repository, NStr::CStr _Workflow, CWorkflowRunFilter _Filter) = 0;
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CWorkflowJob>> f_GetWorkflowRunJobs(NStr::CStr _Repository, uint64 _RunID, bool _bAllAttempts) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetWorkflowJobLog(NStr::CStr _Repository, uint64 _JobID, umint _MaxSize) = 0;
+		virtual NConcurrency::TCFuture<NContainer::CByteVector> f_GetFileContents(NStr::CStr _Repository, NStr::CStr _Path, NStr::CStr _Ref) = 0;
 
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequest>> f_GetPullRequests(NStr::CStr _Repository, CPullRequestFilter _Filter) = 0;
 		virtual NConcurrency::TCFuture<CPullRequest> f_GetPullRequest(NStr::CStr _Repository, uint64 _Number) = 0;
 		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequestFeedback>> f_GetPullRequestFeedback(NStr::CStr _Repository, uint64 _Number, NTime::CTime _Since) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequestReview>> f_GetPullRequestReviews(NStr::CStr _Repository, uint64 _Number) = 0;
+		virtual NConcurrency::TCFuture<CPullRequestReview> f_CreatePullRequestReview(NStr::CStr _Repository, uint64 _Number, CCreatePullRequestReview _Review) = 0;
+		virtual NConcurrency::TCFuture<void> f_DismissPullRequestReview(NStr::CStr _Repository, uint64 _Number, uint64 _ReviewID, NStr::CStr _Message) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequestReviewThread>> f_GetPullRequestReviewThreads(NStr::CStr _Repository, uint64 _Number) = 0;
+		virtual NConcurrency::TCFuture<void> f_ResolveReviewThread(NStr::CStr _ThreadID) = 0;
+		virtual NConcurrency::TCFuture<CCommentEdits> f_GetCommentEdits(NStr::CStr _NodeID) = 0;
+		virtual NConcurrency::TCFuture<uint64> f_ReplyToReviewComment(NStr::CStr _Repository, uint64 _Number, uint64 _CommentID, NStr::CStr _Body) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CPullRequestFile>> f_GetPullRequestFiles(NStr::CStr _Repository, uint64 _Number) = 0;
+
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CIssueSearchResult>> f_SearchIssues(CIssueSearchFilter _Filter) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CIssueComment>> f_GetIssueComments(NStr::CStr _Repository, uint64 _Number, NTime::CTime _Since) = 0;
+		virtual NConcurrency::TCFuture<CIssueComment> f_CreateIssueComment(NStr::CStr _Repository, uint64 _Number, NStr::CStr _Body) = 0;
+		virtual NConcurrency::TCFuture<CIssueComment> f_UpdateIssueComment(NStr::CStr _Repository, uint64 _CommentID, NStr::CStr _Body) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CIssueEvent>> f_GetIssueEvents(NStr::CStr _Repository, uint64 _Number) = 0;
+		virtual NConcurrency::TCFuture<void> f_CreateReaction(NStr::CStr _Repository, EReactionSubject _Subject, uint64 _ID, NStr::CStr _Content) = 0;
+
+		virtual NConcurrency::TCFuture<ETeamMembershipState> f_GetTeamMembership(NStr::CStr _Organization, NStr::CStr _TeamSlug, NStr::CStr _User) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CApiRateLimitStatus>> f_GetApiRateLimits() = 0;
+		virtual NConcurrency::TCFuture<CBranchRequirements> f_GetBranchRequirements(NStr::CStr _Repository, NStr::CStr _Branch) = 0;
+
+		virtual NConcurrency::TCFuture<void> f_SetCommitStatus(NStr::CStr _Repository, NStr::CStr _Sha, CCommitStatus _Status) = 0;
+		virtual NConcurrency::TCFuture<CCombinedStatus> f_GetCombinedStatus(NStr::CStr _Repository, NStr::CStr _Ref) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCVector<CCheckRun>> f_GetCheckRuns(NStr::CStr _Repository, NStr::CStr _Ref) = 0;
+
+		// Only for a GitHub App login: a new installation token limited to _Request, which the provider doesn't use itself
+		virtual NConcurrency::TCFuture<CAccessToken> f_CreateRestrictedAccessToken(CRestrictedAccessTokenRequest _Request) = 0;
 
 		static NContainer::TCMap<NStr::CStr, NStr::CStr> fs_EnumHostingProviders();
 		static NConcurrency::TCActor<CGitHostingProvider> fs_CreateHostingProvider(NStr::CStr const &_ClassName);

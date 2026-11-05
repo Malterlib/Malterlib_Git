@@ -370,6 +370,141 @@ namespace
 	]
 	)-----";
 
+	constexpr ch8 const gc_SearchIssuesJson[] = R"-----(
+	{
+		"total_count": 2,
+		"incomplete_results": false,
+		"items":
+		[
+			{
+				"url": "https://api.github.com/repos/Malterlib/Malterlib/issues/612",
+				"repository_url": "https://api.github.com/repos/Malterlib/Malterlib",
+				"number": 612,
+				"state": "open",
+				"user": {"login": "octocat", "id": 583231, "type": "User"},
+				"created_at": "2026-10-20T08:00:00Z",
+				"updated_at": "2026-10-26T09:30:00Z",
+				"pull_request": {"url": "https://api.github.com/repos/Malterlib/Malterlib/pulls/612"}
+			},
+			{
+				"url": "https://api.github.com/repos/Malterlib/Web/issues/88",
+				"repository_url": "https://api.github.com/repos/Malterlib/Web",
+				"number": 88,
+				"state": "closed",
+				"user": {"login": "hubot", "id": 75567967, "type": "User"},
+				"created_at": "2026-10-19T08:00:00Z",
+				"updated_at": "2026-10-26T09:00:00Z"
+			}
+		]
+	}
+	)-----";
+
+	constexpr ch8 const gc_ReviewListJson[] = R"-----(
+	[
+		{
+			"id": 6100000001,
+			"node_id": "PRR_kwDOAAAAAc5aaaaa",
+			"user": {"login": "octocat", "id": 583231, "type": "User"},
+			"body": "@malterlib-review-bot review",
+			"state": "COMMENTED",
+			"html_url": "https://github.com/Malterlib/Malterlib/pull/612#pullrequestreview-6100000001",
+			"author_association": "MEMBER",
+			"submitted_at": "2026-10-26T09:31:00Z",
+			"commit_id": "1111111111111111111111111111111111111111"
+		},
+		{
+			"id": 6100000002,
+			"node_id": "PRR_kwDOAAAAAc5bbbbb",
+			"user": {"login": "malterlib-review-bot[bot]", "id": 1, "type": "Bot"},
+			"body": "",
+			"state": "PENDING",
+			"commit_id": "2222222222222222222222222222222222222222"
+		}
+	]
+	)-----";
+
+	constexpr ch8 const gc_PullRequestFilesJson[] = R"-----(
+	[
+		{
+			"sha": "aaaa",
+			"filename": "Source/Malterlib_Web_Acme.cpp",
+			"status": "modified",
+			"additions": 3,
+			"deletions": 1,
+			"patch": "@@ -1,2 +1,4 @@\n-a\n+b\n+c\n+d"
+		},
+		{
+			"sha": "bbbb",
+			"filename": "Source/New.cpp",
+			"previous_filename": "Source/Old.cpp",
+			"status": "renamed",
+			"additions": 0,
+			"deletions": 0
+		}
+	]
+	)-----";
+
+	constexpr ch8 const gc_IssueEventsJson[] = R"-----(
+	[
+		{"id": 1, "event": "closed", "actor": {"login": "octocat"}, "created_at": "2026-10-20T10:00:00Z"},
+		{"id": 2, "event": "reopened", "actor": {"login": "octocat"}, "created_at": "2026-10-25T10:00:00Z"}
+	]
+	)-----";
+
+	constexpr ch8 const gc_BranchProtectionJson[] = R"-----(
+	{
+		"url": "https://api.github.com/repos/Malterlib/Malterlib/branches/master/protection",
+		"required_linear_history": {"enabled": true},
+		"allow_force_pushes": {"enabled": false},
+		"restrictions":
+		{
+			"users": [{"login": "octocat"}],
+			"teams": [{"slug": "pushers", "name": "Pushers"}],
+			"apps": [{"slug": "malterlib-review-bot"}]
+		}
+	}
+	)-----";
+
+	constexpr ch8 const gc_CombinedStatusJson[] = R"-----(
+	{
+		"state": "pending",
+		"sha": "1111111111111111111111111111111111111111",
+		"statuses":
+		[
+			{
+				"state": "pending",
+				"context": "MalterlibReviewBot",
+				"description": "Round 1 running",
+				"target_url": "https://github.com/Malterlib/Malterlib/pull/612",
+				"creator": {"login": "malterlib-review-bot[bot]"},
+				"created_at": "2026-10-26T09:32:00Z",
+				"updated_at": "2026-10-26T09:32:00Z"
+			}
+		]
+	}
+	)-----";
+
+	constexpr ch8 const gc_CheckRunsJson[] = R"-----(
+	{
+		"total_count": 1,
+		"check_runs":
+		[
+			{
+				"id": 4,
+				"name": "Build Linux",
+				"head_sha": "1111111111111111111111111111111111111111",
+				"status": "completed",
+				"conclusion": "failure",
+				"html_url": "https://github.com/Malterlib/Malterlib/runs/4",
+				"details_url": "https://github.com/Malterlib/Malterlib/actions/runs/9/job/4",
+				"app": {"slug": "github-actions"},
+				"started_at": "2026-10-26T09:40:00Z",
+				"completed_at": "2026-10-26T10:10:00Z"
+			}
+		]
+	}
+	)-----";
+
 	struct CHostingProviderGitHub_Tests : public NMib::NTest::CTest
 	{
 		void f_DoTests()
@@ -457,6 +592,7 @@ namespace
 					DMibExpect(Open.m_State, ==, "open");
 					DMibExpectTrue(Open.m_bDraft);
 					DMibExpectFalse(Open.m_bMerged);
+					DMibExpect(Open.m_MergeCommitSha, ==, "");
 					DMibExpect(Open.m_HeadRef, ==, "fav-165419-update-vulnerable-dependencies");
 					DMibExpect(Open.m_HeadSha, ==, "5e2f1c0b9a8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f");
 					DMibExpect(Open.m_BaseRef, ==, "master");
@@ -464,6 +600,7 @@ namespace
 					DMibExpect(Open.m_HtmlUrl, ==, "https://github.com/octo-org/octo-repo/pull/2520");
 					DMibExpect(Open.m_Labels, ==, (TCSet<CStr>{"dependencies", "security"}));
 					DMibExpect(Open.m_CreatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 9, 15, 0));
+					DMibExpect(Open.m_UpdatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 9, 20, 0));
 
 					auto &Merged = PullRequests[1];
 					DMibExpect(Merged.m_Number, ==, 2518);
@@ -471,6 +608,7 @@ namespace
 					DMibExpect(Merged.m_Body, ==, "");
 					DMibExpectFalse(Merged.m_bDraft);
 					DMibExpectTrue(Merged.m_bMerged);
+					DMibExpect(Merged.m_MergeCommitSha, ==, "f0378fdef55e2c86e7bf382ce013c7d03b976b6b");
 					DMibExpectTrue(Merged.m_Labels.f_IsEmpty());
 
 					auto Closed = CGitHub::fs_ParsePullRequest(CJsonSorted::fs_FromString(gc_PullRequestJson));
@@ -521,6 +659,8 @@ namespace
 						DMibExpect(Review.m_State, ==, "CHANGES_REQUESTED");
 						DMibExpect(Review.m_AuthorAssociation, ==, "COLLABORATOR");
 						DMibExpect(Review.m_Body, ==, "Pin the patched version instead of a range.");
+						DMibExpect(Review.m_NodeID, ==, "PRR_kwDOG2ONas8AAAABRP8z-g");
+						DMibExpect(Review.m_CommitID, ==, "5e2f1c0b9a8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f");
 						DMibExpect(Review.m_CreatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 11, 0, 0));
 
 						auto &ReviewComment = Feedback[2];
@@ -539,7 +679,363 @@ namespace
 						DMibExpect(Reply.m_AuthorAssociation, ==, "MEMBER");
 						DMibExpect(Reply.m_Line, ==, 18);
 						DMibExpect(Reply.m_UpdatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 11, 46, 0));
+						DMibExpect(Reply.m_NodeID, ==, "PRRC_kwDOG2ONas77Rk54");
+						DMibExpect(Reply.m_CommitID, ==, "6f3a2d1c0b9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a");
 					};
+				};
+
+				DMibTestCategory("SearchIssues")
+				{
+					auto Results = CGitHub::fs_ParseIssueSearchResults(CJsonSorted::fs_FromString(gc_SearchIssuesJson));
+					DMibAssert(Results.f_GetLen(), ==, 2);
+
+					DMibExpect(Results[0].m_Repository, ==, "Malterlib/Malterlib");
+					DMibExpect(Results[0].m_Number, ==, 612);
+					DMibExpectTrue(Results[0].m_bPullRequest);
+					DMibExpect(Results[0].m_State, ==, "open");
+					DMibExpect(Results[0].m_User, ==, "octocat");
+					DMibExpect(Results[0].m_UpdatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 26, 9, 30, 0));
+
+					DMibExpect(Results[1].m_Repository, ==, "Malterlib/Web");
+					DMibExpectFalse(Results[1].m_bPullRequest);
+				};
+
+				DMibTestCategory("ReviewThreads")
+				{
+					constexpr ch8 const *c_pThreadsJson = R"-({
+						"pageInfo": {"hasNextPage": false, "endCursor": "Y3Vyc29y"},
+						"nodes": [
+							{
+								"id": "PRRT_kwDOAAAAAc5bbbbb",
+								"isResolved": false,
+								"path": "Source/Malterlib_Web_ACME.cpp",
+								"line": 61,
+								"comments":
+								{
+									"nodes":
+									[
+										{"databaseId": 2500000001, "body": "**[P2] Finding**", "author": {"login": "malterlib-review-bot", "__typename": "Bot"}},
+										{"databaseId": 2500000002, "body": "Fixed", "author": {"login": "octocat", "__typename": "User"}}
+									]
+								}
+							},
+							{
+								"id": "PRRT_kwDOAAAAAc5ccccc",
+								"isResolved": true,
+								"path": "Source/Other.cpp",
+								"line": null,
+								"comments": {"nodes": []}
+							}
+						]
+					})-";
+
+					auto Threads = CGitHub::fs_ParseReviewThreads(CJsonSorted::fs_FromString(c_pThreadsJson));
+					DMibAssert(Threads.f_GetLen(), ==, 2);
+					DMibExpect(Threads[0].m_ID, ==, "PRRT_kwDOAAAAAc5bbbbb");
+					DMibExpectFalse(Threads[0].m_bResolved);
+					DMibExpect(Threads[0].m_Path, ==, "Source/Malterlib_Web_ACME.cpp");
+					DMibExpect(Threads[0].m_Line, ==, 61);
+					DMibExpect(Threads[0].m_FirstCommentID, ==, 2500000001);
+					DMibExpect(Threads[0].m_FirstCommentAuthor, ==, "malterlib-review-bot");
+					DMibExpectTrue(Threads[0].m_bFirstCommentAuthorIsBot);
+					DMibExpectFalse(Threads[0].m_Comments[1].m_bAuthorIsBot);
+					DMibExpect(Threads[0].m_FirstCommentBody, ==, "**[P2] Finding**");
+					DMibAssert(Threads[0].m_Comments.f_GetLen(), ==, 2);
+					DMibExpect(Threads[0].m_Comments[1].m_ID, ==, 2500000002);
+					DMibExpect(Threads[0].m_Comments[1].m_Author, ==, "octocat");
+					DMibExpect(Threads[0].m_Comments[1].m_Body, ==, "Fixed");
+					DMibExpectTrue(Threads[1].m_bResolved);
+					DMibExpect(Threads[1].m_Line, ==, 0);
+					DMibExpect(Threads[1].m_FirstCommentID, ==, 0);
+				};
+
+				DMibTestCategory("CommentEdits")
+				{
+					auto Unedited = CGitHub::fs_ParseCommentEdits
+						(
+							CJsonSorted::fs_FromString(R"-({"data": {"node": {"author": {"login": "octocat"}, "editor": null, "lastEditedAt": null}}})-")
+						)
+					;
+					DMibAssertTrue(bool(Unedited));
+					DMibExpect(Unedited->m_Author, ==, "octocat");
+					DMibExpect(Unedited->m_Editor, ==, "");
+					DMibExpectFalse(Unedited->m_LastEditedAt.f_IsValid());
+
+					auto Edited = CGitHub::fs_ParseCommentEdits
+						(
+							CJsonSorted::fs_FromString(R"-({"data": {"node": {"author": {"login": "octocat"}, "editor": {"login": "hubot"}, "lastEditedAt": "2026-10-12T07:43:04Z"}}})-")
+						)
+					;
+					DMibAssertTrue(bool(Edited));
+					DMibExpect(Edited->m_Editor, ==, "hubot");
+					DMibExpectTrue(Edited->m_LastEditedAt.f_IsValid());
+
+					auto Deleted = CGitHub::fs_ParseCommentEdits(CJsonSorted::fs_FromString(R"-({"data": {"node": {"author": null}}})-"));
+					DMibAssertTrue(bool(Deleted));
+					DMibExpect(Deleted->m_Author, ==, "");
+
+					DMibExpectFalse(bool(CGitHub::fs_ParseCommentEdits(CJsonSorted::fs_FromString(R"-({"data": {"node": null}})-"))));
+					DMibExpectFalse(bool(CGitHub::fs_ParseCommentEdits(CJsonSorted::fs_FromString(R"-({"errors": [{"message": "Could not resolve"}]})-"))));
+				};
+
+				DMibTestCategory("ApiRateLimits")
+				{
+					auto Limits = CGitHub::fs_ParseApiRateLimits
+						(
+							CJsonSorted::fs_FromString
+							(
+								R"-({"resources": {"core": {"limit": 5000, "remaining": 4990, "reset": 1793110000, "used": 10},)-"
+								R"-( "graphql": {"limit": 5000, "remaining": 5000, "reset": 1793110100}}, "rate": {}})-"
+							)
+						)
+					;
+					DMibAssert(Limits.f_GetLen(), ==, 2);
+					DMibExpect(Limits[0].m_Resource, ==, "core");
+					DMibExpect(Limits[0].m_Limit, ==, 5000);
+					DMibExpect(Limits[0].m_Remaining, ==, 4990);
+					DMibExpect(NTime::CTimeConvert(Limits[0].m_ResetTime).f_UnixSeconds(), ==, 1793110000);
+					DMibExpect(Limits[1].m_Resource, ==, "graphql");
+				};
+
+				DMibTestCategory("PullRequestReviews")
+				{
+					auto Reviews = CGitHub::fs_ParsePullRequestReviews(CJsonSorted::fs_FromString(gc_ReviewListJson));
+					DMibAssert(Reviews.f_GetLen(), ==, 2);
+
+					DMibExpect(Reviews[0].m_ID, ==, 6100000001);
+					DMibExpect(Reviews[0].m_NodeID, ==, "PRR_kwDOAAAAAc5aaaaa");
+					DMibExpect(Reviews[0].m_User, ==, "octocat");
+					DMibExpect(Reviews[0].m_AuthorAssociation, ==, "MEMBER");
+					DMibExpect(Reviews[0].m_State, ==, "COMMENTED");
+					DMibExpect(Reviews[0].m_Body, ==, "@malterlib-review-bot review");
+					DMibExpect(Reviews[0].m_CommitID, ==, "1111111111111111111111111111111111111111");
+					DMibExpect(Reviews[0].m_SubmittedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 26, 9, 31, 0));
+
+					DMibExpect(Reviews[1].m_State, ==, "PENDING");
+					DMibExpectFalse(Reviews[1].m_SubmittedAt.f_IsValid());
+				};
+
+				DMibTestCategory("PullRequestFiles")
+				{
+					auto Files = CGitHub::fs_ParsePullRequestFiles(CJsonSorted::fs_FromString(gc_PullRequestFilesJson));
+					DMibAssert(Files.f_GetLen(), ==, 2);
+
+					DMibExpect(Files[0].m_FileName, ==, "Source/Malterlib_Web_Acme.cpp");
+					DMibExpect(Files[0].m_Status, ==, "modified");
+					DMibExpect(Files[0].m_nAdditions, ==, 3);
+					DMibExpect(Files[0].m_nDeletions, ==, 1);
+					DMibExpect(Files[0].m_Patch, ==, "@@ -1,2 +1,4 @@\n-a\n+b\n+c\n+d");
+
+					DMibExpect(Files[1].m_PreviousFileName, ==, "Source/Old.cpp");
+					DMibExpect(Files[1].m_Patch, ==, "");
+				};
+
+				DMibTestCategory("IssueComments")
+				{
+					auto Comments = CGitHub::fs_ParseIssueComments(CJsonSorted::fs_FromString(gc_IssueCommentsJson));
+					DMibAssert(Comments.f_GetLen(), ==, 1);
+
+					DMibExpect(Comments[0].m_ID, ==, 6018466902);
+					DMibExpect(Comments[0].m_NodeID, ==, "IC_kwDOG2ONas8AAAABZrqEVg");
+					DMibExpect(Comments[0].m_User, ==, "hubot");
+					DMibExpect(Comments[0].m_Body, ==, "Can you also check the server package?");
+					DMibExpect(Comments[0].m_UpdatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 12, 10, 16, 0));
+				};
+
+				DMibTestCategory("CreatedIssueComment")
+				{
+					auto Comment = CGitHub::fs_ParseIssueComment
+						(
+							CJsonSorted::fs_FromString
+							(
+								R"-----({"id": 6018470001, "node_id": "IC_kwDOG2ONas8AAAABZrqVcQ", "user": {"login": "malterlib-review[bot]"},
+								"body": "Starting a review round.", "created_at": "2026-10-28T08:00:00Z", "updated_at": "2026-10-28T08:00:00Z",
+								"html_url": "https://github.com/octo-org/octo-repo/pull/2520#issuecomment-6018470001"})-----"
+							)
+						)
+					;
+					DMibExpect(Comment.m_ID, ==, 6018470001);
+					DMibExpect(Comment.m_User, ==, "malterlib-review[bot]");
+					DMibExpect(Comment.m_Body, ==, "Starting a review round.");
+					DMibExpect(Comment.m_CreatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 28, 8, 0, 0));
+				};
+
+				DMibTestCategory("CommitStatus")
+				{
+					CGitHub::CCommitStatus Status;
+					Status.m_State = "success";
+					Status.m_Context = "malterlib-review";
+					auto Json = CGitHub::fs_CommitStatusJson(Status);
+					DMibExpect(Json["state"].f_String(), ==, "success");
+					DMibExpectFalse(Json.f_GetMember("description"));
+					DMibExpectFalse(Json.f_GetMember("target_url"));
+
+					for (umint iCharacter = 0; iCharacter < 150; ++iCharacter)
+						Status.m_Description += "x";
+					Status.m_TargetUrl = "https://example.com/round";
+					Json = CGitHub::fs_CommitStatusJson(Status);
+					DMibExpect(Json["description"].f_String().f_GetLen(), ==, 140);
+					DMibExpectTrue(Json["description"].f_String().f_EndsWith("..."));
+					DMibExpect(Json["target_url"].f_String(), ==, "https://example.com/round");
+
+					Status.m_Description.f_Clear();
+					for (umint iCharacter = 0; iCharacter < 141; ++iCharacter)
+						Status.m_Description += "é";
+					Json = CGitHub::fs_CommitStatusJson(Status);
+					CStr Expected;
+					for (umint iCharacter = 0; iCharacter < 137; ++iCharacter)
+						Expected += "é";
+					DMibExpect(Json["description"].f_String(), ==, Expected + "...");
+
+					Status.m_Description = Expected + "ééé";
+					Json = CGitHub::fs_CommitStatusJson(Status);
+					DMibExpect(Json["description"].f_String(), ==, Status.m_Description);
+				};
+
+				DMibTestCategory("FileContentsPath")
+				{
+					DMibExpect(CGitHub::fs_FileContentsPath("o", "r", "Dir/a?b#c.txt", "topic&fix#1"), ==, "repos/o/r/contents/Dir/a%3fb%23c.txt?ref=topic%26fix%231");
+
+					NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << CGitHub::fs_FileContentsPath("o", "r", "Dir/a?b#c.txt", "topic&fix#1"));
+					DMibAssert(Url.f_GetQuery().f_GetLen(), ==, 1);
+					DMibExpect(Url.f_GetQuery()[0].m_Key, ==, "ref");
+					DMibExpect(Url.f_GetQuery()[0].m_Value, ==, "topic&fix#1");
+					DMibExpect(Url.f_GetPath().f_GetLast(), ==, "a?b#c.txt");
+					DMibExpect(Url.f_GetFragment(), ==, "");
+				};
+
+				DMibTestCategory("ReactionPath")
+				{
+					using EReactionSubject = CGitHub::EReactionSubject;
+					DMibExpect(CGitHub::fs_ReactionPath("o", "r", EReactionSubject::mc_IssueComment, 5), ==, "repos/o/r/issues/comments/5/reactions");
+					DMibExpect(CGitHub::fs_ReactionPath("o", "r", EReactionSubject::mc_ReviewComment, 5), ==, "repos/o/r/pulls/comments/5/reactions");
+					DMibExpect(CGitHub::fs_ReactionPath("o", "r", EReactionSubject::mc_Issue, 5), ==, "repos/o/r/issues/5/reactions");
+				};
+
+				DMibTestCategory("IssueEvents")
+				{
+					auto Events = CGitHub::fs_ParseIssueEvents(CJsonSorted::fs_FromString(gc_IssueEventsJson));
+					DMibAssert(Events.f_GetLen(), ==, 2);
+
+					DMibExpect(Events[1].m_Event, ==, "reopened");
+					DMibExpect(Events[1].m_Actor, ==, "octocat");
+					DMibExpect(Events[1].m_CreatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 25, 10, 0, 0));
+				};
+
+				DMibTestCategory("TeamMembership")
+				{
+					using ETeamMembershipState = NMib::NGit::CGitHostingProvider::ETeamMembershipState;
+
+					DMibExpectTrue(CGitHub::fs_ParseTeamMembership(CJsonSorted::fs_FromString(R"-----({"state": "active", "role": "member"})-----")) == ETeamMembershipState::mc_Active);
+					DMibExpectTrue(CGitHub::fs_ParseTeamMembership(CJsonSorted::fs_FromString(R"-----({"state": "pending", "role": "member"})-----")) == ETeamMembershipState::mc_Pending);
+					DMibExpectTrue(CGitHub::fs_ParseTeamMembership(CJsonSorted()) == ETeamMembershipState::mc_None);
+				};
+
+				DMibTestCategory("BranchRequirements")
+				{
+					DMibTestCategory("ProtectionAndRules")
+					{
+						NMib::NGit::CGitHostingProvider::CBranchRequirements Requirements;
+						CGitHub::fs_ParseBranchProtection(CJsonSorted::fs_FromString(gc_BranchProtectionJson), Requirements);
+
+						DMibExpectTrue(Requirements.m_bProtected);
+						DMibExpectTrue(Requirements.m_bPushRestricted);
+						DMibExpect(Requirements.m_PushUsers, ==, TCVector<CStr>{"octocat"});
+						DMibExpect(Requirements.m_PushTeams, ==, TCVector<CStr>{"pushers"});
+						DMibExpect(Requirements.m_PushApps, ==, TCVector<CStr>{"malterlib-review-bot"});
+						DMibExpectTrue(Requirements.m_bRequiresLinearHistory);
+						DMibExpectFalse(Requirements.m_bAllowsForcePushes);
+					};
+
+					DMibTestCategory("RulesOnly")
+					{
+						NMib::NGit::CGitHostingProvider::CBranchRequirements Requirements;
+						CGitHub::fs_ParseBranchProtection(CJsonSorted(), Requirements);
+						DMibExpectFalse(Requirements.m_bProtected);
+						DMibExpectFalse(Requirements.m_bRequiresLinearHistory);
+						DMibExpectTrue(Requirements.m_bAllowsForcePushes);
+
+						CGitHub::fs_ParseBranchRules(CJsonSorted::fs_FromString(R"-----([{"type": "non_fast_forward"}, {"type": "required_linear_history"}])-----"), Requirements);
+						DMibExpectTrue(Requirements.m_bRequiresLinearHistory);
+						DMibExpectFalse(Requirements.m_bPushRestricted);
+						DMibExpectFalse(Requirements.m_bAllowsForcePushes);
+					};
+
+					DMibTestCategory("RulesForbidForcePushes")
+					{
+						NMib::NGit::CGitHostingProvider::CBranchRequirements Requirements;
+						CGitHub::fs_ParseBranchProtection(CJsonSorted::fs_FromString(R"-----({"allow_force_pushes": {"enabled": true}})-----"), Requirements);
+						DMibExpectTrue(Requirements.m_bAllowsForcePushes);
+
+						CGitHub::fs_ParseBranchRules(CJsonSorted::fs_FromString(R"-----([{"type": "non_fast_forward"}])-----"), Requirements);
+						DMibExpectFalse(Requirements.m_bAllowsForcePushes);
+						DMibExpectFalse(Requirements.m_bUpdatesRestrictedByRuleset);
+
+						CGitHub::fs_ParseBranchRules(CJsonSorted::fs_FromString(R"-----([{"type": "update", "parameters": {"update_allows_fetch_and_merge": false}}])-----"), Requirements);
+						DMibExpectTrue(Requirements.m_bUpdatesRestrictedByRuleset);
+					};
+				};
+
+				DMibTestCategory("CombinedStatus")
+				{
+					auto Combined = CGitHub::fs_ParseCombinedStatus(CJsonSorted::fs_FromString(gc_CombinedStatusJson));
+					DMibExpect(Combined.m_State, ==, "pending");
+					DMibExpect(Combined.m_Sha, ==, "1111111111111111111111111111111111111111");
+					DMibAssert(Combined.m_Statuses.f_GetLen(), ==, 1);
+					DMibExpect(Combined.m_Statuses[0].m_Context, ==, "MalterlibReviewBot");
+					DMibExpect(Combined.m_Statuses[0].m_Description, ==, "Round 1 running");
+					DMibExpect(Combined.m_Statuses[0].m_Creator, ==, "malterlib-review-bot[bot]");
+				};
+
+				DMibTestCategory("CheckRuns")
+				{
+					auto CheckRuns = CGitHub::fs_ParseCheckRuns(CJsonSorted::fs_FromString(gc_CheckRunsJson));
+					DMibAssert(CheckRuns.f_GetLen(), ==, 1);
+					DMibExpect(CheckRuns[0].m_ID, ==, 4);
+					DMibExpect(CheckRuns[0].m_Name, ==, "Build Linux");
+					DMibExpect(CheckRuns[0].m_Conclusion, ==, "failure");
+					DMibExpect(CheckRuns[0].m_AppSlug, ==, "github-actions");
+					DMibExpect(CheckRuns[0].m_CompletedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 26, 10, 10, 0));
+				};
+
+				DMibTestCategory("CreatePullRequestReviewJson")
+				{
+					NMib::NGit::CGitHostingProvider::CCreatePullRequestReview Review;
+					Review.m_CommitID = "1111111111111111111111111111111111111111";
+					Review.m_Event = "REQUEST_CHANGES";
+					Review.m_Body = "Round 1";
+					Review.m_Comments.f_Insert({.m_Path = "a.cpp", .m_Line = 10, .m_Body = "One line"});
+					Review.m_Comments.f_Insert({.m_Path = "b.cpp", .m_Line = 20, .m_StartLine = 15, .m_Body = "Several lines"});
+
+					auto Json = CGitHub::fs_CreatePullRequestReviewJson(Review);
+					DMibExpect(Json["commit_id"].f_String(), ==, "1111111111111111111111111111111111111111");
+					DMibExpect(Json["event"].f_String(), ==, "REQUEST_CHANGES");
+					DMibAssert(Json["comments"].f_Array().f_GetLen(), ==, 2);
+
+					auto &OneLine = Json["comments"].f_Array()[0];
+					DMibExpect(OneLine["line"].f_Integer(), ==, 10);
+					DMibExpect(OneLine["side"].f_String(), ==, "RIGHT");
+					DMibExpectFalse(OneLine.f_GetMember("start_line"));
+
+					auto &SeveralLines = Json["comments"].f_Array()[1];
+					DMibExpect(SeveralLines["start_line"].f_Integer(), ==, 15);
+					DMibExpect(SeveralLines["start_side"].f_String(), ==, "RIGHT");
+				};
+
+				DMibTestCategory("RestrictedAccessTokenJson")
+				{
+					NMib::NGit::CGitHostingProvider::CRestrictedAccessTokenRequest Request;
+					Request.m_Permissions["contents"] = "read";
+					Request.m_Permissions["pull_requests"] = "read";
+					Request.m_Repositories = {"Malterlib", "Web"};
+
+					auto Json = CGitHub::fs_RestrictedAccessTokenJson(Request);
+					DMibExpect(Json["permissions"]["contents"].f_String(), ==, "read");
+					DMibExpect(Json["permissions"]["pull_requests"].f_String(), ==, "read");
+					DMibAssert(Json["repositories"].f_Array().f_GetLen(), ==, 2);
+					DMibExpect(Json["repositories"].f_Array()[1].f_String(), ==, "Web");
+
+					DMibExpectTrue(CGitHub::fs_RestrictedAccessTokenJson({}).f_Object().f_IsEmpty());
 				};
 
 				DMibTestCategory("CollaboratorPermission")
