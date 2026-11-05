@@ -48,12 +48,12 @@ namespace NMib::NGit
 
 	struct CGitHostingProviderExceptionData : public CHttpClientRequestExceptionData
 	{
-		static constexpr uint32 mc_StreamVersion = 1; // 1: m_RateLimit
-
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
 		bool f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource = {}, CStr const &_Message = {}) const;
+
+		static constexpr uint32 mc_StreamVersion = 1; // 1: m_RateLimit
 
 		CStr m_GitRawError;
 		TCVector<CGitHostingProviderError> m_GitErrors;
@@ -325,11 +325,6 @@ namespace NMib::NGit
 
 		struct CGenericRule_StatusChecks
 		{
-			auto operator <=> (CGenericRule_StatusChecks const &_Right) const noexcept = default;
-
-			template <typename tf_CStr>
-			void f_Format(tf_CStr &o_Str) const;
-
 			struct CRequiredStatusCheck
 			{
 				auto operator <=> (CRequiredStatusCheck const &_Right) const noexcept = default;
@@ -339,6 +334,11 @@ namespace NMib::NGit
 				NStr::CStr m_Context;
 				NStorage::TCOptional<CApp> m_App;
 			};
+
+			auto operator <=> (CGenericRule_StatusChecks const &_Right) const noexcept = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
 
 			NContainer::TCVector<CRequiredStatusCheck> m_RequiredStatusChecks;
 			bool m_bPullRequestsMustBeTestedWithLatestCode = false;
@@ -417,11 +417,6 @@ namespace NMib::NGit
 
 		struct CGenericRule_Workflow
 		{
-			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
-
-			template <typename tf_CStr>
-			void f_Format(tf_CStr &o_Str) const;
-
 			struct CRequiredWorkflow
 			{
 				auto operator <=> (CRequiredWorkflow const &_Right) const noexcept = default;
@@ -434,6 +429,11 @@ namespace NMib::NGit
 				NStorage::TCOptional<NStr::CStr> m_Ref;
 				NStorage::TCOptional<NStr::CStr> m_Sha;
 			};
+
+			auto operator <=> (CGenericRule_Workflow const &_Right) const noexcept = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
 
 			NContainer::TCVector<CRequiredWorkflow> m_Workflows;
 		};

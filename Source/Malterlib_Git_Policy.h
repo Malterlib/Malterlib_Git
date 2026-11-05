@@ -10,9 +10,6 @@ namespace NMib::NGit
 {
 	struct CGitPolicyActor : public CActor
 	{
-		CGitPolicyActor();
-		~CGitPolicyActor();
-
 		struct CApplyPolicyContext
 		{
 			NStr::CStr m_Repository;
@@ -23,6 +20,9 @@ namespace NMib::NGit
 			bool m_bPretend = true;
 			bool m_bCreateMissing = false;
 		};
+
+		CGitPolicyActor();
+		~CGitPolicyActor();
 
 		NConcurrency::TCFuture<bool> f_ApplyPolicy_Repository(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _RepositorySettings);
 		NConcurrency::TCFuture<void> f_ApplyPolicy_Permissions(CApplyPolicyContext _Context, NEncoding::CEJsonSorted _Permissions);

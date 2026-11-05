@@ -14,49 +14,54 @@ namespace NMib::NGit::NGitPolicyManager
 	{
 		struct CNameFilter
 		{
-			CNameFilter(CEJsonSorted const &_Config, CStr const &_ConfigName)
-			{
-				if (auto pValue = _Config.f_GetMember("Exclude{}"_f << _ConfigName))
-					m_Exclude = pValue->f_StringArray();
+			CNameFilter(CEJsonSorted const &_Config, CStr const &_ConfigName);
 
-				if (auto pValue = _Config.f_GetMember("Include{}"_f << _ConfigName))
-					m_Include = pValue->f_StringArray();
-
-				if (auto pValue = _Config.f_GetMember("Exclude{}Wildcards"_f << _ConfigName))
-					m_ExcludeWildcards = pValue->f_StringArray();
-
-				if (auto pValue = _Config.f_GetMember("Include{}Wildcards"_f << _ConfigName))
-					m_IncludeWildcards = pValue->f_StringArray();
-			}
-
-			bool f_IsActive() const
-			{
-				return !m_Include.f_IsEmpty() || !m_IncludeWildcards.f_IsEmpty();
-			}
-
-			bool f_Matches(CStr const &_Name) const
-			{
-				if
-				(
-					f_IsActive()
-					&& m_Include.f_Contains(_Name) < 0
-					&& !NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_IncludeWildcards)
-				)
-				{
-					return false;
-				}
-
-				if (m_Exclude.f_Contains(_Name) >= 0 || NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_ExcludeWildcards))
-					return false;
-
-				return true;
-			}
+			bool f_IsActive() const;
+			bool f_Matches(CStr const &_Name) const;
 
 			TCVector<CStr> m_Exclude;
 			TCVector<CStr> m_Include;
 			TCVector<CStr> m_ExcludeWildcards;
 			TCVector<CStr> m_IncludeWildcards;
 		};
+
+		CNameFilter::CNameFilter(CEJsonSorted const &_Config, CStr const &_ConfigName)
+		{
+			if (auto pValue = _Config.f_GetMember("Exclude{}"_f << _ConfigName))
+				m_Exclude = pValue->f_StringArray();
+
+			if (auto pValue = _Config.f_GetMember("Include{}"_f << _ConfigName))
+				m_Include = pValue->f_StringArray();
+
+			if (auto pValue = _Config.f_GetMember("Exclude{}Wildcards"_f << _ConfigName))
+				m_ExcludeWildcards = pValue->f_StringArray();
+
+			if (auto pValue = _Config.f_GetMember("Include{}Wildcards"_f << _ConfigName))
+				m_IncludeWildcards = pValue->f_StringArray();
+		}
+
+		bool CNameFilter::f_IsActive() const
+		{
+			return !m_Include.f_IsEmpty() || !m_IncludeWildcards.f_IsEmpty();
+		}
+
+		bool CNameFilter::f_Matches(CStr const &_Name) const
+		{
+			if
+			(
+				f_IsActive()
+				&& m_Include.f_Contains(_Name) < 0
+				&& !NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_IncludeWildcards)
+			)
+			{
+				return false;
+			}
+
+			if (m_Exclude.f_Contains(_Name) >= 0 || NStr::fg_StrMatchesAnyWildcardInContainer<EMatchWildcardResult_WholeStringMatchedAndPatternExhausted>(_Name, m_ExcludeWildcards))
+				return false;
+
+			return true;
+		}
 
 		TCVector<CGitHostingProvider::CRepository> fg_FilterRepositories(TCVector<CGitHostingProvider::CRepository> const &_Array, CEJsonSorted const &_Policy)
 		{
