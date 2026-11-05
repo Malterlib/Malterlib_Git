@@ -12,22 +12,24 @@ using namespace NMib::NGit::NGitPolicyManager;
 struct CGitPolicyManager : public CApplication
 {
 private:
-	aint f_Main()
-	{
-		NConcurrency::CDistributedDaemon Daemon
-			{
-				"MalterlibGitPolicyManager"
-				, "Malterlib Git Policy Manager"
-				, "Manages policy setup on Git hosting providers"
-				, []
-				{
-					return fg_ConstructActor<CGitPolicyManagerActor>();
-				}
-			}
-		;
-
-		return Daemon.f_Run();
-	}
+	aint f_Main();
 };
+
+aint CGitPolicyManager::f_Main()
+{
+	NConcurrency::CDistributedDaemon Daemon
+		{
+			"MalterlibGitPolicyManager"
+			, "Malterlib Git Policy Manager"
+			, "Manages policy setup on Git hosting providers"
+			, []
+			{
+				return fg_ConstructActor<CGitPolicyManagerActor>();
+			}
+		}
+	;
+
+	return Daemon.f_Run();
+}
 
 DAppImplement(CGitPolicyManager);

@@ -5,9 +5,11 @@
 
 struct CGeneral_Tests : public NMib::NTest::CTest
 {
-	void f_DoTests()
-	{
-	}
+	void f_DoTests();
 };
+
+void CGeneral_Tests::f_DoTests()
+{
+}
 
 DMibTestRegister(CGeneral_Tests, Malterlib::Git);

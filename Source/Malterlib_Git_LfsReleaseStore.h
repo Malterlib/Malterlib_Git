@@ -71,6 +71,13 @@ namespace NMib::NGit
 			uint64 m_DecompressedSize = 0;
 		};
 
+		struct CLoginState
+		{
+			bool m_bCompleted = false;
+			NException::CExceptionPointer m_pException;
+			NContainer::TCVector<TCPromise<void>> m_Waiters;
+		};
+
 		TCFuture<void> fp_Destroy() override;
 
 		TCFuture<void> fp_ProcessPacket(CEJsonSorted _Packet);
@@ -124,13 +131,6 @@ namespace NMib::NGit
 		TCMap<CStr, TCSharedPointer<CCachedReleases>> mp_RepositoryCache;
 		TCMap<CStr, TCSharedPointer<CReleaseIndexCache>> mp_ReleaseIndexCache;
 		TCFunction<void (CStr const &_Output)> mp_fOutputConsole;
-		struct CLoginState
-		{
-			bool m_bCompleted = false;
-			NException::CExceptionPointer m_pException;
-			NContainer::TCVector<TCPromise<void>> m_Waiters;
-		};
-
 		NStorage::TCSharedPointer<CLoginState> mp_pLoginState;
 		NStorage::TCSharedPointer<CLoginState> mp_pLoginStateNonInteractive;
 		bool mp_bLfsReleaseTargetInitialized = false;
