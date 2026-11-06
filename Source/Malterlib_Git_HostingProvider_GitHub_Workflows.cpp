@@ -117,7 +117,9 @@ namespace NMib::NGit
 			(
 				"repos/{}/{}/actions/runs/{}/jobs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _RunID
 				, "Failed to get jobs of workflow run {} in repository '{}'"_f << _RunID << _Repository
-				, {{"filter", _bAllAttempts ? "all" : "latest"}}
+				// GitHub takes about a second for every six jobs of a page and gives up after about ten: pages of 100 jobs get 502, and
+				// pages of 50 sometimes end early
+				, {{"filter", _bAllAttempts ? "all" : "latest"}, {"per_page", "20"}}
 				, 0
 				, 200
 				, "jobs"
