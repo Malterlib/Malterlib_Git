@@ -754,11 +754,7 @@ namespace
 
 			DMibTestCategory("CommentEdits")
 			{
-				auto Unedited = CGitHub::fs_ParseCommentEdits
-					(
-						CJsonSorted::fs_FromString(R"-({"data": {"node": {"author": {"login": "octocat"}, "editor": null, "lastEditedAt": null}}})-")
-					)
-				;
+				auto Unedited = CGitHub::fs_ParseCommentEdits(CJsonSorted::fs_FromString(R"-({"data": {"node": {"author": {"login": "octocat"}, "editor": null, "lastEditedAt": null}}})-"));
 				DMibAssertTrue(bool(Unedited));
 				DMibExpect(Unedited->m_Author, ==, "octocat");
 				DMibExpect(Unedited->m_Editor, ==, "");
