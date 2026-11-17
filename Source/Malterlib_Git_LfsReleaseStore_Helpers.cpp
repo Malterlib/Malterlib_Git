@@ -181,7 +181,7 @@ namespace NMib::NGit
 			}
 		}
 
-		NWeb::NHTTP::CURL Url(mp_RemoteUrl);
+		NWeb::NHTTP::CUrl Url(mp_RemoteUrl);
 		if (!Url.f_IsValid())
 			co_return DMibErrorInstance("Failed to parse remote url");
 
@@ -297,7 +297,7 @@ namespace NMib::NGit
 		// unauthenticated, hitting GitHub's much lower rate limit. Operations
 		// that genuinely require auth (uploads, private downloads) will fail
 		// at the API level with their own clearer error.
-		NWeb::NHTTP::CURL Url(mp_RemoteUrl);
+		NWeb::NHTTP::CUrl Url(mp_RemoteUrl);
 		auto TokenResult = co_await fg_GetGitCredentials(Url, mp_WorkingDirectory, _bAllowInteractive).f_Wrap();
 		CStr Token;
 		if (TokenResult)

@@ -137,7 +137,7 @@ namespace NMib::NGit
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
 		CHttpClientActor::CRequest Request;
-		Request.m_URL = NWeb::NHTTP::CURL("https://api.github.com/repos/{}/{}/actions/jobs/{}/logs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _JobID).f_Encode();
+		Request.m_URL = NWeb::NHTTP::CUrl("https://api.github.com/repos/{}/{}/actions/jobs/{}/logs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _JobID).f_Encode();
 		Request.m_Method = CHttpClientActor::EMethod_GET;
 		Request.m_Headers = co_await fp_GetRestHeaders();
 		// The endpoint redirects to blob storage and rejects application/octet-stream with 415

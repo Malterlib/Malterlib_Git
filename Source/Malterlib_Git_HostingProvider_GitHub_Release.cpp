@@ -188,10 +188,10 @@ namespace NMib::NGit
 		if (!RestID)
 			co_return DMibErrorInstance("Release identifier does not contain a REST ID: {}"_f << _ReleaseIdentifier);
 
-		CStr URL = "repos/{}/{}/releases/{}/assets?name={}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID << NWeb::NHTTP::CURL::fs_PercentEncode(_UploadRelease.m_Name);
+		CStr URL = "repos/{}/{}/releases/{}/assets?name={}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RestID << NWeb::NHTTP::CUrl::fs_PercentEncode(_UploadRelease.m_Name);
 
 		if (_UploadRelease.m_Label)
-			URL += "&label={}"_f << NWeb::NHTTP::CURL::fs_PercentEncode(*_UploadRelease.m_Label);
+			URL += "&label={}"_f << NWeb::NHTTP::CUrl::fs_PercentEncode(*_UploadRelease.m_Label);
 
 		auto Data = co_await fp_RestApiUploadFile(URL, fg_Move(_UploadRelease.m_fReadData), _UploadRelease.m_AssetSize, "Failed to upload release asset");
 

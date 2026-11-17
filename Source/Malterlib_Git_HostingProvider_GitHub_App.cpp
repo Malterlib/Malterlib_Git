@@ -72,7 +72,7 @@ namespace NMib::NGit
 			Headers["Authorization"] = "Bearer {}"_f << fs_CreateAppJwt(mp_AppLogin->m_AppID, mp_AppLogin->m_PrivateKey, NTime::CTime::fs_NowUTC());
 		}
 
-		CStr Url = NWeb::NHTTP::CURL("https://api.github.com/{}"_f << _Path).f_Encode();
+		CStr Url = NWeb::NHTTP::CUrl("https://api.github.com/{}"_f << _Path).f_Encode();
 
 		auto Result
 			= _Method == CHttpClientActor::EMethod_POST

@@ -454,7 +454,7 @@ namespace NMib::NGit
 		// Branch names can contain '/' and other characters with special URL meaning.
 		// fp_RestApiPost does not escape path components, so encode the old name here.
 		// The new name goes into the JSON body and is escaped by the JSON serializer.
-		CStr OldNameEncoded = NWeb::NHTTP::CURL::fs_PercentEncode(_OldName);
+		CStr OldNameEncoded = NWeb::NHTTP::CUrl::fs_PercentEncode(_OldName);
 
 		CJsonSorted PostData =
 			{

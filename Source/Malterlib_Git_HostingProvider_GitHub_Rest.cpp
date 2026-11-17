@@ -257,9 +257,9 @@ namespace NMib::NGit
 
 		CJsonSorted ReturnJson;
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
-		TCVector<NWeb::NHTTP::CURL::CQueryEntry> QueryEntries;
+		TCVector<NWeb::NHTTP::CUrl::CQueryEntry> QueryEntries;
 
 		if (!_QueryParams.f_FindEqual("per_page"))
 		{
@@ -310,7 +310,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
 		auto Headers = co_await fp_GetRestHeaders();
 
@@ -326,7 +326,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
 		auto Headers = co_await fp_GetRestHeaders();
 
@@ -344,7 +344,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
 		auto Headers = co_await fp_GetRestHeaders();
 
@@ -370,7 +370,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://uploads.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://uploads.github.com/{}"_f << _Path);
 
 		CHttpClientActor::CRequest Request;
 
@@ -428,7 +428,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
 		CHttpClientActor::CRequest Request;
 
@@ -454,7 +454,7 @@ namespace NMib::NGit
 	{
 		DMibRequire(!_Path.f_StartsWith("/"));
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << _Path);
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << _Path);
 
 		CStr PageUrl = Url.f_Encode();
 

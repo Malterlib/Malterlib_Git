@@ -661,7 +661,7 @@ namespace NMib::NGit
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << fs_ReactionPath(RepositorySlug.m_Owner, RepositorySlug.m_Name, _Subject, _ID));
+		NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << fs_ReactionPath(RepositorySlug.m_Owner, RepositorySlug.m_Name, _Subject, _ID));
 		auto Headers = co_await fp_GetRestHeaders();
 
 		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url.f_Encode(), fg_Move(Headers), CJsonSorted{"content"_j= _Content});
@@ -726,7 +726,7 @@ namespace NMib::NGit
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
 		// A branch name can hold characters such as # and ? that would end the path
-		CStr BranchEncoded = NWeb::NHTTP::CURL::fs_PercentEncode(_Branch);
+		CStr BranchEncoded = NWeb::NHTTP::CUrl::fs_PercentEncode(_Branch);
 
 		auto Protection = co_await fp_RestApi
 			(
@@ -796,7 +796,7 @@ namespace NMib::NGit
 
 		auto Data = co_await fp_RestApi
 			(
-				"repos/{}/{}/commits/{}/status"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << NWeb::NHTTP::CURL::fs_PercentEncode(_Ref)
+				"repos/{}/{}/commits/{}/status"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << NWeb::NHTTP::CUrl::fs_PercentEncode(_Ref)
 				, "Failed to get the combined status of '{}' in repository '{}'"_f << _Ref << _Repository
 				, {}
 				, 0
@@ -816,7 +816,7 @@ namespace NMib::NGit
 
 		auto Data = co_await fp_RestApi
 			(
-				"repos/{}/{}/commits/{}/check-runs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << NWeb::NHTTP::CURL::fs_PercentEncode(_Ref)
+				"repos/{}/{}/commits/{}/check-runs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << NWeb::NHTTP::CUrl::fs_PercentEncode(_Ref)
 				, "Failed to get the check runs of '{}' in repository '{}'"_f << _Ref << _Repository
 				, {}
 				, 0
@@ -834,7 +834,7 @@ namespace NMib::NGit
 	/// the slashes of _Path separate its directories.
 	CStr CGitHostingProvider_GitHub::fs_FileContentsPath(CStr const &_Owner, CStr const &_Name, CStr const &_Path, CStr const &_Ref)
 	{
-		return "repos/{}/{}/contents/{}?ref={}"_f << _Owner << _Name << NWeb::NHTTP::CURL::fs_PercentEncode(_Path, ":?#[]@!$&'()*+,;=%") << NWeb::NHTTP::CURL::fs_PercentEncode(_Ref);
+		return "repos/{}/{}/contents/{}?ref={}"_f << _Owner << _Name << NWeb::NHTTP::CUrl::fs_PercentEncode(_Path, ":?#[]@!$&'()*+,;=%") << NWeb::NHTTP::CUrl::fs_PercentEncode(_Ref);
 	}
 
 	/// The raw contents of _Path at _Ref, a branch, tag or commit

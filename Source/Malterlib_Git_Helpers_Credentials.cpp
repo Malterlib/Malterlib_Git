@@ -11,7 +11,7 @@ namespace NMib::NGit
 {
 	/// _Environment is merged over the process's own for git and its credential helper, such as a PATH that finds a helper like
 	/// `gh auth git-credential` when the process itself was started with a minimal one
-	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CURL _Url, CStr _WorkingDirectory, bool _bAllowInteractive, CSystemEnvironment _Environment)
+	TCFuture<CStr> fg_GetGitCredentials(NWeb::NHTTP::CUrl _Url, CStr _WorkingDirectory, bool _bAllowInteractive, CSystemEnvironment _Environment)
 	{
 		auto ExceptionCapture = co_await g_CaptureExceptions;
 

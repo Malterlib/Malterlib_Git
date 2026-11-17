@@ -895,7 +895,7 @@ namespace
 			{
 				DMibExpect(CGitHub::fs_FileContentsPath("o", "r", "Dir/a?b#c.txt", "topic&fix#1"), ==, "repos/o/r/contents/Dir/a%3fb%23c.txt?ref=topic%26fix%231");
 
-				NWeb::NHTTP::CURL Url("https://api.github.com/{}"_f << CGitHub::fs_FileContentsPath("o", "r", "Dir/a?b#c.txt", "topic&fix#1"));
+				NWeb::NHTTP::CUrl Url("https://api.github.com/{}"_f << CGitHub::fs_FileContentsPath("o", "r", "Dir/a?b#c.txt", "topic&fix#1"));
 				DMibAssert(Url.f_GetQuery().f_GetLen(), ==, 1);
 				DMibExpect(Url.f_GetQuery()[0].m_Key, ==, "ref");
 				DMibExpect(Url.f_GetQuery()[0].m_Value, ==, "topic&fix#1");
