@@ -155,4 +155,21 @@ namespace NMib::NGit
 
 		co_return fg_Move(Result.m_Body);
 	}
+
+	/// Starts a new attempt of a completed workflow run that runs its failed jobs again, and the jobs that depend on them. GitHub
+	/// refuses it while the run is still going.
+	TCFuture<void> CGitHostingProvider_GitHub::f_RerunFailedWorkflowJobs(CStr _Repository, uint64 _RunID)
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		NWeb::NHTTP::CURL Url("https://api.github.com/repos/{}/{}/actions/runs/{}/rerun-failed-jobs"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << _RunID);
+		auto Headers = co_await fp_GetRestHeaders();
+
+		auto Result = co_await mp_HttpClientActor(&CHttpClientActor::f_Post, Url.f_Encode(), fg_Move(Headers), CJsonSorted(EJsonType_Object));
+
+		if (Result.m_StatusCode != 201 && Result.m_StatusCode != 200)
+			co_return fp_GetRestError("Failed to rerun the failed jobs of workflow run {} in repository '{}': GitHub post request"_f << _RunID << _Repository, Result, {});
+
+		co_return {};
+	}
 }
