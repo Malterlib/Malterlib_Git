@@ -1005,6 +1005,7 @@ namespace NMib::NGit
 
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetCollaboratorPermission(NStr::CStr _Repository, NStr::CStr _User) = 0;
+		virtual NConcurrency::TCFuture<NStr::CStr> f_FindCommitAuthorLogin(NStr::CStr _Repository, NStr::CStr _AuthorEmail) = 0;
 		virtual NConcurrency::TCFuture<void> f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions) = 0;
 		virtual NConcurrency::TCFuture<void> f_RemoveRepositoryPermissions(NStr::CStr _Repository, NContainer::TCSet<NStr::CStr> _Teams, NContainer::TCSet<NStr::CStr> _Users) = 0;
 

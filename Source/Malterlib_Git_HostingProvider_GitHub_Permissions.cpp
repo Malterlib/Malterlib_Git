@@ -84,6 +84,39 @@ namespace NMib::NGit
 		co_return fs_ParseCollaboratorPermission(Data);
 	}
 
+	/// The GitHub account that authored the newest commit in the repository's default branch with _AuthorEmail as its author email,
+	/// which GitHub links to the account that has the email verified, or empty when there is no such commit or account
+	auto CGitHostingProvider_GitHub::f_FindCommitAuthorLogin(CStr _Repository, CStr _AuthorEmail) -> TCFuture<CStr>
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto Data = co_await fp_RestApi
+			(
+				"repos/{}/{}/commits"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
+				, "Failed to find the commits of '{}' in repository '{}'"_f << _AuthorEmail << _Repository
+				, {{"author", _AuthorEmail}}
+				, 404
+				, 200
+				, {}
+				, 1
+			)
+		;
+
+		if (!Data.f_IsArray())
+			co_return CStr();
+
+		for (auto &Commit : Data.f_Array())
+		{
+			if (auto *pAuthor = Commit.f_GetMember("author", EJsonType_Object))
+			{
+				if (auto *pLogin = pAuthor->f_GetMember("login", EJsonType_String))
+					co_return pLogin->f_String();
+			}
+		}
+
+		co_return CStr();
+	}
+
 	TCFuture<void> CGitHostingProvider_GitHub::f_AddRepositoryPermissions(NStr::CStr _Repository, CRepositoryPermissions _Permissions)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;

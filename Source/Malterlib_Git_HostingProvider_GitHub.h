@@ -57,6 +57,7 @@ namespace NMib::NGit
 
 		TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(CStr _Repository) override;
 		TCFuture<CStr> f_GetCollaboratorPermission(CStr _Repository, CStr _User) override;
+		TCFuture<CStr> f_FindCommitAuthorLogin(CStr _Repository, CStr _AuthorEmail) override;
 		TCFuture<void> f_AddRepositoryPermissions(CStr _Repository, CRepositoryPermissions _Permissions) override;
 		TCFuture<void> f_RemoveRepositoryPermissions(CStr _Repository, TCSet<CStr> _Teams, TCSet<CStr> _Users) override;
 
