@@ -10,13 +10,18 @@ namespace NMib::NGit
 	namespace
 	{
 		ch8 const *g_pGraphQl_GetBranchProtection = R"-----(
-			query GetBranchProtectionRules($owner: String!, $name: String!)
+			query GetBranchProtectionRules($owner: String!, $name: String!, $after: String)
 			{
 				repository(owner: $owner, name: $name)
 				{
-					branchProtectionRules(first:100)
+					branchProtectionRules(first: 100, after: $after)
 					{
-						nodes
+						pageInfo
+						{
+							hasNextPage
+							, endCursor
+						}
+						, nodes
 						{
 							id
 							, pattern
@@ -250,20 +255,11 @@ namespace NMib::NGit
 	{
 		TCMap<CStr, CBranchProtectionRule> OutRules;
 
-		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+		auto const Rules = co_await fp_GetBranchProtectionRuleNodes(_Repository, g_pGraphQl_GetBranchProtection);
 
 		auto CaptureScope = co_await g_CaptureExceptions;
 
-		auto const Data = co_await
-			(
-				fp_GraphQlApi(g_pGraphQl_GetBranchProtection, {"owner"_j= RepositorySlug.m_Owner, "name"_j= RepositorySlug.m_Name})
-				% ("Failed to get branch protection rules for repository '{}'"_f << _Repository)
-			)
-		;
-
-		auto &Rules = Data["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array();
-
-		for (auto &Rule : Rules)
+		for (auto &Rule : Rules.f_Array())
 		{
 			auto &OutRule = OutRules[Rule["id"].f_String()];
 

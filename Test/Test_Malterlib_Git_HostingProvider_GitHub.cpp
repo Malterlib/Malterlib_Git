@@ -310,15 +310,24 @@ namespace NGitHubPolicyTests
 		CJsonSorted m_Variables;
 	};
 
-	/// The GitHub provider with its GraphQL requests recorded instead of sent, each answered with an empty data object
+	/// The GitHub provider with its GraphQL requests recorded instead of sent. They get the responses f_AddResponses gave, in order, and
+	/// then an empty data object.
 	struct CGraphQlCaptureGitHub : public CGitHub
 	{
+		TCFuture<void> f_AddResponses(TCVector<CJsonSorted> _Responses);
 		TCFuture<TCVector<CGraphQlRequest>> f_GetRequests();
 
 		TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables) override;
 
+		TCVector<CJsonSorted> m_Responses;
 		TCVector<CGraphQlRequest> m_Requests;
 	};
+
+	TCFuture<void> CGraphQlCaptureGitHub::f_AddResponses(TCVector<CJsonSorted> _Responses)
+	{
+		m_Responses.f_Insert(fg_Move(_Responses));
+		co_return {};
+	}
 
 	TCFuture<TCVector<CGraphQlRequest>> CGraphQlCaptureGitHub::f_GetRequests()
 	{
@@ -328,7 +337,67 @@ namespace NGitHubPolicyTests
 	TCFuture<CJsonSorted> CGraphQlCaptureGitHub::fp_GraphQlApi(CStr _Query, CJsonSorted _Variables)
 	{
 		m_Requests.f_Insert(CGraphQlRequest{.m_Query = fg_Move(_Query), .m_Variables = fg_Move(_Variables)});
-		co_return CJsonSorted::fs_FromString(R"-----({"data": {}})-----");
+
+		if (m_Responses.f_IsEmpty())
+			co_return CJsonSorted::fs_FromString(R"-----({"data": {}})-----");
+
+		auto Response = fg_Move(m_Responses[0]);
+		m_Responses.f_Remove(0);
+		co_return fg_Move(Response);
+	}
+
+	/// _Rules are (ID, pattern) pairs. An empty _NextCursor makes it the last page.
+	CJsonSorted fg_BranchProtectionRulesPage(TCVector<TCTuple<CStr, CStr>> const &_Rules, CStr const &_NextCursor)
+	{
+		CJsonSorted Page;
+		auto &Rules = Page["data"]["repository"]["branchProtectionRules"];
+		auto &PageInfo = Rules["pageInfo"];
+		PageInfo["hasNextPage"] = !_NextCursor.f_IsEmpty();
+		if (_NextCursor.f_IsEmpty())
+			PageInfo["endCursor"] = nullptr;
+		else
+			PageInfo["endCursor"] = _NextCursor;
+
+		auto &Nodes = Rules["nodes"];
+		Nodes = EJsonType_Array;
+		for (auto &[ID, Pattern] : _Rules)
+		{
+			auto Node = CJsonSorted::fs_FromString
+				(
+					R"-----(
+					{
+						"allowsDeletions": false,
+						"allowsForcePushes": false,
+						"blocksCreations": false,
+						"bypassForcePushAllowances": {"nodes": []},
+						"bypassPullRequestAllowances": {"nodes": []},
+						"creator": {"login": "octocat"},
+						"dismissesStaleReviews": false,
+						"isAdminEnforced": true,
+						"pushAllowances": {"nodes": []},
+						"requiredApprovingReviewCount": 0,
+						"requiredStatusCheckContexts": [],
+						"requiredStatusChecks": [],
+						"requiresApprovingReviews": false,
+						"requiresCodeOwnerReviews": false,
+						"requiresCommitSignatures": false,
+						"requiresConversationResolution": false,
+						"requiresLinearHistory": true,
+						"requiresStatusChecks": false,
+						"requiresStrictStatusChecks": false,
+						"restrictsPushes": false,
+						"restrictsReviewDismissals": false,
+						"reviewDismissalAllowances": {"nodes": []}
+					}
+					)-----"
+				)
+			;
+			Node["id"] = ID;
+			Node["pattern"] = Pattern;
+			Nodes.f_Array().f_Insert(fg_Move(Node));
+		}
+
+		return Page;
 	}
 
 	struct CRestRequest
@@ -395,12 +464,11 @@ namespace NGitHubPolicyTests
 		bool m_bApplied = false;       // Whether everything the policy lists was applied
 	};
 
-	TCFuture<CPolicyResult> fg_ApplyPolicyRules(CMockGitHubState _State, CStr _Policy, bool _bPretend)
+	TCFuture<CPolicyResult> fg_ApplyPolicyRulesTo(TCActor<NMib::NGit::CGitHostingProvider> _Provider, CStr _Policy, bool _bPretend)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
-		TCActor<CMockGitHub> Provider = fg_Construct(fg_Move(_State));
-		auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+		auto Provider = _Provider;
 
 		TCActor<NMib::NGit::CGitPolicyActor> PolicyActor = fg_Construct();
 		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
@@ -446,9 +514,20 @@ namespace NGitHubPolicyTests
 		else
 			pResult->m_Error = Result.f_GetExceptionStr();
 
-		pResult->m_State = co_await Provider(&CMockGitHub::f_GetState);
-
 		co_return fg_Move(*pResult);
+	}
+
+	TCFuture<CPolicyResult> fg_ApplyPolicyRules(CMockGitHubState _State, CStr _Policy, bool _bPretend)
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		TCActor<CMockGitHub> Provider = fg_Construct(fg_Move(_State));
+		auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+		auto Result = co_await fg_ApplyPolicyRulesTo(Provider, fg_Move(_Policy), _bPretend);
+		Result.m_State = co_await Provider(&CMockGitHub::f_GetState);
+
+		co_return fg_Move(Result);
 	}
 
 	TCFuture<CPolicyResult> fg_ApplyPolicy(CMockGitHubState _State, CStr _Section, CStr _Policy, CPolicyOptions _Options)
@@ -2319,6 +2398,31 @@ namespace
 					co_return {};
 				};
 
+				DMibTestCategory("ResolveBranchProtectionRuleIDs") -> TCFuture<void>
+				{
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider
+						(
+							&CGraphQlCaptureGitHub::f_AddResponses
+							, TCVector<CJsonSorted>{CJsonSorted::fs_FromString(R"-----({"data": {"repository": {"id": "R_1", "databaseId": 1}}})-----")}
+						)
+					;
+
+					CProvider::CBranchProtectionRule Rule;
+					Rule.m_Pattern = "release/*";
+
+					// Only a create needs the repository's ID, so only its lookup asks for it
+					co_await Provider(&CGitHub::f_ResolveBranchProtectionRuleIDs, "octo-org/octo-repo", TCOptional<CStr>("BPR_1"), Rule);
+					DMibExpectTrue((co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests)).f_IsEmpty());
+
+					co_await Provider(&CGitHub::f_ResolveBranchProtectionRuleIDs, "octo-org/octo-repo", TCOptional<CStr>(), Rule);
+					auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+					DMibAssert(Requests.f_GetLen(), ==, 1);
+					DMibExpect(Requests[0].m_Query.f_Find("GetRepositoryId"), >=, 0);
+					co_return {};
+				};
+
 				DMibTestCategory("ReplacementUnmanageable") -> TCFuture<void>
 				{
 					auto State = fState();
@@ -2848,6 +2952,83 @@ namespace
 				DMibExpect(Requests[0].m_Query.f_Find("($branchProtectionRuleId: ID!)"), >=, 0);
 				DMibExpect(Requests[0].m_Query.f_Find("deleteBranchProtectionRule(input: {branchProtectionRuleId: $branchProtectionRuleId})"), >=, 0);
 				DMibExpect(Requests[0].m_Variables, ==, CJsonSorted::fs_FromString(R"-----({"branchProtectionRuleId": "BPR_kwDOG2ONas4ABCDE"})-----"));
+
+				co_return {};
+			};
+
+			DMibTestCategory("BranchProtectionRulePages") -> TCFuture<void>
+			{
+				TCVector<CJsonSorted> Pages =
+					{
+						fg_BranchProtectionRulesPage({{"BPR_1", "*"}, {"BPR_2", "master"}}, "Y3Vyc29yOnYyOpHOAAAAAg==")
+						, fg_BranchProtectionRulesPage({{"BPR_3", "release/*"}}, "")
+					}
+				;
+
+				DMibTestCategory("Read") -> TCFuture<void>
+				{
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, Pages);
+
+					auto Rules = co_await Provider(&CGitHub::f_GetBranchProtectionRules, "octo-org/octo-repo");
+					DMibAssert(Rules.f_GetLen(), ==, 3);
+					DMibAssertTrue(Rules.f_FindEqual("BPR_3"));
+					DMibExpect(*Rules["BPR_3"].m_Pattern, ==, "release/*");
+
+					auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+					DMibAssert(Requests.f_GetLen(), ==, 2);
+					DMibExpectTrue(Requests[0].m_Variables["after"].f_IsNull());
+					DMibExpect(Requests[1].m_Variables["after"], ==, CJsonSorted("Y3Vyc29yOnYyOpHOAAAAAg=="));
+					DMibExpect(Requests[1].m_Query.f_Find("branchProtectionRules(first: 100, after: $after)"), >=, 0);
+					co_return {};
+				};
+
+				DMibTestCategory("RemoveOther") -> TCFuture<void>
+				{
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, Pages);
+
+					auto Result = co_await fg_ApplyPolicyRulesTo(Provider, R"-----({"RemoveOther": {"BranchProtection": true}})-----", false);
+					DMibExpect(Result.m_Error, ==, "");
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master", "release/*"}));
+
+					auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+					DMibAssert(Requests.f_GetLen(), ==, 5);
+					DMibExpect(Requests[4].m_Variables, ==, CJsonSorted::fs_FromString(R"-----({"branchProtectionRuleId": "BPR_3"})-----"));
+					co_return {};
+				};
+
+				DMibTestCategory("RemoveOtherPretend") -> TCFuture<void>
+				{
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, Pages);
+
+					auto Result = co_await fg_ApplyPolicyRulesTo(Provider, R"-----({"RemoveOther": {"BranchProtection": true}})-----", true);
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master", "release/*"}));
+
+					auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+					DMibExpect(Requests.f_GetLen(), ==, 2);
+					co_return {};
+				};
+
+				DMibTestCategory("RemoveOtherNullCreator") -> TCFuture<void>
+				{
+					// GitHub returns no creator for a rule whose creator's account is gone
+					auto NullCreatorPages = Pages;
+					NullCreatorPages[1]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[0]["creator"] = nullptr;
+
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, NullCreatorPages);
+
+					auto Result = co_await fg_ApplyPolicyRulesTo(Provider, R"-----({"RemoveOther": {"BranchProtection": true}})-----", false);
+					DMibExpect(Result.m_Error, ==, "");
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master", "release/*"}));
+					co_return {};
+				};
 
 				co_return {};
 			};
