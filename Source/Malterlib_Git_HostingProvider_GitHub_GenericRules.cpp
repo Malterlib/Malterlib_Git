@@ -7,40 +7,468 @@
 
 namespace NMib::NGit
 {
-	static CGitHostingProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters)
+	namespace
 	{
-		if (!_pParameters)
-			return {};
+		using CProvider = CGitHostingProvider;
 
-		auto &Parameters = *_pParameters;
+		CProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters)
+		{
+			if (!_pParameters)
+				return {};
 
-		CGitHostingProvider::CStringMatch Return;
-		Return.m_Pattern = Parameters["pattern"].f_String();
+			auto &Parameters = *_pParameters;
 
-		auto &Operator = Parameters["operator"].f_String();
-		if (Operator == "starts_with")
-			Return.m_Operator = CGitHostingProvider::EStringMatchOperator::mc_StartsWith;
-		else if (Operator == "ends_with")
-			Return.m_Operator = CGitHostingProvider::EStringMatchOperator::mc_EndsWith;
-		else if (Operator == "contains")
-			Return.m_Operator = CGitHostingProvider::EStringMatchOperator::mc_Contains;
-		else if (Operator == "regex")
-			Return.m_Operator = CGitHostingProvider::EStringMatchOperator::mc_Regex;
+			CProvider::CStringMatch Return;
+			Return.m_Pattern = Parameters["pattern"].f_String();
 
-		if (auto *pValue = Parameters.f_GetMember("name"))
-			Return.m_Name = pValue->f_String();
+			auto &Operator = Parameters["operator"].f_String();
+			if (Operator == "starts_with")
+				Return.m_Operator = CProvider::EStringMatchOperator::mc_StartsWith;
+			else if (Operator == "ends_with")
+				Return.m_Operator = CProvider::EStringMatchOperator::mc_EndsWith;
+			else if (Operator == "contains")
+				Return.m_Operator = CProvider::EStringMatchOperator::mc_Contains;
+			else if (Operator == "regex")
+				Return.m_Operator = CProvider::EStringMatchOperator::mc_Regex;
 
-		if (auto *pValue = Parameters.f_GetMember("negate"))
-			Return.m_Negate = pValue->f_Boolean();
+			if (auto *pValue = Parameters.f_GetMember("name"))
+				Return.m_Name = pValue->f_String();
 
-		return Return;
+			if (auto *pValue = Parameters.f_GetMember("negate"))
+				Return.m_Negate = pValue->f_Boolean();
+
+			return Return;
+		}
+
+		void fg_StringMatchJson(CProvider::CStringMatch const &_StringMatch, CJsonSorted &o_Parameters)
+		{
+			if (_StringMatch.m_Name)
+				o_Parameters["name"] = *_StringMatch.m_Name;
+
+			if (_StringMatch.m_Negate)
+				o_Parameters["negate"] = *_StringMatch.m_Negate;
+
+			switch (_StringMatch.m_Operator)
+			{
+			case CProvider::EStringMatchOperator::mc_StartsWith: o_Parameters["operator"] = "starts_with"; break;
+			case CProvider::EStringMatchOperator::mc_EndsWith: o_Parameters["operator"] = "ends_with"; break;
+			case CProvider::EStringMatchOperator::mc_Contains: o_Parameters["operator"] = "contains"; break;
+			case CProvider::EStringMatchOperator::mc_Regex: o_Parameters["operator"] = "regex"; break;
+			}
+
+			o_Parameters["pattern"] = _StringMatch.m_Pattern;
+		}
+
+		// GitHub takes the IDs of actors, apps and repositories as numbers, which fp_ResolveGenericRulesetIDs looks up from their names
+		int64 fg_JsonID(CStr const &_ID, CStr const &_Description)
+		{
+			if (_ID.f_IsEmpty())
+				DMibError("{} has no ID"_f << _Description);
+
+			return _ID.f_ToInt(int64(0));
+		}
+
+		CJsonSorted fg_BypassActorJson(CProvider::CGenericRuleBypassActor const &_BypassActor)
+		{
+			CJsonSorted Output;
+
+			auto &Actor = _BypassActor.m_Actor;
+			if (Actor.f_IsOfType<CProvider::CTeam>())
+			{
+				auto &Team = Actor.f_GetAsType<CProvider::CTeam>();
+				Output["actor_type"] = "Team";
+				Output["actor_id"] = fg_JsonID(Team.m_ID, "Bypass team '{}'"_f << Team.m_Slug);
+			}
+			else if (Actor.f_IsOfType<CProvider::CApp>())
+			{
+				auto &App = Actor.f_GetAsType<CProvider::CApp>();
+				Output["actor_type"] = "Integration";
+				Output["actor_id"] = fg_JsonID(App.m_ID, "Bypass app '{}'"_f << App.m_Slug);
+			}
+			else if (Actor.f_IsOfType<CProvider::CRepositoryRole>())
+			{
+				auto &Role = Actor.f_GetAsType<CProvider::CRepositoryRole>();
+				Output["actor_type"] = "RepositoryRole";
+				Output["actor_id"] = fg_JsonID(Role.m_ID, "Bypass repository role '{}'"_f << Role.m_Name);
+			}
+			else if (Actor.f_IsOfType<CProvider::COrganizationAdmin>())
+			{
+				Output["actor_type"] = "OrganizationAdmin";
+				Output["actor_id"] = 1;
+			}
+			else if (Actor.f_IsOfType<CProvider::CUser>())
+			{
+				auto &User = Actor.f_GetAsType<CProvider::CUser>();
+				Output["actor_type"] = "User";
+				Output["actor_id"] = fg_JsonID(User.m_ID, "Bypass user '{}'"_f << User.m_Login);
+			}
+
+			switch (_BypassActor.m_BypassMode)
+			{
+			case CProvider::EGenericRuleBypassMode::mc_Always: Output["bypass_mode"] = "always"; break;
+			case CProvider::EGenericRuleBypassMode::mc_PullRequest: Output["bypass_mode"] = "pull_request"; break;
+			}
+
+			return Output;
+		}
+
+		CJsonSorted fg_RuleJson(CProvider::CGenericRule const &_Rule)
+		{
+			CStr RuleType;
+			CJsonSorted Parameters;
+
+			if (_Rule.f_IsOfType<CProvider::CGenericRule_Creation>())
+				RuleType = "creation";
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Update>())
+			{
+				RuleType = "update";
+				Parameters["update_allows_fetch_and_merge"] = _Rule.f_GetAsType<CProvider::CGenericRule_Update>().m_bAllowFetchAndMerge;
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deletion>())
+				RuleType = "deletion";
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_LinearHistory>())
+				RuleType = "required_linear_history";
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deployments>())
+			{
+				RuleType = "required_deployments";
+				Parameters["required_deployment_environments"] = _Rule.f_GetAsType<CProvider::CGenericRule_Deployments>().m_RequiredDeploymentEnvironments;
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Signatures>())
+				RuleType = "required_signatures";
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_PullRequest>())
+			{
+				RuleType = "pull_request";
+				auto &PullRequest = _Rule.f_GetAsType<CProvider::CGenericRule_PullRequest>();
+				Parameters["dismiss_stale_reviews_on_push"] = PullRequest.m_bDismissStaleReviewsOnPush;
+				Parameters["require_code_owner_review"] = PullRequest.m_bRequireCodeOwnerReview;
+				Parameters["require_last_push_approval"] = PullRequest.m_bRequireLastPushApproval;
+				Parameters["required_approving_review_count"] = PullRequest.m_RequiredApprovingReviewCount;
+				Parameters["required_review_thread_resolution"] = PullRequest.m_bRequireReviewThreadResolution;
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_StatusChecks>())
+			{
+				RuleType = "required_status_checks";
+				auto &StatusChecks = _Rule.f_GetAsType<CProvider::CGenericRule_StatusChecks>();
+				Parameters["strict_required_status_checks_policy"] = StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode;
+
+				auto &Checks = Parameters["required_status_checks"];
+				Checks = EJsonType_Array;
+				for (auto &Check : StatusChecks.m_RequiredStatusChecks)
+				{
+					auto &OutCheck = Checks.f_Array().f_Insert();
+					OutCheck["context"] = Check.m_Context;
+					if (Check.m_App)
+						OutCheck["integration_id"] = fg_JsonID(Check.m_App->m_ID, "App '{}' of status check '{}'"_f << Check.m_App->m_Slug << Check.m_Context);
+				}
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_FastForwardOnly>())
+				RuleType = "non_fast_forward";
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitMessage>())
+			{
+				RuleType = "commit_message_pattern";
+				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitMessage>().m_StringMatch, Parameters);
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitAuthorEmail>())
+			{
+				RuleType = "commit_author_email_pattern";
+				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitAuthorEmail>().m_StringMatch, Parameters);
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitterEmail>())
+			{
+				RuleType = "committer_email_pattern";
+				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitterEmail>().m_StringMatch, Parameters);
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_BranchName>())
+			{
+				RuleType = "branch_name_pattern";
+				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_BranchName>().m_StringMatch, Parameters);
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_TagName>())
+			{
+				RuleType = "tag_name_pattern";
+				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_TagName>().m_StringMatch, Parameters);
+			}
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Workflow>())
+			{
+				RuleType = "workflows";
+
+				auto &Workflows = Parameters["workflows"];
+				Workflows = EJsonType_Array;
+				for (auto &Workflow : _Rule.f_GetAsType<CProvider::CGenericRule_Workflow>().m_Workflows)
+				{
+					auto &OutWorkflow = Workflows.f_Array().f_Insert();
+					OutWorkflow["path"] = Workflow.m_Path;
+					OutWorkflow["repository_id"] = fg_JsonID
+						(
+							Workflow.m_WorkflowRepository.m_ID
+							, "Repository '{}' of workflow '{}'"_f << Workflow.m_WorkflowRepository.m_Slug << Workflow.m_Path
+						)
+					;
+
+					if (Workflow.m_Ref)
+						OutWorkflow["ref"] = *Workflow.m_Ref;
+
+					if (Workflow.m_Sha)
+						OutWorkflow["sha"] = *Workflow.m_Sha;
+				}
+			}
+
+			CJsonSorted Output;
+			Output["type"] = RuleType;
+			if (Parameters.f_IsValid())
+				Output["parameters"] = fg_Move(Parameters);
+
+			return Output;
+		}
 	}
 
-	auto CGitHostingProvider_GitHub::f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
+	/// The ruleset GitHub returns for rulesets/{id}. Throws for values it can't represent.
+	auto CGitHostingProvider_GitHub::fs_ParseGenericRuleset(CJsonSorted const &_Json) -> CGenericRuleset
+	{
+		CGenericRuleset OutRuleset;
+
+		OutRuleset.m_Name = _Json["name"].f_String();
+		{
+			auto &Enforcement = _Json["enforcement"].f_String();
+			if (Enforcement == "disabled")
+				OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Disabled;
+			else if (Enforcement == "active")
+				OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Active;
+			else if (Enforcement == "evaluate")
+				OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Evaluate;
+			else
+				DMibError("Invalid enforcement: {}"_f << Enforcement);
+		}
+
+		if (auto *pTarget = _Json.f_GetMember("target"))
+		{
+			auto &Target = pTarget->f_String();
+			if (Target == "branch")
+				OutRuleset.m_Target = EGenericRuleTarget::mc_Branch;
+			else if (Target == "tag")
+				OutRuleset.m_Target = EGenericRuleTarget::mc_Tag;
+			else
+				DMibError("Invalid target: {}"_f << Target);
+		}
+
+		if (auto *pBypassActors = _Json.f_GetMember("bypass_actors"))
+		{
+			TCVector<CGenericRuleBypassActor> Actors;
+			for (auto &BypassActor : pBypassActors->f_Array())
+			{
+				auto &OutActor = Actors.f_Insert();
+
+				auto &ActorType = BypassActor["actor_type"].f_String();
+
+				auto fGetActorID = [&]() -> CStr
+					{
+						return CStr::fs_ToStr(BypassActor["actor_id"].f_Integer());
+					}
+				;
+
+				if (ActorType == "RepositoryRole")
+					OutActor.m_Actor = CRepositoryRole{.m_ID = fGetActorID()};
+				else if (ActorType == "Team")
+					OutActor.m_Actor = CTeam{.m_ID = fGetActorID()};
+				else if (ActorType == "Integration")
+					OutActor.m_Actor = CApp{.m_ID = fGetActorID()};
+				else if (ActorType == "OrganizationAdmin")
+					OutActor.m_Actor = COrganizationAdmin{};
+				else if (ActorType == "User")
+					OutActor.m_Actor = CUser{.m_ID = fGetActorID()};
+				else
+					DMibError("Invalid actor type: {}"_f << ActorType);
+
+				auto &BypassMode = BypassActor["bypass_mode"].f_String();
+				if (BypassMode == "always")
+					OutActor.m_BypassMode = EGenericRuleBypassMode::mc_Always;
+				else if (BypassMode == "pull_request")
+					OutActor.m_BypassMode = EGenericRuleBypassMode::mc_PullRequest;
+				else
+					DMibError("Invalid bypass mode: {}"_f << BypassMode);
+			}
+
+			Actors.f_Sort();
+			OutRuleset.m_BypassActors = fg_Move(Actors);
+		}
+
+		if (auto *pConditions = _Json.f_GetMember("conditions"))
+		{
+			if (auto *pRefName = pConditions->f_GetMember("ref_name"))
+			{
+				if (auto *pInclude = pRefName->f_GetMember("include"))
+					OutRuleset.m_IncludeRefNames = pInclude->f_StringArray();
+
+				if (auto *pExclude = pRefName->f_GetMember("exclude"))
+					OutRuleset.m_ExcludeRefNames = pExclude->f_StringArray();
+			}
+		}
+
+		if (auto *pRules = _Json.f_GetMember("rules"))
+		{
+			TCVector<CGenericRule> Rules;
+			for (auto &Rule : pRules->f_Array())
+			{
+				auto &RuleType = Rule["type"].f_String();
+				auto *pParameters = Rule.f_GetMember("parameters");
+				if (RuleType == "creation")
+					Rules.f_Insert(CGenericRule_Creation{});
+				else if (RuleType == "update")
+				{
+					CGenericRule_Update Update;
+					if (pParameters)
+						Update.m_bAllowFetchAndMerge = (*pParameters)["update_allows_fetch_and_merge"].f_Boolean();
+					Rules.f_Insert(fg_Move(Update));
+				}
+				else if (RuleType == "deletion")
+					Rules.f_Insert(CGenericRule_Deletion{});
+				else if (RuleType == "required_linear_history")
+					Rules.f_Insert(CGenericRule_LinearHistory{});
+				else if (RuleType == "required_deployments")
+				{
+					CGenericRule_Deployments Deployments;
+					if (pParameters)
+						Deployments.m_RequiredDeploymentEnvironments = (*pParameters)["required_deployment_environments"].f_StringArray();
+					Rules.f_Insert(fg_Move(Deployments));
+				}
+				else if (RuleType == "required_signatures")
+					Rules.f_Insert(CGenericRule_Signatures{});
+				else if (RuleType == "pull_request")
+				{
+					CGenericRule_PullRequest PullRequest;
+					if (pParameters)
+					{
+						PullRequest.m_RequiredApprovingReviewCount = (*pParameters)["required_approving_review_count"].f_Integer();
+						PullRequest.m_bDismissStaleReviewsOnPush = (*pParameters)["dismiss_stale_reviews_on_push"].f_Boolean();
+						PullRequest.m_bRequireCodeOwnerReview = (*pParameters)["require_code_owner_review"].f_Boolean();
+						PullRequest.m_bRequireLastPushApproval = (*pParameters)["require_last_push_approval"].f_Boolean();
+						PullRequest.m_bRequireReviewThreadResolution = (*pParameters)["required_review_thread_resolution"].f_Boolean();
+					}
+					Rules.f_Insert(fg_Move(PullRequest));
+				}
+				else if (RuleType == "required_status_checks")
+				{
+					CGenericRule_StatusChecks StatusChecks;
+					if (pParameters)
+					{
+						StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode = (*pParameters)["strict_required_status_checks_policy"].f_Boolean();
+						for (auto &Check : (*pParameters)["required_status_checks"].f_Array())
+						{
+							auto &OutCheck = StatusChecks.m_RequiredStatusChecks.f_Insert();
+							OutCheck.m_Context = Check["context"].f_String();
+							if (auto *pIntegrationID = Check.f_GetMember("integration_id"))
+								OutCheck.m_App = CApp{.m_ID = CStr::fs_ToStr(pIntegrationID->f_Integer())};
+						}
+						StatusChecks.m_RequiredStatusChecks.f_Sort();
+					}
+					Rules.f_Insert(fg_Move(StatusChecks));
+				}
+				else if (RuleType == "non_fast_forward")
+					Rules.f_Insert(CGenericRule_FastForwardOnly{});
+				else if (RuleType == "commit_message_pattern")
+					Rules.f_Insert(CGenericRule_CommitMessage{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+				else if (RuleType == "commit_author_email_pattern")
+					Rules.f_Insert(CGenericRule_CommitAuthorEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+				else if (RuleType == "committer_email_pattern")
+					Rules.f_Insert(CGenericRule_CommitterEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+				else if (RuleType == "branch_name_pattern")
+					Rules.f_Insert(CGenericRule_BranchName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+				else if (RuleType == "tag_name_pattern")
+					Rules.f_Insert(CGenericRule_TagName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+				else if (RuleType == "workflows")
+				{
+					CGenericRule_Workflow Workflow;
+					if (pParameters)
+					{
+						for (auto &WorkflowObj : (*pParameters)["workflows"].f_Array())
+						{
+							auto &OutWorkflow = Workflow.m_Workflows.f_Insert();
+							OutWorkflow.m_Path = WorkflowObj["path"].f_String();
+							OutWorkflow.m_WorkflowRepository.m_ID = CStr::fs_ToStr(WorkflowObj["repository_id"].f_Integer());
+
+							if (auto *pValue = WorkflowObj.f_GetMember("ref"))
+								OutWorkflow.m_Ref = pValue->f_String();
+
+							if (auto *pValue = WorkflowObj.f_GetMember("sha"))
+								OutWorkflow.m_Sha = pValue->f_String();
+						}
+						Workflow.m_Workflows.f_Sort();
+					}
+					Rules.f_Insert(fg_Move(Workflow));
+				}
+			}
+
+			Rules.f_Sort();
+
+			OutRuleset.m_Rules = fg_Move(Rules);
+		}
+
+		return OutRuleset;
+	}
+
+	/// The body of a ruleset create or update. Its teams, apps, roles and users, status check apps and workflow repositories must have their
+	/// IDs, which fp_ResolveGenericRulesetIDs looks up.
+	CJsonSorted CGitHostingProvider_GitHub::fs_GenericRulesetJson(CGenericRuleset const &_Ruleset)
+	{
+		CJsonSorted Output;
+
+		if (_Ruleset.m_Name)
+			Output["name"] = *_Ruleset.m_Name;
+
+		if (_Ruleset.m_BypassActors)
+		{
+			auto &BypassActors = Output["bypass_actors"];
+			BypassActors = EJsonType_Array;
+			for (auto &BypassActor : *_Ruleset.m_BypassActors)
+				BypassActors.f_Array().f_Insert(fg_BypassActorJson(BypassActor));
+		}
+
+		if (_Ruleset.m_IncludeRefNames || _Ruleset.m_ExcludeRefNames)
+		{
+			auto &RefNames = Output["conditions"]["ref_name"];
+			RefNames["include"] = EJsonType_Array;
+			RefNames["exclude"] = EJsonType_Array;
+
+			if (_Ruleset.m_IncludeRefNames)
+				RefNames["include"] = *_Ruleset.m_IncludeRefNames;
+
+			if (_Ruleset.m_ExcludeRefNames)
+				RefNames["exclude"] = *_Ruleset.m_ExcludeRefNames;
+		}
+
+		if (_Ruleset.m_Rules)
+		{
+			auto &Rules = Output["rules"];
+			Rules = EJsonType_Array;
+			for (auto &Rule : *_Ruleset.m_Rules)
+				Rules.f_Array().f_Insert(fg_RuleJson(Rule));
+		}
+
+		if (_Ruleset.m_Target)
+		{
+			switch (*_Ruleset.m_Target)
+			{
+			case EGenericRuleTarget::mc_Branch: Output["target"] = "branch"; break;
+			case EGenericRuleTarget::mc_Tag: Output["target"] = "tag"; break;
+			}
+		}
+
+		if (_Ruleset.m_Enforcement)
+		{
+			switch (*_Ruleset.m_Enforcement)
+			{
+			case EGenericRuleEnforcement::mc_Disabled: Output["enforcement"] = "disabled"; break;
+			case EGenericRuleEnforcement::mc_Active: Output["enforcement"] = "active"; break;
+			case EGenericRuleEnforcement::mc_Evaluate: Output["enforcement"] = "evaluate"; break;
+			}
+		}
+
+		return Output;
+	}
+
+	auto CGitHostingProvider_GitHub::fp_ResolveGenericRulesetIDs(CStr _Organization, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
-
-		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
 		auto Ruleset = fg_Move(_Ruleset);
 
@@ -55,7 +483,7 @@ namespace NMib::NGit
 					auto &Actor = BypassActor.m_Actor.f_GetAsType<CTeam>();
 					if (!Actor.m_ID)
 					{
-						Actor.m_ID = co_await fp_GetActorID(RepositorySlug.m_Owner, BypassActor.m_Actor, false, pRoleCache);
+						Actor.m_ID = co_await fp_GetActorID(_Organization, BypassActor.m_Actor, false, pRoleCache);
 						Actor.m_Slug.f_Clear();
 					}
 				}
@@ -64,7 +492,7 @@ namespace NMib::NGit
 					auto &Actor = BypassActor.m_Actor.f_GetAsType<CApp>();
 					if (!Actor.m_ID)
 					{
-						Actor.m_ID = co_await fp_GetActorID(RepositorySlug.m_Owner, BypassActor.m_Actor, false, pRoleCache);
+						Actor.m_ID = co_await fp_GetActorID(_Organization, BypassActor.m_Actor, false, pRoleCache);
 						Actor.m_Slug.f_Clear();
 					}
 				}
@@ -73,8 +501,17 @@ namespace NMib::NGit
 					auto &Actor = BypassActor.m_Actor.f_GetAsType<CRepositoryRole>();
 					if (!Actor.m_ID)
 					{
-						Actor.m_ID = co_await fp_GetActorID(RepositorySlug.m_Owner, BypassActor.m_Actor, false, pRoleCache);
+						Actor.m_ID = co_await fp_GetActorID(_Organization, BypassActor.m_Actor, false, pRoleCache);
 						Actor.m_Name.f_Clear();
+					}
+				}
+				else if (BypassActor.m_Actor.f_IsOfType<CUser>())
+				{
+					auto &Actor = BypassActor.m_Actor.f_GetAsType<CUser>();
+					if (!Actor.m_ID)
+					{
+						Actor.m_ID = co_await fp_GetActorID(_Organization, BypassActor.m_Actor, false, pRoleCache);
+						Actor.m_Login.f_Clear();
 					}
 				}
 			}
@@ -105,7 +542,7 @@ namespace NMib::NGit
 
 					TypedRule.m_RequiredStatusChecks.f_Sort();
 				}
-				if (Rule.f_IsOfType<CGenericRule_Workflow>())
+				else if (Rule.f_IsOfType<CGenericRule_Workflow>())
 				{
 					auto &TypedRule = Rule.f_GetAsType<CGenericRule_Workflow>();
 
@@ -121,12 +558,19 @@ namespace NMib::NGit
 
 					TypedRule.m_Workflows.f_Sort();
 				}
-
-				Ruleset.m_Rules->f_Sort();
 			}
+
+			Ruleset.m_Rules->f_Sort();
 		}
 
 		co_return fg_Move(Ruleset);
+	}
+
+	auto CGitHostingProvider_GitHub::f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		co_return co_await fp_ResolveGenericRulesetIDs(RepositorySlug.m_Owner, fg_Move(_Ruleset));
 	}
 
 	auto CGitHostingProvider_GitHub::f_GetGenericRulesets(NStr::CStr _Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>>
@@ -160,8 +604,6 @@ namespace NMib::NGit
 
 		auto const Rulesets = co_await fg_AllDone(Results);
 
-		CJsonSorted RuleSetsJson;
-
 		for (auto &Ruleset : Rulesets)
 		{
 			if (auto *pSourceType = Ruleset.f_GetMember("source_type"))
@@ -170,437 +612,10 @@ namespace NMib::NGit
 					continue;
 			}
 
-			RuleSetsJson.f_Insert(Ruleset);
-
-			auto RuleID = CStr::fs_ToStr(Ruleset["id"].f_Integer());
-
-			auto &OutRuleset = OutRulesets[RuleID];
-
-			OutRuleset.m_Name = Ruleset["name"].f_String();
-			{
-				auto &Enforcement = Ruleset["enforcement"].f_String();
-				if (Enforcement == "disabled")
-					OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Disabled;
-				else if (Enforcement == "active")
-					OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Active;
-				else if (Enforcement == "evaluate")
-					OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Evaluate;
-				else
-					co_return DMibErrorInstance("Invalid enforcement: {}"_f << Enforcement);
-			}
-
-			if (auto *pTarget = Ruleset.f_GetMember("target"))
-			{
-				auto &Target = pTarget->f_String();
-				if (Target == "branch")
-					OutRuleset.m_Target = EGenericRuleTarget::mc_Branch;
-				else if (Target == "tag")
-					OutRuleset.m_Target = EGenericRuleTarget::mc_Tag;
-				else
-					co_return DMibErrorInstance("Invalid target: {}"_f << Target);
-			}
-
-			if (auto *pBypassActors = Ruleset.f_GetMember("bypass_actors"))
-			{
-				TCVector<CGenericRuleBypassActor> Actors;
-				for (auto &BypassActor : pBypassActors->f_Array())
-				{
-					auto &OutActor = Actors.f_Insert();
-
-					auto &ActorType = BypassActor["actor_type"].f_String();
-
-					auto fGetActorID = [&]() -> CStr
-						{
-							return CStr::fs_ToStr(BypassActor["actor_id"].f_Integer());
-						}
-					;
-
-					if (ActorType == "RepositoryRole")
-						OutActor.m_Actor = CRepositoryRole{.m_ID = fGetActorID()};
-					else if (ActorType == "Team")
-						OutActor.m_Actor = CTeam{.m_ID = fGetActorID()};
-					else if (ActorType == "Integration")
-						OutActor.m_Actor = CApp{.m_ID = fGetActorID()};
-					else if (ActorType == "OrganizationAdmin")
-						OutActor.m_Actor = COrganizationAdmin{};
-					else
-						co_return DMibErrorInstance("Invalid actor type: {}"_f << ActorType);
-
-					auto &BypassMode = BypassActor["bypass_mode"].f_String();
-					if (BypassMode == "always")
-						OutActor.m_BypassMode = EGenericRuleBypassMode::mc_Always;
-					else if (BypassMode == "pull_request")
-						OutActor.m_BypassMode = EGenericRuleBypassMode::mc_PullRequest;
-					else
-						co_return DMibErrorInstance("Invalid bypass mode: {}"_f << BypassMode);
-				}
-
-				Actors.f_Sort();
-				OutRuleset.m_BypassActors = fg_Move(Actors);
-			}
-
-			if (auto *pConditions = Ruleset.f_GetMember("conditions"))
-			{
-				if (auto *pRefName = pConditions->f_GetMember("ref_name"))
-				{
-					if (auto *pInclude = pRefName->f_GetMember("include"))
-						OutRuleset.m_IncludeRefNames = pInclude->f_StringArray();
-
-					if (auto *pExclude = pRefName->f_GetMember("exclude"))
-						OutRuleset.m_ExcludeRefNames = pExclude->f_StringArray();
-				}
-			}
-			if (auto *pRules = Ruleset.f_GetMember("rules"))
-			{
-				TCVector<CGenericRule> Rules;
-				for (auto &Rule : pRules->f_Array())
-				{
-					auto &RuleType = Rule["type"].f_String();
-					auto *pParameters = Rule.f_GetMember("parameters");
-					if (RuleType == "creation")
-						Rules.f_Insert(CGenericRule_Creation{});
-					else if (RuleType == "update")
-					{
-						CGenericRule_Update Update;
-						if (pParameters)
-							Update.m_bAllowFetchAndMerge = (*pParameters)["update_allows_fetch_and_merge"].f_Boolean();
-						Rules.f_Insert(fg_Move(Update));
-					}
-					else if (RuleType == "deletion")
-						Rules.f_Insert(CGenericRule_Deletion{});
-					else if (RuleType == "required_linear_history")
-						Rules.f_Insert(CGenericRule_LinearHistory{});
-					else if (RuleType == "required_deployments")
-					{
-						CGenericRule_Deployments Deployments;
-						if (pParameters)
-							Deployments.m_RequiredDeploymentEnvironments = (*pParameters)["required_deployment_environments"].f_StringArray();
-						Rules.f_Insert(fg_Move(Deployments));
-					}
-					else if (RuleType == "required_signatures")
-						Rules.f_Insert(CGenericRule_Signatures{});
-					else if (RuleType == "pull_request")
-					{
-						CGenericRule_PullRequest PullRequest;
-						if (pParameters)
-						{
-							PullRequest.m_RequiredApprovingReviewCount = (*pParameters)["required_approving_review_count"].f_Integer();
-							PullRequest.m_bDismissStaleReviewsOnPush = (*pParameters)["dismiss_stale_reviews_on_push"].f_Boolean();
-							PullRequest.m_bRequireCodeOwnerReview = (*pParameters)["require_code_owner_review"].f_Boolean();
-							PullRequest.m_bRequireLastPushApproval = (*pParameters)["require_last_push_approval"].f_Boolean();
-							PullRequest.m_bRequireReviewThreadResolution = (*pParameters)["required_review_thread_resolution"].f_Boolean();
-						}
-						Rules.f_Insert(fg_Move(PullRequest));
-					}
-					else if (RuleType == "required_status_checks")
-					{
-						CGenericRule_StatusChecks StatusChecks;
-						if (pParameters)
-						{
-							StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode = (*pParameters)["strict_required_status_checks_policy"].f_Boolean();
-							for (auto &Check : (*pParameters)["required_status_checks"].f_Array())
-							{
-								auto &OutCheck = StatusChecks.m_RequiredStatusChecks.f_Insert();
-								OutCheck.m_Context = Check["context"].f_String();
-								if (auto *pIntegrationID = Check.f_GetMember("integration_id"))
-									OutCheck.m_App = CApp{.m_ID = CStr::fs_ToStr(pIntegrationID->f_Integer())};
-							}
-							StatusChecks.m_RequiredStatusChecks.f_Sort();
-						}
-						Rules.f_Insert(fg_Move(StatusChecks));
-					}
-					else if (RuleType == "non_fast_forward")
-						Rules.f_Insert(CGenericRule_FastForwardOnly{});
-					else if (RuleType == "commit_message_pattern")
-						Rules.f_Insert(CGenericRule_CommitMessage{.m_StringMatch = fg_ParseStringMatch(pParameters)});
-					else if (RuleType == "commit_author_email_pattern")
-						Rules.f_Insert(CGenericRule_CommitAuthorEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
-					else if (RuleType == "committer_email_pattern")
-						Rules.f_Insert(CGenericRule_CommitterEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
-					else if (RuleType == "branch_name_pattern")
-						Rules.f_Insert(CGenericRule_BranchName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
-					else if (RuleType == "tag_name_pattern")
-						Rules.f_Insert(CGenericRule_TagName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
-					else if (RuleType == "workflows")
-					{
-						CGenericRule_Workflow Workflow;
-						if (pParameters)
-						{
-							for (auto &WorkflowObj : (*pParameters)["workflows"].f_Array())
-							{
-								auto &OutWorkflow = Workflow.m_Workflows.f_Insert();
-								OutWorkflow.m_Path = WorkflowObj["path"].f_String();
-								OutWorkflow.m_WorkflowRepository.m_ID = CStr::fs_ToStr(WorkflowObj["repository_id"].f_Integer());
-
-								if (auto *pValue = WorkflowObj.f_GetMember("ref"))
-									OutWorkflow.m_Ref = pValue->f_String();
-
-								if (auto *pValue = WorkflowObj.f_GetMember("sha"))
-									OutWorkflow.m_Sha = pValue->f_String();
-							}
-							Workflow.m_Workflows.f_Sort();
-						}
-						Rules.f_Insert(fg_Move(Workflow));
-					}
-				}
-
-				Rules.f_Sort();
-
-				OutRuleset.m_Rules = fg_Move(Rules);
-			}
+			OutRulesets[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = fs_ParseGenericRuleset(Ruleset);
 		}
 
 		co_return fg_Move(OutRulesets);
-	}
-
-	TCFuture<CJsonSorted> CGitHostingProvider_GitHub::fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset)
-	{
-		TCSharedPointer<CCustomRepositoryRoleCache> pRoleCache = fg_Construct();
-
-		auto fAddOptional = [&]
-			(
-#if defined(DCompiler_MSVC_Workaround)
-				auto &&_fThis
-#else
-				this auto &&_fThis
-#endif
-				, CJsonSorted &o_Output
-				, CStr const &_Name
-				, auto const &_OptionalValue
-			)
-			-> TCUnsafeFuture<void>
-			{
-#if defined(DCompiler_MSVC_Workaround)
-#	define _fThis(...) _fThis(_fThis, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
-#endif
-				using CValueType = TCRemoveReferenceAndQualifiers<decltype(_OptionalValue)>;
-				using CType = TCOptionalType<CValueType>;
-
-				CType const *pValue;
-				if constexpr (cIsOptional<CValueType>)
-				{
-					if (!_OptionalValue)
-						co_return {};
-
-					pValue = &*_OptionalValue;
-				}
-				else
-					pValue = &_OptionalValue;
-
-				auto &Value = *pValue;
-
-				CJsonSorted *pOutput = &o_Output;
-				if (_Name)
-					pOutput = &o_Output[_Name];
-
-				auto &Output = *pOutput;
-
-				if constexpr (cIsSame<CType, CStr>)
-					Output = Value;
-				else if constexpr (cIsSame<CType, TCVector<CStr>>)
-					Output = Value;
-				else if constexpr (cIsSame<CType, uint8>)
-					Output = Value;
-				else if constexpr (cIsSame<CType, uint32>)
-					Output = Value;
-				else if constexpr (cIsSame<CType, bool>)
-					Output = Value;
-				else if constexpr (cIsVector<CType>)
-				{
-					auto &OutputArray = Output.f_Array();
-
-					for (auto &Item : Value)
-						co_await _fThis(OutputArray.f_Insert(), {}, Item);
-				}
-				else if constexpr (cIsSame<CType, EGenericRuleTarget>)
-				{
-					switch (Value)
-					{
-					case EGenericRuleTarget::mc_Branch: Output = "branch"; break;
-					case EGenericRuleTarget::mc_Tag: Output = "tag"; break;
-					}
-				}
-				else if constexpr (cIsSame<CType, EGenericRuleEnforcement>)
-				{
-					switch (Value)
-					{
-					case EGenericRuleEnforcement::mc_Disabled: Output = "disabled"; break;
-					case EGenericRuleEnforcement::mc_Active: Output = "active"; break;
-					case EGenericRuleEnforcement::mc_Evaluate: Output = "evaluate"; break;
-					}
-				}
-				else if constexpr (cIsSame<CType, EGenericRuleBypassMode>)
-				{
-					switch (Value)
-					{
-					case EGenericRuleBypassMode::mc_Always: Output = "always"; break;
-					case EGenericRuleBypassMode::mc_PullRequest: Output = "pull_request"; break;
-					}
-				}
-				else if constexpr (cIsSame<CType, EStringMatchOperator>)
-				{
-					switch (Value)
-					{
-					case EStringMatchOperator::mc_StartsWith: Output = "starts_with"; break;
-					case EStringMatchOperator::mc_EndsWith: Output = "ends_with"; break;
-					case EStringMatchOperator::mc_Contains: Output = "contains"; break;
-					case EStringMatchOperator::mc_Regex: Output = "regex"; break;
-					}
-				}
-				else if constexpr (cIsSame<CType, CGenericRuleGitActor>)
-				{
-					CStr ActorID = co_await fp_GetActorID(_Organization, Value, false, pRoleCache);
-					CStr ActorType;
-					if (Value.template f_IsOfType<CTeam>())
-						ActorType = "Team";
-					else if (Value.template f_IsOfType<CApp>())
-						ActorType = "Integration";
-					else if (Value.template f_IsOfType<CRepositoryRole>())
-						ActorType = "RepositoryRole";
-					else if (Value.template f_IsOfType<COrganizationAdmin>())
-						ActorType = "OrganizationAdmin";
-
-					Output["actor_type"] = fg_Move(ActorType);
-					Output["actor_id"] = ActorID.f_ToInt(int64(0));
-				}
-				else if constexpr (cIsSame<CType, CGenericRuleBypassActor>)
-				{
-					co_await _fThis(Output, "bypass_mode", Value.m_BypassMode);
-					co_await _fThis(Output, {}, Value.m_Actor);
-				}
-				else if constexpr (cIsSame<CType, CStringMatch>)
-				{
-					co_await _fThis(Output, "name", Value.m_Name);
-					co_await _fThis(Output, "negate", Value.m_Negate);
-					co_await _fThis(Output, "operator", Value.m_Operator);
-					co_await _fThis(Output, "pattern", Value.m_Pattern);
-				}
-				else if constexpr (cIsSame<CType, CGenericRule_StatusChecks::CRequiredStatusCheck>)
-				{
-					Output["context"] = Value.m_Context;
-					if (Value.m_App)
-						Output["integration_id"] = co_await fp_GetAppID(*Value.m_App, false);
-				}
-				else if constexpr (cIsSame<CType, CGenericRule_Workflow::CRequiredWorkflow>)
-				{
-					Output["path"] = Value.m_Path;
-
-					if (Value.m_WorkflowRepository.m_ID)
-						Output["repository_id"] = Value.m_WorkflowRepository.m_ID;
-					else
-						Output["repository_id"] = co_await fp_GetRepositoryID(Value.m_WorkflowRepository.m_Slug, false);
-
-					co_await _fThis(Output, "ref", Value.m_Ref);
-					co_await _fThis(Output, "sha", Value.m_Sha);
-				}
-				else if constexpr (cIsSame<CType, CGenericRule>)
-				{
-					CStr RuleType;
-					CJsonSorted Parameters;
-					if (Value.template f_IsOfType<CGenericRule_Creation>())
-						RuleType = "creation";
-					else if (Value.template f_IsOfType<CGenericRule_Update>())
-					{
-						RuleType = "update";
-						CGenericRule_Update const &Update = Value.template f_GetAsType<CGenericRule_Update>();
-						Parameters["update_allows_fetch_and_merge"] = Update.m_bAllowFetchAndMerge;
-					}
-					else if (Value.template f_IsOfType<CGenericRule_Deletion>())
-						RuleType = "deletion";
-					else if (Value.template f_IsOfType<CGenericRule_LinearHistory>())
-						RuleType = "required_linear_history";
-					else if (Value.template f_IsOfType<CGenericRule_Deployments>())
-					{
-						RuleType = "required_deployments";
-						CGenericRule_Deployments const &Deployments = Value.template f_GetAsType<CGenericRule_Deployments>();
-						Parameters["required_deployment_environments"] = Deployments.m_RequiredDeploymentEnvironments;
-					}
-					else if (Value.template f_IsOfType<CGenericRule_Signatures>())
-						RuleType = "required_signatures";
-					else if (Value.template f_IsOfType<CGenericRule_PullRequest>())
-					{
-						RuleType = "pull_request";
-						CGenericRule_PullRequest const &PullRequest = Value.template f_GetAsType<CGenericRule_PullRequest>();
-						Parameters["dismiss_stale_reviews_on_push"] = PullRequest.m_bDismissStaleReviewsOnPush;
-						Parameters["require_code_owner_review"] = PullRequest.m_bRequireCodeOwnerReview;
-						Parameters["require_last_push_approval"] = PullRequest.m_bRequireLastPushApproval;
-						Parameters["required_approving_review_count"] = PullRequest.m_RequiredApprovingReviewCount;
-						Parameters["required_review_thread_resolution"] = PullRequest.m_bRequireReviewThreadResolution;
-					}
-					else if (Value.template f_IsOfType<CGenericRule_StatusChecks>())
-					{
-						RuleType = "required_status_checks";
-						CGenericRule_StatusChecks const &StatusChecks = Value.template f_GetAsType<CGenericRule_StatusChecks>();
-						Parameters["strict_required_status_checks_policy"] = StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode;
-						co_await _fThis(Parameters, "required_status_checks", StatusChecks.m_RequiredStatusChecks);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_FastForwardOnly>())
-						RuleType = "non_fast_forward";
-					else if (Value.template f_IsOfType<CGenericRule_CommitMessage>())
-					{
-						RuleType = "commit_message_pattern";
-						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitMessage>().m_StringMatch);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_CommitAuthorEmail>())
-					{
-						RuleType = "commit_author_email_pattern";
-						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitAuthorEmail>().m_StringMatch);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_CommitterEmail>())
-					{
-						RuleType = "committer_email_pattern";
-						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_CommitterEmail>().m_StringMatch);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_BranchName>())
-					{
-						RuleType = "branch_name_pattern";
-						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_BranchName>().m_StringMatch);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_TagName>())
-					{
-						RuleType = "tag_name_pattern";
-						co_await _fThis(Parameters, {}, Value.template f_GetAsType<CGenericRule_TagName>().m_StringMatch);
-					}
-					else if (Value.template f_IsOfType<CGenericRule_Workflow>())
-					{
-						RuleType = "workflows";
-						CGenericRule_Workflow const &Workflow = Value.template f_GetAsType<CGenericRule_Workflow>();
-
-						co_await _fThis(Parameters, "workflows", Workflow.m_Workflows);
-					}
-
-					Output["type"] = RuleType;
-					if (Parameters.f_IsValid())
-						Output["parameters"] = fg_Move(Parameters);
-				}
-				else
-					static_assert(cIsSame<CType, void>, "Unknown type");
-
-				co_return {};
-			}
-		;
-
-		CJsonSorted Output;
-
-#if defined(DCompiler_MSVC_Workaround)
-#	define fAddOptional(...) fAddOptional(fAddOptional, __VA_ARGS__) // NOLINT(malterlib-macro-naming): has the name of the lambda it passes to itself
-#endif
-
-		co_await fAddOptional(Output, "name", _Ruleset.m_Name);
-		co_await fAddOptional(Output, "bypass_actors", _Ruleset.m_BypassActors);
-		if (_Ruleset.m_IncludeRefNames || _Ruleset.m_ExcludeRefNames)
-		{
-			auto &ConditionsOut = Output["conditions"]["ref_name"];
-			ConditionsOut["include"] = EJsonType_Array;
-			ConditionsOut["exclude"] = EJsonType_Array;
-			co_await fAddOptional(ConditionsOut, "include", _Ruleset.m_IncludeRefNames);
-			co_await fAddOptional(ConditionsOut, "exclude", _Ruleset.m_ExcludeRefNames);
-		}
-		co_await fAddOptional(Output, "rules", _Ruleset.m_Rules);
-		co_await fAddOptional(Output, "target", _Ruleset.m_Target);
-		co_await fAddOptional(Output, "enforcement", _Ruleset.m_Enforcement);
-
-		co_return fg_Move(Output);
 	}
 
 	static constexpr CGitHostingProvider_GitHub::CFieldTranslationPair gc_FieldTranslations_Ruleset[] =
@@ -617,9 +632,11 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset)
 	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJsonSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
+		CJsonSorted RulesetJson = fs_GenericRulesetJson(co_await fp_ResolveGenericRulesetIDs(RepositorySlug.m_Owner, fg_Move(_Ruleset)));
 
 		co_await fp_RestApiPut
 			(
@@ -640,9 +657,11 @@ namespace NMib::NGit
 
 	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset)
 	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJsonSorted RulesetJson = co_await fp_PopulateRest_GenericRuleset(RepositorySlug.m_Owner, _Ruleset);
+		CJsonSorted RulesetJson = fs_GenericRulesetJson(co_await fp_ResolveGenericRulesetIDs(RepositorySlug.m_Owner, fg_Move(_Ruleset)));
 
 		co_await fp_RestApiPost
 			(

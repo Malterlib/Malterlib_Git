@@ -505,6 +505,29 @@ namespace
 	}
 	)-----";
 
+	constexpr ch8 const gc_RulesetBypassActorsJson[] = R"-----(
+	{
+		"id": 4210,
+		"name": "Default branch",
+		"target": "branch",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+		"rules": [{"type": "deletion"}, {"type": "non_fast_forward"}],
+		"bypass_actors":
+		[
+			{"actor_id": 583231, "actor_type": "User", "bypass_mode": "always"},
+			{"actor_id": 1, "actor_type": "OrganizationAdmin", "bypass_mode": "always"},
+			{"actor_id": 7, "actor_type": "Team", "bypass_mode": "pull_request"}
+		],
+		"current_user_can_bypass": "never",
+		"node_id": "RRS_lACqUmVwb3NpdG9yec4AAAAAzgAAEHI",
+		"created_at": "2026-11-24T16:44:51.030Z",
+		"updated_at": "2026-11-24T16:44:51.030Z"
+	}
+	)-----";
+
 	struct CHostingProviderGitHub_Tests : public NMib::NTest::CTest
 	{
 		void f_DoTests();
@@ -1057,6 +1080,48 @@ namespace
 				DMibExpectFalse(CGitHub::fs_ParseTime("").f_IsValid());
 				DMibExpectFalse(CGitHub::fs_ParseTime("2026-13-12T07:43:04Z").f_IsValid());
 				DMibExpectFalse(CGitHub::fs_ParseTime("yesterday").f_IsValid());
+			};
+		};
+
+		DMibTestSuite("GenericRules")
+		{
+			using CProvider = NMib::NGit::CGitHostingProvider;
+
+			DMibTestCategory("BypassActors")
+			{
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetBypassActorsJson));
+
+				DMibAssertTrue(bool(Ruleset.m_BypassActors));
+				auto &Actors = *Ruleset.m_BypassActors;
+				DMibAssert(Actors.f_GetLen(), ==, 3);
+				DMibAssertTrue(Actors[2].m_Actor.f_IsOfType<CProvider::CUser>());
+				DMibExpect(Actors[2].m_Actor.f_GetAsType<CProvider::CUser>().m_ID, ==, "583231");
+
+				auto Json = CGitHub::fs_GenericRulesetJson(Ruleset);
+				DMibExpect
+					(
+						Json["bypass_actors"]
+						, ==
+						, CJsonSorted::fs_FromString
+						(
+							R"-----(
+							[
+								{"actor_id": 7, "actor_type": "Team", "bypass_mode": "pull_request"},
+								{"actor_id": 1, "actor_type": "OrganizationAdmin", "bypass_mode": "always"},
+								{"actor_id": 583231, "actor_type": "User", "bypass_mode": "always"}
+							]
+							)-----"
+						)
+					)
+				;
+				DMibExpect(Json["conditions"], ==, CJsonSorted::fs_FromString(R"-----({"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}})-----"));
+				DMibExpect(Json["name"].f_String(), ==, "Default branch");
+				DMibExpect(Json["target"].f_String(), ==, "branch");
+				DMibExpect(Json["enforcement"].f_String(), ==, "active");
+
+				CProvider::CGenericRuleset Unresolved;
+				Unresolved.m_BypassActors = TCVector<CProvider::CGenericRuleBypassActor>{{.m_Actor = CProvider::CUser{.m_Login = "octocat"}}};
+				DMibExpectException(CGitHub::fs_GenericRulesetJson(Unresolved), DMibErrorInstance("Bypass user 'octocat' has no ID"));
 			};
 		};
 

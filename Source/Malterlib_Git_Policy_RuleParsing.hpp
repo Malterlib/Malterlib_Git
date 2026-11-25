@@ -9,6 +9,33 @@ namespace NMib::NGit
 	{
 		TCUnsafeFuture<void> fg_ParseRuleSetting(CEJsonSorted const &_Rule, CStr const &_Name, auto &o_Value);
 
+		/// The actors both kinds of policy name the same way: a user by login, and a team or an app by slug. Returns false for another type.
+		bool fg_ParseNamedActor(CEJsonSorted const &_JsonValue, CStr const &_Type, auto &o_Actor)
+		{
+			if (_Type == "User")
+			{
+				CGitHostingProvider::CUser User;
+				User.m_Login = _JsonValue["Value"].f_String();
+				o_Actor = fg_Move(User);
+			}
+			else if (_Type == "Team")
+			{
+				CGitHostingProvider::CTeam Team;
+				Team.m_Slug = _JsonValue["Value"].f_String();
+				o_Actor = fg_Move(Team);
+			}
+			else if (_Type == "App")
+			{
+				CGitHostingProvider::CApp App;
+				App.m_Slug = _JsonValue["Value"].f_String();
+				o_Actor = fg_Move(App);
+			}
+			else
+				return false;
+
+			return true;
+		}
+
 		TCUnsafeFuture<void> fg_ParseRuleSettingValue(CEJsonSorted const &_JsonValue, CStr const &_Name, auto &o_Value)
 		{
 			auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing policy field '{}'"_f << _Name));
@@ -183,43 +210,13 @@ namespace NMib::NGit
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGitActor>)
 			{
 				auto &Type = _JsonValue["Type"].f_String();
-				if (Type == "User")
-				{
-					CGitHostingProvider::CUser User;
-					User.m_Login = _JsonValue["Value"].f_String();
-					OutValue = fg_Move(User);
-				}
-				else if (Type == "Team")
-				{
-					CGitHostingProvider::CTeam Team;
-					Team.m_Slug = _JsonValue["Value"].f_String();
-					OutValue = fg_Move(Team);
-				}
-				else if (Type == "App")
-				{
-					CGitHostingProvider::CApp App;
-					App.m_Slug = _JsonValue["Value"].f_String();
-					OutValue = fg_Move(App);
-				}
-				else
+				if (!fg_ParseNamedActor(_JsonValue, Type, OutValue))
 					co_return DMibErrorInstance("Invalid actor type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRuleGitActor>)
 			{
 				auto &Type = _JsonValue["Type"].f_String();
-				if (Type == "Team")
-				{
-					CGitHostingProvider::CTeam Team;
-					Team.m_Slug = _JsonValue["Value"].f_String();
-					OutValue = fg_Move(Team);
-				}
-				else if (Type == "App")
-				{
-					CGitHostingProvider::CApp App;
-					App.m_Slug = _JsonValue["Value"].f_String();
-					OutValue = fg_Move(App);
-				}
-				else if (Type == "RepositoryRole")
+				if (Type == "RepositoryRole")
 				{
 					CGitHostingProvider::CRepositoryRole Role;
 					Role.m_Name = _JsonValue["Value"].f_String();
@@ -230,7 +227,7 @@ namespace NMib::NGit
 					CGitHostingProvider::COrganizationAdmin Admin;
 					OutValue = fg_Move(Admin);
 				}
-				else
+				else if (!fg_ParseNamedActor(_JsonValue, Type, OutValue))
 					co_return DMibErrorInstance("Invalid generic rule actor type in '{}': {}"_f << _Name << Type);
 			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::CGenericRule>)

@@ -164,7 +164,7 @@ namespace NMib::NGit
 		};
 
 		using CGitActor = NStorage::TCVariant<CUser, CTeam, CApp>;
-		using CGenericRuleGitActor = NStorage::TCVariant<CTeam, CApp, CRepositoryRole, COrganizationAdmin>;
+		using CGenericRuleGitActor = NStorage::TCVariant<CTeam, CApp, CRepositoryRole, COrganizationAdmin, CUser>;
 
 		struct CBranchProtectionRule
 		{

@@ -139,6 +139,8 @@ namespace NMib::NGit
 		static CJsonSorted fs_CommitStatusJson(CCommitStatus const &_Status);
 		static CStr fs_ReactionPath(CStr const &_Owner, CStr const &_Name, EReactionSubject _Subject, uint64 _ID);
 		static CStr fs_FileContentsPath(CStr const &_Owner, CStr const &_Name, CStr const &_Path, CStr const &_Ref);
+		static CGenericRuleset fs_ParseGenericRuleset(CJsonSorted const &_Json);
+		static CJsonSorted fs_GenericRulesetJson(CGenericRuleset const &_Ruleset);
 		static auto fs_ParsePullRequestFeedback(CJsonSorted const &_Reviews, CJsonSorted const &_ReviewComments, CJsonSorted const &_IssueComments, NTime::CTime const &_Since)
 			-> TCVector<CPullRequestFeedback>
 		;
@@ -223,7 +225,7 @@ namespace NMib::NGit
 		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 
 		TCFuture<CJsonSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
-		TCFuture<CJsonSorted> fp_PopulateRest_GenericRuleset(CStr _Organization, CGenericRuleset _Ruleset);
+		TCFuture<CGenericRuleset> fp_ResolveGenericRulesetIDs(CStr _Organization, CGenericRuleset _Ruleset);
 
 		template <typename tf_CActor>
 		TCFuture<CStr> fp_GetActorIDGeneric(CStr _Organization, tf_CActor _Actor, bool _bGraphQL, TCSharedPointer<CCustomRepositoryRoleCache> _pRoleCache);
