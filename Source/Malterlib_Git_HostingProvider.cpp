@@ -116,6 +116,45 @@ namespace NMib::NGit
 		return (m_Name && m_Name == _Right.m_Name) || (m_ID && m_ID == _Right.m_ID);
 	}
 
+	/// The patterns of the repository's branch protection rules, by rule ID. A provider that can list them without the rest of the rules
+	/// overrides this, so that a rule it can't read in full can still be deleted.
+	auto CGitHostingProvider::f_GetBranchProtectionRulePatterns(NStr::CStr _Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>>
+	{
+		auto Rules = co_await f_GetBranchProtectionRules(_Repository);
+
+		NContainer::TCMap<NStr::CStr, NStr::CStr> Patterns;
+		for (auto &Rule : Rules)
+		{
+			if (Rule.m_Pattern)
+				Patterns[Rules.fs_GetKey(Rule)] = *Rule.m_Pattern;
+		}
+
+		co_return fg_Move(Patterns);
+	}
+
+	/// Looks up the IDs that creating _Rule, or updating the rule _RuleID when it's given, needs, without changing anything, and fails as
+	/// they would for an actor or repository it can't find. A provider that needs no IDs has nothing to look up.
+	auto CGitHostingProvider::f_ResolveBranchProtectionRuleIDs(NStr::CStr _Repository, NStorage::TCOptional<NStr::CStr> _RuleID, CBranchProtectionRule _Rule) -> NConcurrency::TCFuture<void>
+	{
+		co_return {};
+	}
+
+	/// The names of the repository's own rulesets, by ruleset ID. A provider that can list them without reading every ruleset in full
+	/// overrides this, so that deleting doesn't depend on reading rulesets it won't delete.
+	auto CGitHostingProvider::f_GetGenericRulesetNames(NStr::CStr _Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>>
+	{
+		auto Rulesets = co_await f_GetGenericRulesets(_Repository);
+
+		NContainer::TCMap<NStr::CStr, NStr::CStr> Names;
+		for (auto &Ruleset : Rulesets)
+		{
+			if (Ruleset.m_Name)
+				Names[Rulesets.fs_GetKey(Ruleset)] = *Ruleset.m_Name;
+		}
+
+		co_return fg_Move(Names);
+	}
+
 	NContainer::TCMap<NStr::CStr, NStr::CStr> CGitHostingProvider::fs_EnumHostingProviders()
 	{
 		NMib::CRunTimeObjectInfo * const pHostingProviders = fg_GetRuntimeTypeInfo("NMib::NGit::ICGitHostingProviderFactory");

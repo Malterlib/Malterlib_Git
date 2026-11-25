@@ -211,6 +211,41 @@ namespace NMib::NGit
 		}
 	}
 
+	/// The nodes of every page of _Repository's branch protection rules. _Query selects their fields, and must take the variables $owner,
+	/// $name and $after, and select branchProtectionRules(after: $after) with its nodes and pageInfo.
+	auto CGitHostingProvider_GitHub::fp_GetBranchProtectionRuleNodes(CStr _Repository, CStr _Query) -> TCFuture<CJsonSorted>
+	{
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto CaptureScope = co_await g_CaptureExceptions;
+
+		CJsonSorted Rules(EJsonType_Array);
+		CJsonSorted After = nullptr;
+		while (true)
+		{
+			auto const Data = co_await
+				(
+					fp_GraphQlApi(_Query, {"owner"_j= RepositorySlug.m_Owner, "name"_j= RepositorySlug.m_Name, "after"_j= After})
+					% ("Failed to get branch protection rules for repository '{}'"_f << _Repository)
+				)
+			;
+
+			auto &Page = Data["data"]["repository"]["branchProtectionRules"];
+			Rules.f_Array().f_Insert(Page["nodes"].f_Array());
+
+			auto &PageInfo = Page["pageInfo"];
+			if (!PageInfo["hasNextPage"].f_Boolean())
+				break;
+
+			if (!PageInfo["endCursor"].f_IsString())
+				co_return DMibErrorInstance("GitHub returned no cursor for the next page of branch protection rules of repository '{}'"_f << _Repository);
+
+			After = PageInfo["endCursor"];
+		}
+
+		co_return fg_Move(Rules);
+	}
+
 	auto CGitHostingProvider_GitHub::f_GetBranchProtectionRules(CStr _Repository) -> TCFuture<TCMap<CStr, CBranchProtectionRule>>
 	{
 		TCMap<CStr, CBranchProtectionRule> OutRules;
@@ -368,14 +403,27 @@ namespace NMib::NGit
 		co_return fg_Move(Output);
 	}
 
-	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule)
+	/// The input of the create mutation of _Rule, or of the update mutation of the rule _RuleID when it's given, with the IDs it needs
+	auto CGitHostingProvider_GitHub::fp_BranchProtectionRuleInput(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule) -> TCFuture<CJsonSorted>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 
-		CJsonSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
-		Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository, true);
+		CJsonSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, fg_Move(_Rule));
+		if (_RuleID)
+			Values["branchProtectionRuleId"] = *_RuleID;
+		else
+			Values["repositoryId"] = co_await fp_GetRepositoryID(_Repository, true);
+
+		co_return fg_Move(Values);
+	}
+
+	TCFuture<CStr> CGitHostingProvider_GitHub::f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule)
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		CJsonSorted Values = co_await fp_BranchProtectionRuleInput(_Repository, {}, fg_Move(_Rule));
 
 		auto const Data = co_await
 			(
@@ -412,10 +460,7 @@ namespace NMib::NGit
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
-		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
-
-		CJsonSorted Values = co_await fp_PopulateGraphQl_BranchProtectionRule(RepositorySlug.m_Owner, _Rule);
-		Values["branchProtectionRuleId"] = _RuleID;
+		CJsonSorted Values = co_await fp_BranchProtectionRuleInput(_Repository, _RuleID, fg_Move(_Rule));
 
 		co_await
 			(
@@ -441,6 +486,13 @@ namespace NMib::NGit
 				% ("Failed to update branch protection rule for repository '{}'"_f << _Repository)
 			)
 		;
+
+		co_return {};
+	}
+
+	TCFuture<void> CGitHostingProvider_GitHub::f_ResolveBranchProtectionRuleIDs(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule)
+	{
+		co_await fp_BranchProtectionRuleInput(fg_Move(_Repository), fg_Move(_RuleID), fg_Move(_Rule));
 
 		co_return {};
 	}
@@ -472,5 +524,43 @@ namespace NMib::NGit
 		;
 
 		co_return {};
+	}
+
+	/// Only the IDs and patterns, so that rules whose other fields GitHub leaves out, such as a creator whose account is gone, can be
+	/// deleted
+	auto CGitHostingProvider_GitHub::f_GetBranchProtectionRulePatterns(CStr _Repository) -> TCFuture<TCMap<CStr, CStr>>
+	{
+		constexpr ch8 const *c_pQuery = R"-----(
+			query GetBranchProtectionRulePatterns($owner: String!, $name: String!, $after: String)
+			{
+				repository(owner: $owner, name: $name)
+				{
+					branchProtectionRules(first: 100, after: $after)
+					{
+						pageInfo
+						{
+							hasNextPage
+							, endCursor
+						}
+						, nodes
+						{
+							id
+							, pattern
+						}
+					}
+				}
+			}
+			)-----"
+		;
+
+		auto const Rules = co_await fp_GetBranchProtectionRuleNodes(_Repository, c_pQuery);
+
+		auto CaptureScope = co_await g_CaptureExceptions;
+
+		TCMap<CStr, CStr> Patterns;
+		for (auto &Rule : Rules.f_Array())
+			Patterns[Rule["id"].f_String()] = Rule["pattern"].f_String();
+
+		co_return fg_Move(Patterns);
 	}
 }

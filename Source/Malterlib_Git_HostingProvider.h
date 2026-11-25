@@ -1034,6 +1034,8 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_UpdateBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID, CBranchProtectionRule _Rule) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateBranchProtectionRule(NStr::CStr _Repository, CBranchProtectionRule _Rule) = 0;
 		virtual NConcurrency::TCFuture<void> f_DeleteBranchProtectionRule(NStr::CStr _Repository, NStr::CStr _RuleID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> f_GetBranchProtectionRulePatterns(NStr::CStr _Repository);
+		virtual NConcurrency::TCFuture<void> f_ResolveBranchProtectionRuleIDs(NStr::CStr _Repository, NStorage::TCOptional<NStr::CStr> _RuleID, CBranchProtectionRule _Rule);
 
 		virtual NConcurrency::TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_GetCollaboratorPermission(NStr::CStr _Repository, NStr::CStr _User) = 0;
@@ -1056,6 +1058,7 @@ namespace NMib::NGit
 		virtual NConcurrency::TCFuture<void> f_UpdateGenericRuleset(NStr::CStr _Repository, NStr::CStr _ID, CGenericRuleset _Ruleset) = 0;
 		virtual NConcurrency::TCFuture<NStr::CStr> f_CreateGenericRuleset(NStr::CStr _Repository, CGenericRuleset _Ruleset) = 0;
 		virtual NConcurrency::TCFuture<void> f_DeleteGenericRuleset(NStr::CStr _Repository, NStr::CStr _ID) = 0;
+		virtual NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, NStr::CStr>> f_GetGenericRulesetNames(NStr::CStr _Repository);
 
 		virtual NConcurrency::TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr _Repository) = 0;
 		virtual NConcurrency::TCFuture<void> f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) = 0;

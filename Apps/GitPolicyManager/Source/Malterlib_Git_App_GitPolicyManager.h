@@ -9,6 +9,7 @@
 #include <Mib/Concurrency/Actor/Timer>
 #include <Mib/Cloud/SecretsManager>
 #include <Mib/Cryptography/Certificate>
+#include <Mib/Git/Policy>
 
 namespace NMib::NGit
 {
@@ -41,8 +42,13 @@ namespace NMib::NGit::NGitPolicyManager
 		TCFuture<CApplyPoliciesResult> fp_ApplyPolicies();
 		TCFuture<bool> fp_ApplyPolicies_Repository(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_Permissions(CEJsonSorted _Permissions, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
-		TCFuture<void> fp_ApplyPolicies_BranchProtection(CEJsonSorted _BranchProtection, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
-		TCFuture<bool> fp_ApplyPolicies_GenericRules(CEJsonSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		TCFuture<bool> fp_ApplyPolicies_Rules(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
+		auto fp_BranchProtectionContext(CStr const &_Repository, NConcurrency::TCActor<CGitHostingProvider> const &_HostingProvider, CStr const &_PolicyName)
+			-> CGitPolicyActor::CApplyPolicyContext
+		;
+		auto fp_GenericRulesContext(CStr const &_Repository, NConcurrency::TCActor<CGitHostingProvider> const &_HostingProvider, CStr const &_PolicyName)
+			-> CGitPolicyActor::CApplyPolicyContext
+		;
 		TCFuture<void> fp_ApplyPolicies_RepositorySettings(CEJsonSorted _Properties, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 		TCFuture<void> fp_ApplyPolicies_ActionsSettings(CEJsonSorted _Settings, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName);
 

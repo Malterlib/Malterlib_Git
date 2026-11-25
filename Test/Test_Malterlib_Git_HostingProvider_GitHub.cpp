@@ -40,6 +40,14 @@ namespace NGitHubPolicyTests
 		TCVector<CStr> m_UpdatedBranchProtectionRules;
 		TCVector<CStr> m_CreatedBranchProtectionRules;
 		TCVector<CStr> m_DeletedBranchProtectionRules;
+		TCVector<CStr> m_Changes;                   // Every change, in the order they were made
+		TCSet<CStr> m_FailCreateRulesets;           // Names of rulesets that fail to be created
+		TCSet<CStr> m_FailDeleteRulesets;           // IDs of rulesets that fail to be deleted
+		TCSet<CStr> m_FailDeleteBranchProtection;   // IDs of branch protection rules that fail to be deleted
+		bool m_bFailRulesetRead = false;            // Reading the rulesets in full fails, as for a ruleset it can't decode
+		bool m_bFailBranchProtectionRead = false;   // Reading the branch protection rules in full fails, as for a rule it can't decode
+		TCSet<CStr> m_UnknownTeams;                 // Slugs of teams whose IDs can't be looked up, which fails a create or update as on GitHub
+		bool m_bFailRepositoryID = false;           // Looking up the repository's ID fails, which fails creating a branch protection rule as on GitHub
 	};
 
 	/// Resolving names to IDs isn't mocked, so policies in the tests use only actors it resolves without asking GitHub.
@@ -48,19 +56,35 @@ namespace NGitHubPolicyTests
 		CMockGitHub(CMockGitHubState _State);
 
 		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr _Repository) override;
+		TCFuture<TCMap<CStr, CStr>> f_GetBranchProtectionRulePatterns(CStr _Repository) override;
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
 		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
 		TCFuture<void> f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID) override;
+		TCFuture<void> f_ResolveBranchProtectionRuleIDs(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule) override;
 
 		TCFuture<TCMap<CStr, CGenericRuleset>> f_GetGenericRulesets(CStr _Repository) override;
+		TCFuture<TCMap<CStr, CStr>> f_GetGenericRulesetNames(CStr _Repository) override;
+		TCFuture<CGenericRuleset> f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) override;
 		TCFuture<void> f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset) override;
 		TCFuture<CStr> f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset) override;
 		TCFuture<void> f_DeleteGenericRuleset(CStr _Repository, CStr _ID) override;
 
 		TCFuture<CMockGitHubState> f_GetState();
+		CExceptionPointer f_FindUnknownTeam(CBranchProtectionRule const &_Rule) const;
+		CExceptionPointer f_FindUnknownTeam(CGenericRuleset const &_Ruleset) const;
 
 		CMockGitHubState m_State;
 	};
+
+	CExceptionPointer fg_FindUnknownTeam(CMockGitHubState const &_State, auto const &_Actor)
+	{
+		using CTeam = NMib::NGit::CGitHostingProvider::CTeam;
+
+		if (_Actor.template f_IsOfType<CTeam>() && _State.m_UnknownTeams.f_FindEqual(_Actor.template f_GetAsType<CTeam>().m_Slug))
+			return DMibErrorInstance("Could not find team '{}'"_f << _Actor.template f_GetAsType<CTeam>().m_Slug);
+
+		return {};
+	}
 
 	CMockGitHub::CMockGitHub(CMockGitHubState _State)
 		: m_State(fg_Move(_State))
@@ -69,30 +93,71 @@ namespace NGitHubPolicyTests
 
 	auto CMockGitHub::f_GetBranchProtectionRules(CStr _Repository) -> TCFuture<TCMap<CStr, CBranchProtectionRule>>
 	{
+		if (m_State.m_bFailBranchProtectionRead)
+			co_return DMibErrorInstance("A branch protection rule couldn't be read");
+
 		co_return m_State.m_BranchProtectionRules;
+	}
+
+	auto CMockGitHub::f_GetBranchProtectionRulePatterns(CStr _Repository) -> TCFuture<TCMap<CStr, CStr>>
+	{
+		TCMap<CStr, CStr> Patterns;
+		for (auto &Rule : m_State.m_BranchProtectionRules)
+			Patterns[m_State.m_BranchProtectionRules.fs_GetKey(Rule)] = *Rule.m_Pattern;
+
+		co_return fg_Move(Patterns);
 	}
 
 	TCFuture<void> CMockGitHub::f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule)
 	{
+		if (auto pError = f_FindUnknownTeam(_Rule))
+			co_return pError;
+
 		m_State.m_UpdatedBranchProtectionRules.f_Insert(_RuleID);
+		m_State.m_Changes.f_Insert("Update branch protection {}"_f << _RuleID);
 		co_return {};
 	}
 
 	TCFuture<CStr> CMockGitHub::f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule)
 	{
+		if (auto pError = f_FindUnknownTeam(_Rule))
+			co_return pError;
+
+		if (m_State.m_bFailRepositoryID)
+			co_return DMibErrorInstance("Could not find repository '{}'"_f << _Repository);
+
 		m_State.m_CreatedBranchProtectionRules.f_Insert(*_Rule.m_Pattern);
+		m_State.m_Changes.f_Insert("Create branch protection {}"_f << *_Rule.m_Pattern);
 		co_return CStr();
+	}
+
+	TCFuture<void> CMockGitHub::f_ResolveBranchProtectionRuleIDs(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule)
+	{
+		if (auto pError = f_FindUnknownTeam(_Rule))
+			co_return pError;
+
+		if (!_RuleID && m_State.m_bFailRepositoryID)
+			co_return DMibErrorInstance("Could not find repository '{}'"_f << _Repository);
+
+		co_return {};
 	}
 
 	TCFuture<void> CMockGitHub::f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID)
 	{
+		if (m_State.m_FailDeleteBranchProtection.f_FindEqual(_RuleID))
+			co_return DMibErrorInstance("Deleting branch protection rule '{}' was rejected"_f << _RuleID);
+
 		m_State.m_DeletedBranchProtectionRules.f_Insert(_RuleID);
+		m_State.m_Changes.f_Insert("Delete branch protection {}"_f << _RuleID);
 		co_return {};
 	}
 
 	auto CMockGitHub::f_GetGenericRulesets(CStr _Repository) -> TCFuture<TCMap<CStr, CGenericRuleset>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		if (m_State.m_bFailRulesetRead)
+			co_return DMibErrorInstance("A ruleset couldn't be read");
 
 		TCMap<CStr, CGenericRuleset> Rulesets;
 		for (auto &RulesetJson : m_State.m_Rulesets)
@@ -105,23 +170,62 @@ namespace NGitHubPolicyTests
 		co_return fg_Move(Rulesets);
 	}
 
+	auto CMockGitHub::f_GetGenericRulesetNames(CStr _Repository) -> TCFuture<TCMap<CStr, CStr>>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		TCMap<CStr, CStr> Names;
+		for (auto &RulesetJson : m_State.m_Rulesets)
+		{
+			auto Ruleset = CJsonSorted::fs_FromString(RulesetJson);
+			if (Ruleset["source_type"].f_String() == "Repository")
+				Names[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = Ruleset["name"].f_String();
+		}
+
+		co_return fg_Move(Names);
+	}
+
 	TCFuture<void> CMockGitHub::f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
+		if (auto pError = f_FindUnknownTeam(_Ruleset))
+			co_return pError;
+
 		m_State.m_UpdatedRulesets[_ID] = fs_GenericRulesetJson(_Ruleset);
+		m_State.m_Changes.f_Insert("Update ruleset {}"_f << _ID);
 		co_return {};
 	}
 
 	TCFuture<CStr> CMockGitHub::f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset)
 	{
+		if (auto pError = f_FindUnknownTeam(_Ruleset))
+			co_return pError;
+
+		if (m_State.m_FailCreateRulesets.f_FindEqual(*_Ruleset.m_Name))
+			co_return DMibErrorInstance("Ruleset '{}' was rejected"_f << *_Ruleset.m_Name);
+
 		m_State.m_CreatedRulesets.f_Insert(*_Ruleset.m_Name);
+		m_State.m_Changes.f_Insert("Create ruleset {}"_f << *_Ruleset.m_Name);
 		co_return CStr();
+	}
+
+	/// Resolving the IDs of other actors isn't mocked, so the tests use only those it resolves without asking GitHub
+	auto CMockGitHub::f_PopulateGenericRulesetIDs(CStr _Repository, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
+	{
+		if (auto pError = f_FindUnknownTeam(_Ruleset))
+			co_return pError;
+
+		co_return co_await CGitHub::f_PopulateGenericRulesetIDs(fg_Move(_Repository), fg_Move(_Ruleset));
 	}
 
 	TCFuture<void> CMockGitHub::f_DeleteGenericRuleset(CStr _Repository, CStr _ID)
 	{
+		if (m_State.m_FailDeleteRulesets.f_FindEqual(_ID))
+			co_return DMibErrorInstance("Deleting ruleset '{}' was rejected"_f << _ID);
+
 		m_State.m_DeletedRulesets.f_Insert(_ID);
+		m_State.m_Changes.f_Insert("Delete ruleset {}"_f << _ID);
 		co_return {};
 	}
 
@@ -130,9 +234,88 @@ namespace NGitHubPolicyTests
 		co_return m_State;
 	}
 
+	CExceptionPointer CMockGitHub::f_FindUnknownTeam(CBranchProtectionRule const &_Rule) const
+	{
+		for (auto *pAllowances : {&_Rule.m_PushAllowances, &_Rule.m_ReviewDismissalAllowances, &_Rule.m_BypassForcePushAllowances, &_Rule.m_BypassPullRequestAllowances})
+		{
+			if (!*pAllowances)
+				continue;
+
+			for (auto &Actor : **pAllowances)
+			{
+				if (auto pError = fg_FindUnknownTeam(m_State, Actor))
+					return pError;
+			}
+		}
+
+		return {};
+	}
+
+	CExceptionPointer CMockGitHub::f_FindUnknownTeam(CGenericRuleset const &_Ruleset) const
+	{
+		if (!_Ruleset.m_BypassActors)
+			return {};
+
+		for (auto &BypassActor : *_Ruleset.m_BypassActors)
+		{
+			if (auto pError = fg_FindUnknownTeam(m_State, BypassActor.m_Actor))
+				return pError;
+		}
+
+		return {};
+	}
+
+	struct CRestRequest
+	{
+		CStr m_Path;
+		TCMap<CStr, CStr> m_QueryParams;
+	};
+
+	/// The GitHub provider with its REST reads recorded instead of sent, each answered with the response f_SetResponse gave
+	struct CRestCaptureGitHub : public CGitHub
+	{
+		TCFuture<void> f_SetResponse(CJsonSorted _Response);
+		TCFuture<TCVector<CRestRequest>> f_GetRequests();
+
+		auto fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams, uint32 _EmptyStatus, uint32 _ExpectedStatus, CStr _PagedArrayMember, umint _MaxItems)
+			-> TCFuture<CJsonSorted> override
+		;
+
+		CJsonSorted m_Response;
+		TCVector<CRestRequest> m_Requests;
+	};
+
+	TCFuture<void> CRestCaptureGitHub::f_SetResponse(CJsonSorted _Response)
+	{
+		m_Response = fg_Move(_Response);
+		co_return {};
+	}
+
+	TCFuture<TCVector<CRestRequest>> CRestCaptureGitHub::f_GetRequests()
+	{
+		co_return m_Requests;
+	}
+
+	auto CRestCaptureGitHub::fp_RestApi
+		(
+			CStr _Path
+			, CStr _ErrorDescription
+			, TCMap<CStr, CStr> _QueryParams
+			, uint32 _EmptyStatus
+			, uint32 _ExpectedStatus
+			, CStr _PagedArrayMember
+			, umint _MaxItems
+		)
+		-> TCFuture<CJsonSorted>
+	{
+		m_Requests.f_Insert(CRestRequest{.m_Path = fg_Move(_Path), .m_QueryParams = fg_Move(_QueryParams)});
+		co_return m_Response;
+	}
+
 	struct CPolicyOptions
 	{
 		bool m_bPretend = false;
+		bool m_bRemoveOther = false;
 	};
 
 	struct CPolicyResult
@@ -142,11 +325,11 @@ namespace NGitHubPolicyTests
 		TCVector<CStr> m_Updated;      // Name, then the updated values
 		TCVector<CStr> m_Deleted;
 		TCVector<CStr> m_Unmanageable; // Name, then the reasons
+		CStr m_Error;                  // Why applying failed; empty when it succeeded
 		bool m_bApplied = false;       // Whether everything the policy lists was applied
 	};
 
-	/// Applies the GenericRules or BranchProtection section _Policy to a mocked provider that starts out with _State
-	TCFuture<CPolicyResult> fg_ApplyPolicy(CMockGitHubState _State, CStr _Section, CStr _Policy, CPolicyOptions _Options)
+	TCFuture<CPolicyResult> fg_ApplyPolicyRules(CMockGitHubState _State, CStr _Policy, bool _bPretend)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
@@ -158,46 +341,58 @@ namespace NGitHubPolicyTests
 
 		TCSharedPointer<CPolicyResult> pResult = fg_Construct();
 
-		NMib::NGit::CGitPolicyActor::CApplyPolicyContext Context
+		auto fContext = [&]
 			{
-				.m_Repository = "octo-org/octo-repo"
-				, .m_HostingProvider = Provider
-				, .m_fOnCreate = g_ActorFunctor / [pResult](CStr _Name, CStr _CreatedValues) -> TCFuture<void>
-				{
-					pResult->m_Created.f_Insert(_Name);
-					co_return {};
-				}
-				, .m_fOnUpdate = g_ActorFunctor / [pResult](CStr _Name, CStr _UpdatedValues) -> TCFuture<void>
-				{
-					pResult->m_Updated.f_Insert("{}: {}"_f << _Name << _UpdatedValues);
-					co_return {};
-				}
-				, .m_fOnDelete = g_ActorFunctor / [pResult](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
-				{
-					pResult->m_Deleted.f_Insert(_Name);
-					co_return {};
-				}
-				, .m_fOnUnmanageable = g_ActorFunctor / [pResult](CStr _Name, CStr _Reasons) -> TCFuture<void>
-				{
-					pResult->m_Unmanageable.f_Insert("{}: {}"_f << _Name << _Reasons);
-					co_return {};
-				}
-				, .m_bPretend = _Options.m_bPretend
+				return NMib::NGit::CGitPolicyActor::CApplyPolicyContext
+					{
+						.m_Repository = "octo-org/octo-repo"
+						, .m_HostingProvider = Provider
+						, .m_fOnCreate = g_ActorFunctor / [pResult](CStr _Name, CStr _CreatedValues) -> TCFuture<void>
+						{
+							pResult->m_Created.f_Insert(_Name);
+							co_return {};
+						}
+						, .m_fOnUpdate = g_ActorFunctor / [pResult](CStr _Name, CStr _UpdatedValues) -> TCFuture<void>
+						{
+							pResult->m_Updated.f_Insert("{}: {}"_f << _Name << _UpdatedValues);
+							co_return {};
+						}
+						, .m_fOnDelete = g_ActorFunctor / [pResult](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
+						{
+							pResult->m_Deleted.f_Insert(_Name);
+							co_return {};
+						}
+						, .m_fOnUnmanageable = g_ActorFunctor / [pResult](CStr _Name, CStr _Reasons) -> TCFuture<void>
+						{
+							pResult->m_Unmanageable.f_Insert("{}: {}"_f << _Name << _Reasons);
+							co_return {};
+						}
+						, .m_bPretend = _bPretend
+					}
+				;
 			}
 		;
 
-		auto Policy = CEJsonSorted::fs_FromString(_Policy);
-		if (_Section == "GenericRules")
-			pResult->m_bApplied = co_await PolicyActor(&NMib::NGit::CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(Policy));
+		auto Result = co_await PolicyActor(&NMib::NGit::CGitPolicyActor::f_ApplyPolicy_Rules, fContext(), fContext(), CEJsonSorted::fs_FromString(_Policy)).f_Wrap();
+
+		if (Result)
+			pResult->m_bApplied = *Result;
 		else
-		{
-			co_await PolicyActor(&NMib::NGit::CGitPolicyActor::f_ApplyPolicy_BranchProtection, fg_Move(Context), fg_Move(Policy));
-			pResult->m_bApplied = true;
-		}
+			pResult->m_Error = Result.f_GetExceptionStr();
 
 		pResult->m_State = co_await Provider(&CMockGitHub::f_GetState);
 
 		co_return fg_Move(*pResult);
+	}
+
+	TCFuture<CPolicyResult> fg_ApplyPolicy(CMockGitHubState _State, CStr _Section, CStr _Policy, CPolicyOptions _Options)
+	{
+		CEJsonSorted Policy;
+		Policy[_Section] = CEJsonSorted::fs_FromString(_Policy);
+		if (_Options.m_bRemoveOther)
+			Policy["RemoveOther"][_Section] = true;
+
+		co_return co_await fg_ApplyPolicyRules(fg_Move(_State), Policy.f_ToString(), _Options.m_bPretend);
 	}
 }
 
@@ -1649,6 +1844,426 @@ namespace
 				co_return {};
 			};
 
+			DMibTestCategory("RemoveOtherRulesets") -> TCFuture<void>
+			{
+				auto fState = []
+					{
+						CMockGitHubState State;
+						State.m_Rulesets = {gc_RulesetUnknownActorsJson, gc_RulesetLfsNoDeleteJson, gc_RulesetOrganizationJson};
+						return State;
+					}
+				;
+
+				CStr Policy = R"-----(
+					{
+						"LFS NoDelete":
+						{
+							"Target": "Tag",
+							"IncludeRefNames": ["refs/tags/lfs/*"],
+							"ExcludeRefNames": [],
+							"BypassActors": [],
+							"Rules": [{"Type": "Deletion"}, {"Type": "FastForwardOnly"}],
+							"Enforcement": "Active"
+						}
+					}
+					)-----"
+				;
+
+				DMibTestCategory("Remove") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "GenericRules", Policy, {.m_bRemoveOther = true});
+					DMibExpect(Result.m_Deleted, ==, TCVector<CStr>{"Release tags"});
+					DMibExpect(Result.m_State.m_DeletedRulesets, ==, TCVector<CStr>{"4211"});
+					DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("Pretend") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "GenericRules", Policy, {.m_bPretend = true, .m_bRemoveOther = true});
+					DMibExpect(Result.m_Deleted, ==, TCVector<CStr>{"Release tags"});
+					DMibExpectTrue(Result.m_State.m_DeletedRulesets.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("Keep") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "GenericRules", Policy, {});
+					DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+					DMibExpectTrue(Result.m_State.m_DeletedRulesets.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("RemoveAll") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "GenericRules", "{}", {.m_bRemoveOther = true});
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"Release tags", "LFS NoDelete"}));
+					DMibExpect(Result.m_State.m_DeletedRulesets, ==, (TCVector<CStr>{"4211", "4212"}));
+					co_return {};
+				};
+
+				co_return {};
+			};
+
+			DMibTestCategory("RemoveOtherWithoutReading") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				for (CStr Pattern : TCVector<CStr>{"*", "master"})
+				{
+					CProvider::CBranchProtectionRule Rule;
+					Rule.m_Pattern = Pattern;
+					State.m_BranchProtectionRules[CStr("ID {}"_f << Pattern)] = fg_Move(Rule);
+				}
+				State.m_bFailBranchProtectionRead = true;
+
+				// A policy that lists no branch protection rules deletes them by their patterns alone
+				auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), R"-----({"BranchProtection": {}, "RemoveOther": {"BranchProtection": true}})-----", false);
+				DMibExpect(Result.m_Error, ==, "");
+				DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master"}));
+				co_return {};
+			};
+
+			DMibTestCategory("RulesetNames") -> TCFuture<void>
+			{
+				TCActor<CRestCaptureGitHub> Provider = fg_Construct();
+				auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+				// GitHub lists inherited rulesets too unless told not to; only the repository's own are its to delete
+				co_await Provider
+					(
+						&CRestCaptureGitHub::f_SetResponse
+						, CJsonSorted::fs_FromString
+						(
+							R"-----(
+							[
+								{"id": 4211, "name": "Release tags", "source_type": "Repository", "source": "octo-org/octo-repo"},
+								{"id": 4213, "name": "Organization", "source_type": "Organization", "source": "octo-org"},
+								{"id": 4218, "name": "Unknown source"}
+							]
+							)-----"
+						)
+					)
+				;
+
+				auto Names = co_await Provider(&CGitHub::f_GetGenericRulesetNames, "octo-org/octo-repo");
+				DMibExpect(Names, ==, (TCMap<CStr, CStr>{{"4211", "Release tags"}}));
+
+				auto Requests = co_await Provider(&CRestCaptureGitHub::f_GetRequests);
+				DMibAssert(Requests.f_GetLen(), ==, 1);
+				DMibExpect(Requests[0].m_Path, ==, "repos/octo-org/octo-repo/rulesets");
+				DMibExpect(Requests[0].m_QueryParams, ==, (TCMap<CStr, CStr>{{"includes_parents", "false"}}));
+				co_return {};
+			};
+
+			DMibTestCategory("RemoveOtherRulesetsWithoutReading") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetUnknownActorsJson, gc_RulesetLfsNoDeleteJson, gc_RulesetOrganizationJson};
+				State.m_bFailRulesetRead = true;
+
+				// A policy that lists no rulesets deletes them from the listing alone
+				auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), R"-----({"GenericRules": {}, "RemoveOther": {"GenericRules": true}})-----", false);
+				DMibExpect(Result.m_Error, ==, "");
+				DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"Release tags", "LFS NoDelete"}));
+				DMibExpect(Result.m_State.m_DeletedRulesets, ==, (TCVector<CStr>{"4211", "4212"}));
+				co_return {};
+			};
+
+			DMibTestCategory("RemoveOtherBranchProtection") -> TCFuture<void>
+			{
+				auto fState = []
+					{
+						CMockGitHubState State;
+						for (CStr Pattern : TCVector<CStr>{"*", "master", "release/*"})
+						{
+							CProvider::CBranchProtectionRule Rule;
+							Rule.m_Pattern = Pattern;
+							Rule.m_RequiresLinearHistory = true;
+							State.m_BranchProtectionRules[CStr("ID {}"_f << Pattern)] = fg_Move(Rule);
+						}
+						return State;
+					}
+				;
+
+				CStr Policy = R"-----({"master": {"RequiresLinearHistory": true}})-----";
+
+				DMibTestCategory("Remove") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "BranchProtection", Policy, {.m_bRemoveOther = true});
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "release/*"}));
+					DMibExpect(Result.m_State.m_DeletedBranchProtectionRules, ==, (TCVector<CStr>{"ID *", "ID release/*"}));
+					DMibExpectTrue(Result.m_State.m_UpdatedBranchProtectionRules.f_IsEmpty());
+					DMibExpectTrue(Result.m_State.m_CreatedBranchProtectionRules.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("Pretend") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "BranchProtection", Policy, {.m_bPretend = true, .m_bRemoveOther = true});
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "release/*"}));
+					DMibExpectTrue(Result.m_State.m_DeletedBranchProtectionRules.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("Keep") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicy(fState(), "BranchProtection", Policy, {});
+					DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+					DMibExpectTrue(Result.m_State.m_DeletedBranchProtectionRules.f_IsEmpty());
+					co_return {};
+				};
+
+				co_return {};
+			};
+
+			DMibTestCategory("RemoveOtherRejected") -> TCFuture<void>
+			{
+				DMibTestCategory("BranchProtection") -> TCFuture<void>
+				{
+					CMockGitHubState State;
+					for (CStr Pattern : TCVector<CStr>{"*", "master", "release/*"})
+					{
+						CProvider::CBranchProtectionRule Rule;
+						Rule.m_Pattern = Pattern;
+						State.m_BranchProtectionRules[CStr("ID {}"_f << Pattern)] = fg_Move(Rule);
+					}
+					State.m_FailDeleteBranchProtection["ID release/*"];
+
+					auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), R"-----({"RemoveOther": {"BranchProtection": true}})-----", false);
+					DMibExpect(Result.m_Error.f_Find("Deleting branch protection rule 'ID release/*' was rejected"), >=, 0);
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master"}));
+					co_return {};
+				};
+
+				DMibTestCategory("GenericRules") -> TCFuture<void>
+				{
+					CMockGitHubState State;
+					State.m_Rulesets = {gc_RulesetUnknownActorsJson, gc_RulesetLfsNoDeleteJson};
+					State.m_FailDeleteRulesets["4212"];
+
+					auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), R"-----({"RemoveOther": {"GenericRules": true}})-----", false);
+					DMibExpect(Result.m_Error.f_Find("Deleting ruleset '4212' was rejected"), >=, 0);
+					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"Release tags"}));
+					co_return {};
+				};
+
+				co_return {};
+			};
+
+			DMibTestCategory("RemoveOtherAfterApplying") -> TCFuture<void>
+			{
+				auto fState = []
+					{
+						CMockGitHubState State;
+						for (CStr Pattern : TCVector<CStr>{"*", "master"})
+						{
+							CProvider::CBranchProtectionRule Rule;
+							Rule.m_Pattern = Pattern;
+							State.m_BranchProtectionRules[CStr("ID {}"_f << Pattern)] = fg_Move(Rule);
+						}
+						return State;
+					}
+				;
+
+				CStr Policy = R"-----(
+					{
+						"GenericRules":
+						{
+							"Linear history":
+							{
+								"Target": "Branch",
+								"IncludeRefNames": ["~ALL"],
+								"ExcludeRefNames": [],
+								"BypassActors": [],
+								"Rules": [{"Type": "LinearHistory"}],
+								"Enforcement": "Active"
+							}
+						},
+						"RemoveOther": {"BranchProtection": true}
+					}
+					)-----"
+				;
+
+				DMibTestCategory("Order") -> TCFuture<void>
+				{
+					auto Result = co_await fg_ApplyPolicyRules(fState(), Policy, false);
+					DMibExpect(Result.m_Error, ==, "");
+					DMibExpect(Result.m_State.m_Changes, ==, (TCVector<CStr>{"Create ruleset Linear history", "Delete branch protection ID *", "Delete branch protection ID master"}));
+					co_return {};
+				};
+
+				DMibTestCategory("ReplacementFails") -> TCFuture<void>
+				{
+					auto State = fState();
+					State.m_FailCreateRulesets["Linear history"];
+
+					auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), Policy, false);
+					DMibExpect(Result.m_Error.f_Find("Ruleset 'Linear history' was rejected"), >=, 0);
+					DMibExpectTrue(Result.m_State.m_Changes.f_IsEmpty());
+					DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("ReplacementUnknownTeam") -> TCFuture<void>
+				{
+					TCMap<CStr, CStr> Policies =
+						{
+							{
+								"CreateBranchProtection"
+								, R"-----(
+								{
+									"BranchProtection": {"release/*": {"PushAllowances": [{"Type": "Team", "Value": "ghosts"}], "RestrictsPushes": true}},
+									"RemoveOther": {"BranchProtection": true}
+								}
+								)-----"
+							}
+							, {
+								"CreateRuleset"
+								, R"-----(
+								{
+									"GenericRules":
+									{
+										"Linear history":
+										{
+											"Target": "Branch",
+											"IncludeRefNames": ["~ALL"],
+											"ExcludeRefNames": [],
+											"BypassActors": [{"Actor": {"Type": "Team", "Value": "ghosts"}, "Mode": "Always"}],
+											"Rules": [{"Type": "LinearHistory"}],
+											"Enforcement": "Active"
+										}
+									},
+									"RemoveOther": {"BranchProtection": true}
+								}
+								)-----"
+							}
+							, {
+								"UpdateBranchProtection"
+								, R"-----(
+								{
+									"BranchProtection": {"master": {"PushAllowances": [{"Type": "Team", "Value": "ghosts"}], "RestrictsPushes": true}},
+									"RemoveOther": {"BranchProtection": true}
+								}
+								)-----"
+							}
+						}
+					;
+
+					// Applying fails looking up the team before it deletes anything, so pretending must fail too rather than report deletions
+					for (auto &Policy : Policies)
+					{
+						for (bool bPretend : {false, true})
+						{
+							DMibTestPath("{} {}"_f << Policies.fs_GetKey(Policy) << (bPretend ? "Pretend" : "Apply"));
+
+							auto State = fState();
+							State.m_UnknownTeams["ghosts"];
+
+							auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), Policy, bPretend);
+							DMibExpect(Result.m_Error.f_Find("Could not find team 'ghosts'"), >=, 0);
+							DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+							DMibExpectTrue(Result.m_State.m_Changes.f_IsEmpty());
+						}
+					}
+
+					co_return {};
+				};
+
+				DMibTestCategory("ReplacementUnknownRepository") -> TCFuture<void>
+				{
+					CStr Policy = R"-----({"BranchProtection": {"release/*": {"RequiresLinearHistory": true}}, "RemoveOther": {"BranchProtection": true}})-----";
+
+					// Creating a branch protection rule looks up the repository's ID, so pretending must too rather than report deletions
+					for (bool bPretend : {false, true})
+					{
+						DMibTestPath(bPretend ? "Pretend" : "Apply");
+
+						auto State = fState();
+						State.m_bFailRepositoryID = true;
+
+						auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), Policy, bPretend);
+						DMibExpect(Result.m_Error.f_Find("Could not find repository 'octo-org/octo-repo'"), >=, 0);
+						DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+						DMibExpectTrue(Result.m_State.m_Changes.f_IsEmpty());
+					}
+
+					co_return {};
+				};
+
+				DMibTestCategory("ReplacementUnmanageable") -> TCFuture<void>
+				{
+					auto State = fState();
+					State.m_Rulesets = {gc_RulesetUnknownActorsJson};
+
+					auto Result = co_await fg_ApplyPolicyRules
+						(
+							fg_Move(State)
+							, R"-----(
+							{
+								"GenericRules": {"Release tags": {"Rules": [{"Type": "Deletion"}]}},
+								"RemoveOther": {"BranchProtection": true}
+							}
+							)-----"
+							, false
+						)
+					;
+					DMibExpect(Result.m_Error, ==, "Nothing the policy doesn't list was deleted, since a generic ruleset it lists was left unchanged");
+					DMibExpectTrue(Result.m_State.m_DeletedBranchProtectionRules.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("ReplacementUnmanageableRulesets") -> TCFuture<void>
+				{
+					CStr Policy = R"-----(
+						{
+							"GenericRules": {"Release tags": {"Enforcement": "Active", "Rules": [{"Type": "Deletion"}]}},
+							"RemoveOther": {"GenericRules": true, "BranchProtection": true}
+						}
+						)-----"
+					;
+
+					for (bool bPretend : {false, true})
+					{
+						DMibTestPath(bPretend ? "Pretend" : "Apply");
+
+						auto State = fState();
+						State.m_Rulesets = {gc_RulesetUnknownActorsJson, gc_RulesetLfsNoDeleteJson};
+
+						auto Result = co_await fg_ApplyPolicyRules(fg_Move(State), Policy, bPretend);
+						DMibExpect(Result.m_Error, ==, "Nothing the policy doesn't list was deleted, since a generic ruleset it lists was left unchanged");
+						DMibExpectTrue(Result.m_Deleted.f_IsEmpty());
+						DMibExpectTrue(Result.m_State.m_DeletedRulesets.f_IsEmpty());
+						DMibExpectTrue(Result.m_State.m_DeletedBranchProtectionRules.f_IsEmpty());
+					}
+
+					co_return {};
+				};
+
+				DMibTestCategory("RulesetsAfterApplying") -> TCFuture<void>
+				{
+					auto State = fState();
+					State.m_Rulesets = {gc_RulesetLfsNoDeleteJson};
+
+					auto Result = co_await fg_ApplyPolicyRules
+						(
+							fg_Move(State)
+							, R"-----(
+							{
+								"GenericRules": {"Linear history": {"Target": "Branch", "Rules": [{"Type": "LinearHistory"}]}},
+								"RemoveOther": {"GenericRules": true}
+							}
+							)-----"
+							, false
+						)
+					;
+					DMibExpect(Result.m_Error, ==, "");
+					DMibExpect(Result.m_State.m_Changes, ==, (TCVector<CStr>{"Create ruleset Linear history", "Delete ruleset 4212"}));
+					co_return {};
+				};
+
+				co_return {};
+			};
+
 			DMibTestCategory("RepeatedRuleTypes") -> TCFuture<void>
 			{
 				auto Ruleset = CJsonSorted::fs_FromString(gc_RulesetUnknownRulesJson);
@@ -1768,6 +2383,7 @@ namespace
 					State.m_Rulesets = {gc_RulesetSquashOnlyJson};
 
 					auto Result = co_await fg_ApplyPolicy(fg_Move(State), "GenericRules", fPolicy(1), {});
+					DMibExpect(Result.m_Error, ==, "");
 					DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
 					DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
 					co_return {};

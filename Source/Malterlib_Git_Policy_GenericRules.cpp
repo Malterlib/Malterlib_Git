@@ -38,8 +38,13 @@ namespace NMib::NGit
 		};
 	}
 
-	/// Returns false when it skipped a ruleset _Rules lists, because updating it would lose what the policy can't express
 	TCFuture<bool> CGitPolicyActor::f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, CEJsonSorted _Rules)
+	{
+		co_return co_await fp_ApplyPolicy_GenericRules(_Context, _Rules);
+	}
+
+	/// Returns false when it skipped a ruleset _Rules lists, because updating it would lose what the policy can't express
+	TCUnsafeFuture<bool> CGitPolicyActor::fp_ApplyPolicy_GenericRules(CApplyPolicyContext const &_Context, CEJsonSorted const &_Rules)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -138,7 +143,10 @@ namespace NMib::NGit
 
 			auto &WantedRuleset = WantedRulesetEntry.f_Value();
 
-			if (!_Context.m_bPretend)
+			// Pretending looks up the IDs as applying does, so it fails where applying would, before anything is deleted
+			if (_Context.m_bPretend)
+				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_PopulateGenericRulesetIDs, _Context.m_Repository, WantedRuleset);
+			else
 				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_CreateGenericRuleset, _Context.m_Repository, WantedRuleset);
 
 			if (_Context.m_fOnCreate)
@@ -146,5 +154,28 @@ namespace NMib::NGit
 		}
 
 		co_return bAllApplied;
+	}
+
+	TCUnsafeFuture<void> CGitPolicyActor::fp_RemoveOther_GenericRules(CApplyPolicyContext const &_Context, CEJsonSorted const &_Rules)
+	{
+		co_await ECoroutineFlag_CaptureExceptions;
+
+		auto WantedGenericRules = co_await fg_ParseGenericRules(_Rules);
+
+		auto CurrentNames = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetGenericRulesetNames, _Context.m_Repository);
+
+		for (auto &Name : CurrentNames)
+		{
+			if (WantedGenericRules.f_FindEqual(Name))
+				continue;
+
+			if (!_Context.m_bPretend)
+				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_DeleteGenericRuleset, _Context.m_Repository, CurrentNames.fs_GetKey(Name));
+
+			if (_Context.m_fOnDelete)
+				co_await _Context.m_fOnDelete(Name, CStr());
+		}
+
+		co_return {};
 	}
 }

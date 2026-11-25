@@ -852,6 +852,34 @@ namespace NMib::NGit
 		co_return {};
 	}
 
+	/// From the listing, without reading the rulesets in full. Only the repository's own: GitHub lists the rulesets it inherits from its
+	/// organization as well unless told not to, and a ruleset that doesn't say it's the repository's isn't the repository's to delete.
+	auto CGitHostingProvider_GitHub::f_GetGenericRulesetNames(CStr _Repository) -> TCFuture<TCMap<CStr, CStr>>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
+
+		auto const Rulesets = co_await fp_RestApi
+			(
+				"repos/{}/{}/rulesets"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name
+				, "Failed to get rulesets from repository '{}'"_f << _Repository
+				, {{"includes_parents", "false"}}
+			)
+		;
+
+		auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing rulesets for repository '{}'"_f << _Repository));
+
+		TCMap<CStr, CStr> Names;
+		for (auto &Ruleset : Rulesets.f_Array())
+		{
+			if (fsp_GetJsonString(Ruleset, "source_type") == "Repository")
+				Names[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = Ruleset["name"].f_String();
+		}
+
+		co_return fg_Move(Names);
+	}
+
 	TCFuture<void> CGitHostingProvider_GitHub::f_DeleteGenericRuleset(CStr _Repository, CStr _ID)
 	{
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);

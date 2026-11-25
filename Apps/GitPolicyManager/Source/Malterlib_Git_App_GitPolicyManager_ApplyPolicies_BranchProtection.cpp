@@ -11,21 +11,12 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	auto CGitPolicyManagerActor::fp_ApplyPolicies_BranchProtection
-		(
-			CEJsonSorted _BranchProtection
-			, CStr _Repository
-			, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider
-			, CStr _PolicyName
-		)
-		-> TCFuture<void>
+	auto CGitPolicyManagerActor::fp_BranchProtectionContext(CStr const &_Repository, NConcurrency::TCActor<CGitHostingProvider> const &_HostingProvider, CStr const &_PolicyName)
+		-> CGitPolicyActor::CApplyPolicyContext
 	{
 		auto Auditor = mp_State.f_Auditor();
 
-		TCActor<CGitPolicyActor> PolicyActor = fg_Construct();
-		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
-
-		CGitPolicyActor::CApplyPolicyContext Context
+		return CGitPolicyActor::CApplyPolicyContext
 			{
 				.m_Repository = _Repository
 				, .m_HostingProvider = _HostingProvider
@@ -58,12 +49,22 @@ namespace NMib::NGit::NGitPolicyManager
 
 					co_return {};
 				}
+				, .m_fOnDelete = g_ActorFunctor / [=, this](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
+				{
+					Auditor.f_Warning
+						(
+							"{}Applying policy '{}' resulted in deleted branch protection rule for branch pattern '{}' on '{}'"_f
+							<< fp_PretendDescription()
+							<< _PolicyName
+							<< _Name
+							<< _Repository
+						)
+					;
+
+					co_return {};
+				}
 				, .m_bPretend = mp_bPretend
 			}
 		;
-
-		co_await PolicyActor(&CGitPolicyActor::f_ApplyPolicy_BranchProtection, fg_Move(Context), fg_Move(_BranchProtection));
-
-		co_return {};
 	}
 }

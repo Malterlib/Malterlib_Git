@@ -54,6 +54,13 @@ namespace NMib::NGit
 
 	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_BranchProtection(CApplyPolicyContext _Context, CEJsonSorted _BranchProtection)
 	{
+		co_await fp_ApplyPolicy_BranchProtection(_Context, _BranchProtection);
+
+		co_return {};
+	}
+
+	TCUnsafeFuture<void> CGitPolicyActor::fp_ApplyPolicy_BranchProtection(CApplyPolicyContext const &_Context, CEJsonSorted const &_BranchProtection)
+	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
 		auto WantedBranchProtectionRules = co_await fg_ParseBranchProtectionRules(_BranchProtection);
@@ -73,7 +80,10 @@ namespace NMib::NGit
 				CStr UpdatedValues;
 				if (Rule.f_IsUpdated(*pWantedRule, UpdatedValues))
 				{
-					if (!_Context.m_bPretend)
+					// Pretending looks up the IDs as applying does, so it fails where applying would, before anything is deleted
+					if (_Context.m_bPretend)
+						co_await _Context.m_HostingProvider(&CGitHostingProvider::f_ResolveBranchProtectionRuleIDs, _Context.m_Repository, RuleID, *pWantedRule);
+					else
 						co_await _Context.m_HostingProvider(&CGitHostingProvider::f_UpdateBranchProtectionRule, _Context.m_Repository, RuleID, *pWantedRule);
 
 					if (_Context.m_fOnUpdate)
@@ -87,11 +97,37 @@ namespace NMib::NGit
 			if (AlreadyCreated.f_FindEqual(WantedBranchProtectionRules.fs_GetKey(WantedRule)))
 				continue;
 
-			if (!_Context.m_bPretend)
+			// Pretending looks up the IDs as applying does, so it fails where applying would, before anything is deleted
+			if (_Context.m_bPretend)
+				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_ResolveBranchProtectionRuleIDs, _Context.m_Repository, TCOptional<CStr>(), WantedRule);
+			else
 				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_CreateBranchProtectionRule, _Context.m_Repository, WantedRule);
 
 			if (_Context.m_fOnCreate)
 				co_await _Context.m_fOnCreate(*WantedRule.m_Pattern, CStr());
+		}
+
+		co_return {};
+	}
+
+	TCUnsafeFuture<void> CGitPolicyActor::fp_RemoveOther_BranchProtection(CApplyPolicyContext const &_Context, CEJsonSorted const &_BranchProtection)
+	{
+		co_await ECoroutineFlag_CaptureExceptions;
+
+		auto WantedBranchProtectionRules = co_await fg_ParseBranchProtectionRules(_BranchProtection);
+
+		auto CurrentPatterns = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetBranchProtectionRulePatterns, _Context.m_Repository);
+
+		for (auto &Pattern : CurrentPatterns)
+		{
+			if (WantedBranchProtectionRules.f_FindEqual(Pattern))
+				continue;
+
+			if (!_Context.m_bPretend)
+				co_await _Context.m_HostingProvider(&CGitHostingProvider::f_DeleteBranchProtectionRule, _Context.m_Repository, CurrentPatterns.fs_GetKey(Pattern));
+
+			if (_Context.m_fOnDelete)
+				co_await _Context.m_fOnDelete(Pattern, CStr());
 		}
 
 		co_return {};

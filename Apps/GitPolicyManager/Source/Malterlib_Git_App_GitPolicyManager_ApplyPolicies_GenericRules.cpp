@@ -11,14 +11,12 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<bool> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules(CEJsonSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	auto CGitPolicyManagerActor::fp_GenericRulesContext(CStr const &_Repository, NConcurrency::TCActor<CGitHostingProvider> const &_HostingProvider, CStr const &_PolicyName)
+		-> CGitPolicyActor::CApplyPolicyContext
 	{
 		auto Auditor = mp_State.f_Auditor();
 
-		TCActor<CGitPolicyActor> PolicyActor = fg_Construct();
-		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
-
-		CGitPolicyActor::CApplyPolicyContext Context
+		return CGitPolicyActor::CApplyPolicyContext
 			{
 				.m_Repository = _Repository
 				, .m_HostingProvider = _HostingProvider
@@ -47,6 +45,12 @@ namespace NMib::NGit::NGitPolicyManager
 
 					co_return {};
 				}
+				, .m_fOnDelete = g_ActorFunctor / [=, this](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
+				{
+					Auditor.f_Warning("{}Applying policy '{}' resulted in deleted generic ruleset '{}' on '{}'"_f << fp_PretendDescription() << _PolicyName << _Name << _Repository);
+
+					co_return {};
+				}
 				, .m_fOnUnmanageable = g_ActorFunctor / [=](CStr _Name, CStr _Reasons) -> TCFuture<void>
 				{
 					Auditor.f_Warning
@@ -64,7 +68,21 @@ namespace NMib::NGit::NGitPolicyManager
 				, .m_bPretend = mp_bPretend
 			}
 		;
+	}
 
-		co_return co_await PolicyActor(&CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(_Rules));
+	auto CGitPolicyManagerActor::fp_ApplyPolicies_Rules(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+		-> TCFuture<bool>
+	{
+		TCActor<CGitPolicyActor> PolicyActor = fg_Construct();
+		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
+
+		co_return co_await PolicyActor
+			(
+				&CGitPolicyActor::f_ApplyPolicy_Rules
+				, fp_BranchProtectionContext(_Repository, _HostingProvider, _PolicyName)
+				, fp_GenericRulesContext(_Repository, _HostingProvider, _PolicyName)
+				, fg_Move(_Policy)
+			)
+		;
 	}
 }

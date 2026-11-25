@@ -231,11 +231,8 @@ namespace NMib::NGit::NGitPolicyManager
 		if (auto pPermissions = _Policy.f_GetMember("Permissions"))
 			co_await fp_ApplyPolicies_Permissions(*pPermissions, _Repository, _HostingProvider, _PolicyName);
 
-		if (auto pBranchProtection = _Policy.f_GetMember("BranchProtection"))
-			co_await fp_ApplyPolicies_BranchProtection(*pBranchProtection, _Repository, _HostingProvider, _PolicyName);
-
-		if (auto pGenericRules = _Policy.f_GetMember("GenericRules"))
-			bAllApplied = co_await fp_ApplyPolicies_GenericRules(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
+		if (_Policy.f_GetMember("BranchProtection") || _Policy.f_GetMember("GenericRules") || _Policy.f_GetMember("RemoveOther"))
+			bAllApplied = co_await fp_ApplyPolicies_Rules(_Policy, _Repository, _HostingProvider, _PolicyName);
 
 		if (auto pGenericRules = _Policy.f_GetMember("ActionsSettings"))
 			co_await fp_ApplyPolicies_ActionsSettings(*pGenericRules, _Repository, _HostingProvider, _PolicyName);

@@ -54,6 +54,8 @@ namespace NMib::NGit
 		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
 		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
 		TCFuture<void> f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID) override;
+		TCFuture<TCMap<CStr, CStr>> f_GetBranchProtectionRulePatterns(CStr _Repository) override;
+		TCFuture<void> f_ResolveBranchProtectionRuleIDs(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule) override;
 
 		TCFuture<CRepositoryPermissions> f_GetRepositoryPermissions(CStr _Repository) override;
 		TCFuture<CStr> f_GetCollaboratorPermission(CStr _Repository, CStr _User) override;
@@ -76,6 +78,7 @@ namespace NMib::NGit
 		TCFuture<void> f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset) override;
 		TCFuture<CStr> f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset) override;
 		TCFuture<void> f_DeleteGenericRuleset(CStr _Repository, CStr _ID) override;
+		TCFuture<TCMap<CStr, CStr>> f_GetGenericRulesetNames(CStr _Repository) override;
 
 		TCFuture<CActionsSettings> f_GetActionsSettings(NStr::CStr _Repository) override;
 		TCFuture<void> f_UpdateActionsSettings(NStr::CStr _Repository, CActionsSettings _ActionsSettings) override;
@@ -153,6 +156,20 @@ namespace NMib::NGit
 		static CStr fs_GetNextPageUrl(CStr const &_LinkHeader);
 		static TCOptional<CGitHostingProviderRateLimit> fs_GetRateLimit(uint32 _StatusCode, TCMap<CStr, CStr, CCompareNoCase> const &_Headers, CStr const &_Body, NTime::CTime const &_Now);
 
+	protected:
+		virtual auto fp_RestApi
+			(
+				CStr _Path
+				, CStr _ErrorDescription
+				, TCMap<CStr, CStr> _QueryParams = {}
+				, uint32 _EmptyStatus = 0
+				, uint32 _ExpectedStatus = 200
+				, CStr _PagedArrayMember = {}
+				, umint _MaxItems = 0
+			)
+			-> TCFuture<CJsonSorted>
+		;
+
 	private:
 		struct CRepositorySlug
 		{
@@ -192,18 +209,6 @@ namespace NMib::NGit
 
 		TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables);
 
-		auto fp_RestApi
-			(
-				CStr _Path
-				, CStr _ErrorDescription
-				, TCMap<CStr, CStr> _QueryParams = {}
-				, uint32 _EmptyStatus = 0
-				, uint32 _ExpectedStatus = 200
-				, CStr _PagedArrayMember = {}
-				, umint _MaxItems = 0
-			)
-			-> TCFuture<CJsonSorted>
-		;
 		TCFuture<CJsonSorted> fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
 		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
 		TCFuture<void> fp_RestApiPut(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 204);
@@ -224,7 +229,9 @@ namespace NMib::NGit
 		;
 		TCFuture<void> fp_PublicDownloadFile(CStr _Url, TCActorFunctor<TCFuture<void> (CByteVector _Data)> _fWriteData, CStr _ErrorDescription, uint32 _ExpectedStatus = 200);
 
+		TCFuture<CJsonSorted> fp_GetBranchProtectionRuleNodes(CStr _Repository, CStr _Query);
 		TCFuture<CJsonSorted> fp_PopulateGraphQl_BranchProtectionRule(CStr _Organization, CBranchProtectionRule _Rule);
+		TCFuture<CJsonSorted> fp_BranchProtectionRuleInput(CStr _Repository, TCOptional<CStr> _RuleID, CBranchProtectionRule _Rule);
 		TCFuture<CGenericRuleset> fp_ResolveGenericRulesetIDs(CStr _Organization, CGenericRuleset _Ruleset);
 
 		template <typename tf_CActor>
