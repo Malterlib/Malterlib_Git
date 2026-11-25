@@ -121,7 +121,7 @@ namespace NMib::NGit::NGitPolicyManager
 			return "";
 	}
 
-	TCFuture<umint> CGitPolicyManagerActor::fp_ApplyPolicies()
+	auto CGitPolicyManagerActor::fp_ApplyPolicies() -> TCFuture<CApplyPoliciesResult>
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -136,12 +136,13 @@ namespace NMib::NGit::NGitPolicyManager
 
 		auto pConfigs = ConfigJson.f_GetMember("Configs");
 		if (!pConfigs)
-			co_return 0;
+			co_return {};
 
-		umint nReposWithoutPolicy = 0;
+		CApplyPoliciesResult Result;
 
 		TCVector<CGitHostingProvider::CRepository> AllRepositories;
 		TCSet<CStr> AllMatchedRepositories;
+		TCMap<CStr, TCSet<CStr>> PartlyAppliedRepositories; // By provider, since several configs can cover a repository
 
 		// A copy: the config can be reloaded while the hosting providers are awaited
 		auto Configs = pConfigs->f_Array();
@@ -170,13 +171,17 @@ namespace NMib::NGit::NGitPolicyManager
 					if (!MatchedRepositories(*Repository.m_Name).f_WasCreated())
 						continue;
 
-					co_await fp_ApplyPolicies_Repository(Policy, *Repository.m_Name, HostingProvider, PolicyName);
+					if (!co_await fp_ApplyPolicies_Repository(Policy, *Repository.m_Name, HostingProvider, PolicyName))
+						PartlyAppliedRepositories[Provider][*Repository.m_Name];
 				}
 			}
 
 			AllMatchedRepositories += MatchedRepositories;
 			AllRepositories.f_Insert(Repositories);
 		}
+
+		for (auto &Repositories : PartlyAppliedRepositories)
+			Result.m_nRepositoriesPartlyApplied += Repositories.f_GetLen();
 
 		if (bWarnWithoutPolicies)
 		{
@@ -190,7 +195,7 @@ namespace NMib::NGit::NGitPolicyManager
 				if (!WarnedRepositories(*Repository.m_Name).f_WasCreated())
 					continue;
 
-				++nReposWithoutPolicy;
+				++Result.m_nRepositoriesWithoutPolicy;
 
 				fg_AddStrSep
 					(
@@ -210,12 +215,15 @@ namespace NMib::NGit::NGitPolicyManager
 				Auditor.f_Warning("The following repositories have no policy:\n{}"_f << WithoutPolicy);
 		}
 
-		co_return nReposWithoutPolicy;
+		co_return Result;
 	}
 
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	/// Returns false when the policy left a generic ruleset it lists unchanged
+	TCFuture<bool> CGitPolicyManagerActor::fp_ApplyPolicies_Repository(CEJsonSorted _Policy, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
+
+		bool bAllApplied = true;
 
 		if (auto pRepositorySettings = _Policy.f_GetMember("RepositorySettings"))
 			co_await fp_ApplyPolicies_RepositorySettings(*pRepositorySettings, _Repository, _HostingProvider, _PolicyName);
@@ -227,11 +235,11 @@ namespace NMib::NGit::NGitPolicyManager
 			co_await fp_ApplyPolicies_BranchProtection(*pBranchProtection, _Repository, _HostingProvider, _PolicyName);
 
 		if (auto pGenericRules = _Policy.f_GetMember("GenericRules"))
-			co_await fp_ApplyPolicies_GenericRules(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
+			bAllApplied = co_await fp_ApplyPolicies_GenericRules(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
 
 		if (auto pGenericRules = _Policy.f_GetMember("ActionsSettings"))
 			co_await fp_ApplyPolicies_ActionsSettings(*pGenericRules, _Repository, _HostingProvider, _PolicyName);
 
-		co_return {};
+		co_return bAllApplied;
 	}
 }

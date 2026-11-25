@@ -87,10 +87,19 @@ namespace NMib::NGit::NGitPolicyManager
 		}
 		else
 		{
-			if (*Result)
+			auto &Applied = *Result;
+
+			CStr Warnings;
+			if (Applied.m_nRepositoriesPartlyApplied)
+				fg_AddStrSep(Warnings, "{} repositories have generic rulesets their policy left unchanged"_f << Applied.m_nRepositoriesPartlyApplied, ", and ");
+
+			if (Applied.m_nRepositoriesWithoutPolicy)
+				fg_AddStrSep(Warnings, "{} repositories have no policy configured"_f << Applied.m_nRepositoriesWithoutPolicy, ", and ");
+
+			if (!Warnings.f_IsEmpty())
 			{
 				Status.m_Severity = CDistributedAppSensorReporter::EStatusSeverity_Warning;
-				Status.m_Description = "All policies applied successfully, but {} repositories have no policy configured"_f << *Result;
+				Status.m_Description = "{}, but {}"_f << (Applied.m_nRepositoriesPartlyApplied ? "Policies applied" : "All policies applied successfully") << Warnings;
 				DMibLogWithCategory(Malterlib/Git/GitPolicyManager, Warning, "{}", Status.m_Description);
 			}
 			else

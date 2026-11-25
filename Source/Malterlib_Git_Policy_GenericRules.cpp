@@ -38,7 +38,8 @@ namespace NMib::NGit
 		};
 	}
 
-	TCFuture<void> CGitPolicyActor::f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, CEJsonSorted _Rules)
+	/// Returns false when it skipped a ruleset _Rules lists, because updating it would lose what the policy can't express
+	TCFuture<bool> CGitPolicyActor::f_ApplyPolicy_GenericRules(CApplyPolicyContext _Context, CEJsonSorted _Rules)
 	{
 		co_await ECoroutineFlag_CaptureExceptions;
 
@@ -47,6 +48,7 @@ namespace NMib::NGit
 		auto CurrentRulesets = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_GetGenericRulesets, _Context.m_Repository);
 
 		TCSet<CStr> AlreadyCreated;
+		bool bAllApplied = true;
 
 		for (auto &RulesetEntry : CurrentRulesets.f_Entries())
 		{
@@ -61,6 +63,15 @@ namespace NMib::NGit
 
 			if (auto *pWantedRuleset = WantedGenericRules.f_FindEqual(Name))
 			{
+				if (!Ruleset.m_UnmanageableReasons.f_IsEmpty())
+				{
+					if (_Context.m_fOnUnmanageable)
+						co_await _Context.m_fOnUnmanageable(Name, CStr::fs_Join(Ruleset.m_UnmanageableReasons, "\n"));
+
+					bAllApplied = false;
+					continue;
+				}
+
 				*pWantedRuleset = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_PopulateGenericRulesetIDs, _Context.m_Repository, fg_Move(*pWantedRuleset));
 
 				CStr UpdatedValues;
@@ -89,6 +100,6 @@ namespace NMib::NGit
 				co_await _Context.m_fOnCreate(WantedRulesetEntry.f_Key(), CStr());
 		}
 
-		co_return {};
+		co_return bAllApplied;
 	}
 }

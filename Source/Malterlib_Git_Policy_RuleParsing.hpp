@@ -227,6 +227,11 @@ namespace NMib::NGit
 					CGitHostingProvider::COrganizationAdmin Admin;
 					OutValue = fg_Move(Admin);
 				}
+				else if (Type == "DeployKey")
+				{
+					CGitHostingProvider::CDeployKey DeployKey;
+					OutValue = fg_Move(DeployKey);
+				}
 				else if (!fg_ParseNamedActor(_JsonValue, Type, OutValue))
 					co_return DMibErrorInstance("Invalid generic rule actor type in '{}': {}"_f << _Name << Type);
 			}

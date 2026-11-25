@@ -152,6 +152,15 @@ namespace NMib::NGit
 			void f_Format(tf_CStr &o_Str) const;
 		};
 
+		/// Every deploy key of the repository
+		struct CDeployKey
+		{
+			auto operator <=> (CDeployKey const &_Right) const noexcept = default;
+
+			template <typename tf_CStr>
+			void f_Format(tf_CStr &o_Str) const;
+		};
+
 		struct CRequiredStatusCheck
 		{
 			auto operator <=> (CRequiredStatusCheck const &_Right) const noexcept = default;
@@ -164,7 +173,7 @@ namespace NMib::NGit
 		};
 
 		using CGitActor = NStorage::TCVariant<CUser, CTeam, CApp>;
-		using CGenericRuleGitActor = NStorage::TCVariant<CTeam, CApp, CRepositoryRole, COrganizationAdmin, CUser>;
+		using CGenericRuleGitActor = NStorage::TCVariant<CTeam, CApp, CRepositoryRole, COrganizationAdmin, CUser, CDeployKey>;
 
 		struct CBranchProtectionRule
 		{
@@ -470,6 +479,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<TCVector<CGenericRule>> m_Rules;
 			NStorage::TCOptional<EGenericRuleTarget> m_Target;
 			NStorage::TCOptional<EGenericRuleEnforcement> m_Enforcement;
+			NContainer::TCVector<NStr::CStr> m_UnmanageableReasons; // What the provider's ruleset has that the model can't express, which an update would lose
 		};
 
 		struct CRepositoryPermissions

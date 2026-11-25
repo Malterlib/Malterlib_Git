@@ -11,7 +11,7 @@
 
 namespace NMib::NGit::NGitPolicyManager
 {
-	TCFuture<void> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules(CEJsonSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
+	TCFuture<bool> CGitPolicyManagerActor::fp_ApplyPolicies_GenericRules(CEJsonSorted _Rules, CStr _Repository, NConcurrency::TCActor<CGitHostingProvider> _HostingProvider, CStr _PolicyName)
 	{
 		auto Auditor = mp_State.f_Auditor();
 
@@ -47,12 +47,24 @@ namespace NMib::NGit::NGitPolicyManager
 
 					co_return {};
 				}
+				, .m_fOnUnmanageable = g_ActorFunctor / [=](CStr _Name, CStr _Reasons) -> TCFuture<void>
+				{
+					Auditor.f_Warning
+						(
+							"Applying policy '{}' skipped generic ruleset '{}' on '{}', since updating it would lose what the policy can't express:\n{}"_f
+							<< _PolicyName
+							<< _Name
+							<< _Repository
+							<< _Reasons.f_Indent("    ", true)
+						)
+					;
+
+					co_return {};
+				}
 				, .m_bPretend = mp_bPretend
 			}
 		;
 
-		co_await PolicyActor(&CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(_Rules));
-
-		co_return {};
+		co_return co_await PolicyActor(&CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(_Rules));
 	}
 }

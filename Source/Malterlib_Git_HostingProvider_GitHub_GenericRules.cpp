@@ -11,7 +11,8 @@ namespace NMib::NGit
 	{
 		using CProvider = CGitHostingProvider;
 
-		CProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters)
+		/// An operator the model doesn't know goes to o_UnmanageableReasons: the default it leaves would read as contains
+		CProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters, TCVector<CStr> &o_UnmanageableReasons)
 		{
 			if (!_pParameters)
 				return {};
@@ -30,6 +31,8 @@ namespace NMib::NGit
 				Return.m_Operator = CProvider::EStringMatchOperator::mc_Contains;
 			else if (Operator == "regex")
 				Return.m_Operator = CProvider::EStringMatchOperator::mc_Regex;
+			else
+				o_UnmanageableReasons.f_Insert("String match operator '{}'"_f << Operator);
 
 			if (auto *pValue = Parameters.f_GetMember("name"))
 				Return.m_Name = pValue->f_String();
@@ -101,6 +104,11 @@ namespace NMib::NGit
 				auto &User = Actor.f_GetAsType<CProvider::CUser>();
 				Output["actor_type"] = "User";
 				Output["actor_id"] = fg_JsonID(User.m_ID, "Bypass user '{}'"_f << User.m_Login);
+			}
+			else if (Actor.f_IsOfType<CProvider::CDeployKey>())
+			{
+				Output["actor_type"] = "DeployKey";
+				Output["actor_id"] = nullptr;
 			}
 
 			switch (_BypassActor.m_BypassMode)
@@ -222,10 +230,17 @@ namespace NMib::NGit
 		}
 	}
 
-	/// The ruleset GitHub returns for rulesets/{id}. Throws for values it can't represent.
+	/// The ruleset GitHub returns for rulesets/{id}. Values the model can't express, such as a bypass actor of a type it doesn't know, are
+	/// left out and listed in m_UnmanageableReasons.
 	auto CGitHostingProvider_GitHub::fs_ParseGenericRuleset(CJsonSorted const &_Json) -> CGenericRuleset
 	{
 		CGenericRuleset OutRuleset;
+
+		auto fUnmanageable = [&](CStr const &_Reason)
+			{
+				OutRuleset.m_UnmanageableReasons.f_Insert(_Reason);
+			}
+		;
 
 		OutRuleset.m_Name = _Json["name"].f_String();
 		{
@@ -237,7 +252,7 @@ namespace NMib::NGit
 			else if (Enforcement == "evaluate")
 				OutRuleset.m_Enforcement = EGenericRuleEnforcement::mc_Evaluate;
 			else
-				DMibError("Invalid enforcement: {}"_f << Enforcement);
+				fUnmanageable("Enforcement '{}'"_f << Enforcement);
 		}
 
 		if (auto *pTarget = _Json.f_GetMember("target"))
@@ -248,7 +263,7 @@ namespace NMib::NGit
 			else if (Target == "tag")
 				OutRuleset.m_Target = EGenericRuleTarget::mc_Tag;
 			else
-				DMibError("Invalid target: {}"_f << Target);
+				fUnmanageable("Target '{}'"_f << Target);
 		}
 
 		if (auto *pBypassActors = _Json.f_GetMember("bypass_actors"))
@@ -256,7 +271,7 @@ namespace NMib::NGit
 			TCVector<CGenericRuleBypassActor> Actors;
 			for (auto &BypassActor : pBypassActors->f_Array())
 			{
-				auto &OutActor = Actors.f_Insert();
+				CGenericRuleBypassActor OutActor;
 
 				auto &ActorType = BypassActor["actor_type"].f_String();
 
@@ -276,8 +291,13 @@ namespace NMib::NGit
 					OutActor.m_Actor = COrganizationAdmin{};
 				else if (ActorType == "User")
 					OutActor.m_Actor = CUser{.m_ID = fGetActorID()};
+				else if (ActorType == "DeployKey")
+					OutActor.m_Actor = CDeployKey{};
 				else
-					DMibError("Invalid actor type: {}"_f << ActorType);
+				{
+					fUnmanageable("Bypass actor of type '{}'"_f << ActorType);
+					continue;
+				}
 
 				auto &BypassMode = BypassActor["bypass_mode"].f_String();
 				if (BypassMode == "always")
@@ -285,7 +305,12 @@ namespace NMib::NGit
 				else if (BypassMode == "pull_request")
 					OutActor.m_BypassMode = EGenericRuleBypassMode::mc_PullRequest;
 				else
-					DMibError("Invalid bypass mode: {}"_f << BypassMode);
+				{
+					fUnmanageable("Bypass mode '{}' of {}"_f << BypassMode << OutActor.m_Actor);
+					continue;
+				}
+
+				Actors.f_Insert(fg_Move(OutActor));
 			}
 
 			Actors.f_Sort();
@@ -366,15 +391,15 @@ namespace NMib::NGit
 				else if (RuleType == "non_fast_forward")
 					Rules.f_Insert(CGenericRule_FastForwardOnly{});
 				else if (RuleType == "commit_message_pattern")
-					Rules.f_Insert(CGenericRule_CommitMessage{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+					Rules.f_Insert(CGenericRule_CommitMessage{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
 				else if (RuleType == "commit_author_email_pattern")
-					Rules.f_Insert(CGenericRule_CommitAuthorEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+					Rules.f_Insert(CGenericRule_CommitAuthorEmail{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
 				else if (RuleType == "committer_email_pattern")
-					Rules.f_Insert(CGenericRule_CommitterEmail{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+					Rules.f_Insert(CGenericRule_CommitterEmail{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
 				else if (RuleType == "branch_name_pattern")
-					Rules.f_Insert(CGenericRule_BranchName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+					Rules.f_Insert(CGenericRule_BranchName{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
 				else if (RuleType == "tag_name_pattern")
-					Rules.f_Insert(CGenericRule_TagName{.m_StringMatch = fg_ParseStringMatch(pParameters)});
+					Rules.f_Insert(CGenericRule_TagName{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
 				else if (RuleType == "workflows")
 				{
 					CGenericRule_Workflow Workflow;
@@ -633,6 +658,18 @@ namespace NMib::NGit
 	TCFuture<void> CGitHostingProvider_GitHub::f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset)
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		if (!_Ruleset.m_UnmanageableReasons.f_IsEmpty())
+		{
+			co_return DMibErrorInstance
+				(
+					"Generic ruleset '{}' of '{}' wasn't updated, since that would lose what the model can't express: {}"_f
+					<< _ID
+					<< _Repository
+					<< CStr::fs_Join(_Ruleset.m_UnmanageableReasons, ", ")
+				)
+			;
+		}
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
 

@@ -86,6 +86,12 @@ namespace NMib::NGit
 	}
 
 	template <typename tf_CStr>
+	void CGitHostingProvider::CDeployKey::f_Format(tf_CStr &o_Str) const
+	{
+		o_Str += "DeployKey";
+	}
+
+	template <typename tf_CStr>
 	void CGitHostingProvider::CRepositoryReference::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += typename tf_CStr::CFormat("Repository: {} ({})") << m_ID << m_Slug;

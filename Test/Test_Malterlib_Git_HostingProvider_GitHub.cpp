@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Core/Core>
+#include <Mib/Concurrency/AsyncDestroy>
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Cryptography/PublicCrypto>
 #include <Mib/Encoding/Base64>
@@ -20,11 +21,191 @@ using namespace NMib::NStr;
 using namespace NMib::NWeb;
 
 #include "../Source/Malterlib_Git_HostingProvider_GitHub.h"
+#include "../Source/Malterlib_Git_Policy.h"
+
+// Futures of types in an anonymous namespace have no type hash, so the mocked provider is in a named one
+namespace NGitHubPolicyTests
+{
+	using CGitHub = NMib::NGit::CGitHostingProvider_GitHub;
+	using CProvider = NMib::NGit::CGitHostingProvider;
+
+	struct CMockGitHubState
+	{
+		TCVector<CStr> m_Rulesets;                                             // The JSON of rulesets/{id}, as GitHub returns it
+		TCMap<CStr, CProvider::CBranchProtectionRule> m_BranchProtectionRules; // By rule ID
+
+		TCMap<CStr, CJsonSorted> m_UpdatedRulesets; // By ID: the body of the update
+		TCVector<CStr> m_CreatedRulesets;
+		TCVector<CStr> m_DeletedRulesets;
+		TCVector<CStr> m_UpdatedBranchProtectionRules;
+		TCVector<CStr> m_CreatedBranchProtectionRules;
+		TCVector<CStr> m_DeletedBranchProtectionRules;
+	};
+
+	/// Resolving names to IDs isn't mocked, so policies in the tests use only actors it resolves without asking GitHub.
+	struct CMockGitHub : public CGitHub
+	{
+		CMockGitHub(CMockGitHubState _State);
+
+		TCFuture<TCMap<CStr, CBranchProtectionRule>> f_GetBranchProtectionRules(CStr _Repository) override;
+		TCFuture<void> f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule) override;
+		TCFuture<CStr> f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule) override;
+		TCFuture<void> f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID) override;
+
+		TCFuture<TCMap<CStr, CGenericRuleset>> f_GetGenericRulesets(CStr _Repository) override;
+		TCFuture<void> f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset) override;
+		TCFuture<CStr> f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset) override;
+		TCFuture<void> f_DeleteGenericRuleset(CStr _Repository, CStr _ID) override;
+
+		TCFuture<CMockGitHubState> f_GetState();
+
+		CMockGitHubState m_State;
+	};
+
+	CMockGitHub::CMockGitHub(CMockGitHubState _State)
+		: m_State(fg_Move(_State))
+	{
+	}
+
+	auto CMockGitHub::f_GetBranchProtectionRules(CStr _Repository) -> TCFuture<TCMap<CStr, CBranchProtectionRule>>
+	{
+		co_return m_State.m_BranchProtectionRules;
+	}
+
+	TCFuture<void> CMockGitHub::f_UpdateBranchProtectionRule(CStr _Repository, CStr _RuleID, CBranchProtectionRule _Rule)
+	{
+		m_State.m_UpdatedBranchProtectionRules.f_Insert(_RuleID);
+		co_return {};
+	}
+
+	TCFuture<CStr> CMockGitHub::f_CreateBranchProtectionRule(CStr _Repository, CBranchProtectionRule _Rule)
+	{
+		m_State.m_CreatedBranchProtectionRules.f_Insert(*_Rule.m_Pattern);
+		co_return CStr();
+	}
+
+	TCFuture<void> CMockGitHub::f_DeleteBranchProtectionRule(CStr _Repository, CStr _RuleID)
+	{
+		m_State.m_DeletedBranchProtectionRules.f_Insert(_RuleID);
+		co_return {};
+	}
+
+	auto CMockGitHub::f_GetGenericRulesets(CStr _Repository) -> TCFuture<TCMap<CStr, CGenericRuleset>>
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		TCMap<CStr, CGenericRuleset> Rulesets;
+		for (auto &RulesetJson : m_State.m_Rulesets)
+		{
+			auto Ruleset = CJsonSorted::fs_FromString(RulesetJson);
+			if (Ruleset["source_type"].f_String() == "Repository")
+				Rulesets[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = fs_ParseGenericRuleset(Ruleset);
+		}
+
+		co_return fg_Move(Rulesets);
+	}
+
+	TCFuture<void> CMockGitHub::f_UpdateGenericRuleset(CStr _Repository, CStr _ID, CGenericRuleset _Ruleset)
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		m_State.m_UpdatedRulesets[_ID] = fs_GenericRulesetJson(_Ruleset);
+		co_return {};
+	}
+
+	TCFuture<CStr> CMockGitHub::f_CreateGenericRuleset(CStr _Repository, CGenericRuleset _Ruleset)
+	{
+		m_State.m_CreatedRulesets.f_Insert(*_Ruleset.m_Name);
+		co_return CStr();
+	}
+
+	TCFuture<void> CMockGitHub::f_DeleteGenericRuleset(CStr _Repository, CStr _ID)
+	{
+		m_State.m_DeletedRulesets.f_Insert(_ID);
+		co_return {};
+	}
+
+	TCFuture<CMockGitHubState> CMockGitHub::f_GetState()
+	{
+		co_return m_State;
+	}
+
+	struct CPolicyOptions
+	{
+		bool m_bPretend = false;
+	};
+
+	struct CPolicyResult
+	{
+		CMockGitHubState m_State;
+		TCVector<CStr> m_Created;
+		TCVector<CStr> m_Updated;      // Name, then the updated values
+		TCVector<CStr> m_Deleted;
+		TCVector<CStr> m_Unmanageable; // Name, then the reasons
+		bool m_bApplied = false;       // Whether everything the policy lists was applied
+	};
+
+	/// Applies the GenericRules or BranchProtection section _Policy to a mocked provider that starts out with _State
+	TCFuture<CPolicyResult> fg_ApplyPolicy(CMockGitHubState _State, CStr _Section, CStr _Policy, CPolicyOptions _Options)
+	{
+		co_await ECoroutineFlag_CaptureMalterlibExceptions;
+
+		TCActor<CMockGitHub> Provider = fg_Construct(fg_Move(_State));
+		auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+		TCActor<NMib::NGit::CGitPolicyActor> PolicyActor = fg_Construct();
+		auto DestroyPolicyActor = co_await fg_AsyncDestroy(PolicyActor);
+
+		TCSharedPointer<CPolicyResult> pResult = fg_Construct();
+
+		NMib::NGit::CGitPolicyActor::CApplyPolicyContext Context
+			{
+				.m_Repository = "octo-org/octo-repo"
+				, .m_HostingProvider = Provider
+				, .m_fOnCreate = g_ActorFunctor / [pResult](CStr _Name, CStr _CreatedValues) -> TCFuture<void>
+				{
+					pResult->m_Created.f_Insert(_Name);
+					co_return {};
+				}
+				, .m_fOnUpdate = g_ActorFunctor / [pResult](CStr _Name, CStr _UpdatedValues) -> TCFuture<void>
+				{
+					pResult->m_Updated.f_Insert("{}: {}"_f << _Name << _UpdatedValues);
+					co_return {};
+				}
+				, .m_fOnDelete = g_ActorFunctor / [pResult](CStr _Name, CStr _DeletedValues) -> TCFuture<void>
+				{
+					pResult->m_Deleted.f_Insert(_Name);
+					co_return {};
+				}
+				, .m_fOnUnmanageable = g_ActorFunctor / [pResult](CStr _Name, CStr _Reasons) -> TCFuture<void>
+				{
+					pResult->m_Unmanageable.f_Insert("{}: {}"_f << _Name << _Reasons);
+					co_return {};
+				}
+				, .m_bPretend = _Options.m_bPretend
+			}
+		;
+
+		auto Policy = CEJsonSorted::fs_FromString(_Policy);
+		if (_Section == "GenericRules")
+			pResult->m_bApplied = co_await PolicyActor(&NMib::NGit::CGitPolicyActor::f_ApplyPolicy_GenericRules, fg_Move(Context), fg_Move(Policy));
+		else
+		{
+			co_await PolicyActor(&NMib::NGit::CGitPolicyActor::f_ApplyPolicy_BranchProtection, fg_Move(Context), fg_Move(Policy));
+			pResult->m_bApplied = true;
+		}
+
+		pResult->m_State = co_await Provider(&CMockGitHub::f_GetState);
+
+		co_return fg_Move(*pResult);
+	}
+}
 
 namespace
 {
 	using CGitHub = NMib::NGit::CGitHostingProvider_GitHub;
 	using EPullRequestFeedbackKind = NMib::NGit::CGitHostingProvider::EPullRequestFeedbackKind;
+	using namespace NGitHubPolicyTests;
 
 	constexpr ch8 const gc_WorkflowRunsJson[] = R"-----(
 	{
@@ -519,12 +700,60 @@ namespace
 		[
 			{"actor_id": 583231, "actor_type": "User", "bypass_mode": "always"},
 			{"actor_id": 1, "actor_type": "OrganizationAdmin", "bypass_mode": "always"},
-			{"actor_id": 7, "actor_type": "Team", "bypass_mode": "pull_request"}
+			{"actor_id": 7, "actor_type": "Team", "bypass_mode": "pull_request"},
+			{"actor_id": null, "actor_type": "DeployKey", "bypass_mode": "always"}
 		],
 		"current_user_can_bypass": "never",
 		"node_id": "RRS_lACqUmVwb3NpdG9yec4AAAAAzgAAEHI",
 		"created_at": "2026-11-24T16:44:51.030Z",
 		"updated_at": "2026-11-24T16:44:51.030Z"
+	}
+	)-----";
+
+	constexpr ch8 const gc_RulesetUnknownActorsJson[] = R"-----(
+	{
+		"id": 4211,
+		"name": "Release tags",
+		"target": "tag",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["refs/tags/v*"], "exclude": []}},
+		"rules": [{"type": "deletion"}],
+		"bypass_actors":
+		[
+			{"actor_id": null, "actor_type": "DeployKey", "bypass_mode": "always"},
+			{"actor_id": 1, "actor_type": "EnterpriseOwner", "bypass_mode": "always"},
+			{"actor_id": 4, "actor_type": "RepositoryRole", "bypass_mode": "exempt"}
+		]
+	}
+	)-----";
+
+	constexpr ch8 const gc_RulesetLfsNoDeleteJson[] = R"-----(
+	{
+		"id": 4212,
+		"name": "LFS NoDelete",
+		"target": "tag",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["refs/tags/lfs/*"], "exclude": []}},
+		"rules": [{"type": "deletion"}, {"type": "non_fast_forward"}],
+		"bypass_actors": []
+	}
+	)-----";
+
+	constexpr ch8 const gc_RulesetOrganizationJson[] = R"-----(
+	{
+		"id": 4213,
+		"name": "Organization",
+		"target": "branch",
+		"source_type": "Organization",
+		"source": "octo-org",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["~ALL"], "exclude": []}},
+		"rules": [{"type": "deletion"}],
+		"bypass_actors": []
 	}
 	)-----";
 
@@ -1085,17 +1314,17 @@ namespace
 
 		DMibTestSuite("GenericRules")
 		{
-			using CProvider = NMib::NGit::CGitHostingProvider;
-
 			DMibTestCategory("BypassActors")
 			{
 				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetBypassActorsJson));
 
 				DMibAssertTrue(bool(Ruleset.m_BypassActors));
 				auto &Actors = *Ruleset.m_BypassActors;
-				DMibAssert(Actors.f_GetLen(), ==, 3);
+				DMibAssert(Actors.f_GetLen(), ==, 4);
 				DMibAssertTrue(Actors[2].m_Actor.f_IsOfType<CProvider::CUser>());
 				DMibExpect(Actors[2].m_Actor.f_GetAsType<CProvider::CUser>().m_ID, ==, "583231");
+				DMibExpectTrue(Actors[3].m_Actor.f_IsOfType<CProvider::CDeployKey>());
+				DMibExpectTrue(Ruleset.m_UnmanageableReasons.f_IsEmpty());
 
 				auto Json = CGitHub::fs_GenericRulesetJson(Ruleset);
 				DMibExpect
@@ -1108,7 +1337,8 @@ namespace
 							[
 								{"actor_id": 7, "actor_type": "Team", "bypass_mode": "pull_request"},
 								{"actor_id": 1, "actor_type": "OrganizationAdmin", "bypass_mode": "always"},
-								{"actor_id": 583231, "actor_type": "User", "bypass_mode": "always"}
+								{"actor_id": 583231, "actor_type": "User", "bypass_mode": "always"},
+								{"actor_id": null, "actor_type": "DeployKey", "bypass_mode": "always"}
 							]
 							)-----"
 						)
@@ -1123,6 +1353,116 @@ namespace
 				Unresolved.m_BypassActors = TCVector<CProvider::CGenericRuleBypassActor>{{.m_Actor = CProvider::CUser{.m_Login = "octocat"}}};
 				DMibExpectException(CGitHub::fs_GenericRulesetJson(Unresolved), DMibErrorInstance("Bypass user 'octocat' has no ID"));
 			};
+
+			DMibTestCategory("UnknownBypassActors")
+			{
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetUnknownActorsJson));
+
+				DMibExpect(Ruleset.m_UnmanageableReasons, ==, (TCVector<CStr>{"Bypass actor of type 'EnterpriseOwner'", "Bypass mode 'exempt' of RepositoryRole: 4 ()"}));
+				DMibAssertTrue(bool(Ruleset.m_BypassActors));
+				DMibAssert(Ruleset.m_BypassActors->f_GetLen(), ==, 1);
+				DMibExpectTrue((*Ruleset.m_BypassActors)[0].m_Actor.f_IsOfType<CProvider::CDeployKey>());
+				DMibExpectTrue(bool(Ruleset.m_Rules));
+			};
+
+			DMibTestCategory("UnknownStringMatchOperator")
+			{
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset
+					(
+						CJsonSorted::fs_FromString
+						(
+							R"-----(
+							{
+								"id": 4215,
+								"name": "Commit messages",
+								"target": "branch",
+								"enforcement": "active",
+								"rules":
+								[
+									{"type": "commit_message_pattern", "parameters": {"operator": "glob", "pattern": "fix: *"}},
+									{"type": "branch_name_pattern", "parameters": {"operator": "starts_with", "pattern": "feature/"}}
+								]
+							}
+							)-----"
+						)
+					)
+				;
+
+				// Taken as the default operator, it would read as contains and look applied to a policy that asks for that
+				DMibExpect(Ruleset.m_UnmanageableReasons, ==, TCVector<CStr>{"String match operator 'glob'"});
+			};
+		};
+
+		DMibTestSuite("Policy") -> TCFuture<void>
+		{
+			DMibTestCategory("UpdateUnmanageableRuleset") -> TCFuture<void>
+			{
+				TCActor<CGitHub> Provider = fg_Construct();
+				auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetUnknownActorsJson));
+				Ruleset.m_Enforcement = CProvider::EGenericRuleEnforcement::mc_Evaluate;
+
+				// A repository that isn't owner/repo fails before any request, so nothing can reach GitHub whatever the order of the checks
+				auto Result = co_await Provider(&CGitHub::f_UpdateGenericRuleset, "octo-org", "4211", fg_Move(Ruleset)).f_Wrap();
+
+				DMibAssertFalse(bool(Result));
+				DMibExpect
+					(
+						Result.f_GetExceptionStr()
+						, ==
+						, "Generic ruleset '4211' of 'octo-org' wasn't updated, since that would lose what the model can't express: Bypass actor of type "
+						"'EnterpriseOwner', Bypass mode 'exempt' of RepositoryRole: 4 ()"
+					)
+				;
+				co_return {};
+			};
+
+			DMibTestCategory("UnmanageableRuleset") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetUnknownActorsJson, gc_RulesetLfsNoDeleteJson};
+
+				auto Result = co_await fg_ApplyPolicy
+					(
+						fg_Move(State)
+						, "GenericRules"
+						, R"-----(
+						{
+							"Release tags":
+							{
+								"Target": "Tag",
+								"IncludeRefNames": ["refs/tags/v*"],
+								"BypassActors": [{"Actor": {"Type": "DeployKey"}, "Mode": "Always"}],
+								"Rules": [{"Type": "Deletion"}, {"Type": "Creation"}],
+								"Enforcement": "Active"
+							},
+							"LFS NoDelete":
+							{
+								"Target": "Tag",
+								"IncludeRefNames": ["refs/tags/lfs/*"],
+								"BypassActors": [{"Actor": {"Type": "RepositoryRole", "Value": "Write"}, "Mode": "Always"}],
+								"Rules": [{"Type": "Deletion"}, {"Type": "FastForwardOnly"}],
+								"Enforcement": "Active"
+							}
+						}
+						)-----"
+						, {}
+					)
+				;
+
+				DMibExpect(Result.m_Unmanageable, ==, TCVector<CStr>{"Release tags: Bypass actor of type 'EnterpriseOwner'\nBypass mode 'exempt' of RepositoryRole: 4 ()"});
+				DMibExpectFalse(Result.m_bApplied);
+				DMibExpectTrue(Result.m_Created.f_IsEmpty());
+				DMibExpectTrue(Result.m_State.m_CreatedRulesets.f_IsEmpty());
+				DMibExpect(Result.m_State.m_UpdatedRulesets.f_GetLen(), ==, 1);
+				DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_FindEqual("4212"));
+				DMibExpectFalse(Result.m_State.m_UpdatedRulesets.f_FindEqual("4211"));
+
+				co_return {};
+			};
+
+			co_return {};
 		};
 
 		DMibTestSuite("Rest")
