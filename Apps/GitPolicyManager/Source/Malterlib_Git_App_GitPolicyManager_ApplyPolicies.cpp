@@ -4,6 +4,7 @@
 #include <Mib/Core/Platform>
 
 #include <Mib/Encoding/JsonShortcuts>
+#include <Mib/File/File>
 #include <Mib/Git/HostingProvider>
 
 #include "Malterlib_Git_App_GitPolicyManager.h"
@@ -156,7 +157,16 @@ namespace NMib::NGit::NGitPolicyManager
 
 			auto HostingProvider = CGitHostingProvider::fs_CreateHostingProvider(*pProvider);
 
-			co_await HostingProvider(&CGitHostingProvider::f_Login, CEJsonSorted::fs_FromCompatible(Config["Authentication"]));
+			auto Authentication = CEJsonSorted::fs_FromCompatible(Config["Authentication"]);
+
+			// A relative key file is next to the config file, wherever the daemon runs from
+			if (auto *pApp = Authentication.f_GetMember("App", EEJsonType_Object))
+			{
+				if (auto *pPrivateKeyFile = pApp->f_GetMember("PrivateKeyFile", EEJsonType_String))
+					*pPrivateKeyFile = CFile::fs_GetExpandedPath(pPrivateKeyFile->f_String(), mp_State.m_RootDirectory);
+			}
+
+			co_await HostingProvider(&CGitHostingProvider::f_Login, fg_Move(Authentication));
 
 			auto Repositories = co_await HostingProvider(&CGitHostingProvider::f_GetRepositories, Config["Organizations"].f_StringArray(), false);
 

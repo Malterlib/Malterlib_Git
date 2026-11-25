@@ -169,12 +169,19 @@ namespace NMib::NGit
 			)
 			-> TCFuture<CJsonSorted>
 		;
+		virtual TCFuture<CSecureByteVector> fp_ReadAppPrivateKeyFile(CStr _Path);
 
 	private:
 		struct CRepositorySlug
 		{
 			CStr m_Owner;
 			CStr m_Name;
+		};
+
+		struct CPreparedLogin
+		{
+			CStr m_Token;
+			TCOptional<CAppLogin> m_AppLogin;
 		};
 
 		struct CCustomRepositoryRoleCache
@@ -253,6 +260,7 @@ namespace NMib::NGit
 		static CWorkflowRun fsp_ParseWorkflowRun(CJsonSorted const &_Json);
 		static CWorkflowJob fsp_ParseWorkflowJob(CJsonSorted const &_Json);
 		static CPullRequestFeedback fsp_ParsePullRequestFeedbackItem(CJsonSorted const &_Json, EPullRequestFeedbackKind _Kind);
+		TCFuture<CPreparedLogin> fp_PrepareLogin(CEJsonSorted _LoginDetails);
 		TCFuture<void> fp_EnsureAccessToken();
 		TCFuture<void> fp_RenewAccessToken();
 		TCFuture<CJsonSorted> fp_AppApi(CHttpClientActor::EMethod _Method, CStr _Path, CStr _ErrorDescription, uint32 _ExpectedStatus, CJsonSorted _PostBody = {});
@@ -267,7 +275,8 @@ namespace NMib::NGit
 
 		TCActor<CHttpClientActor> mp_HttpClientActor{fg_Construct(CHttpClientActor::CCertificateConfig{}, mcp_StallTimeout)};
 		CStr mp_Token;
-		uint64 mp_LoginGeneration = 0;                                      // Changes with every f_Login, so a token renewal that a new login overlapped is discarded
+		uint64 mp_LoginGeneration = 0;                                      // Changes when a login takes effect, so a token renewal that one overlapped is discarded
+		uint64 mp_LoginAttempts = 0;                                        // Changes with every f_Login, so a login that a later one overlapped doesn't take effect
 		TCOptional<CAppLogin> mp_AppLogin;                                  // Set when logged in as a GitHub App installation, which renews mp_Token
 		TCOptional<TCVector<TCPromise<void>>> mp_AccessTokenRenewalWaiters; // Set while a renewal runs, with the calls waiting for it
 	};

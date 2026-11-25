@@ -2,10 +2,12 @@
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #include <Mib/Core/Core>
+#include <Mib/Core/OnScopeExitCatch>
 #include <Mib/Concurrency/AsyncDestroy>
 #include <Mib/Concurrency/ConcurrencyManager>
 #include <Mib/Cryptography/PublicCrypto>
 #include <Mib/Encoding/Base64>
+#include <Mib/File/File>
 #include <Mib/Concurrency/DistributedActorTrustManager>
 #include <Mib/Test/Exception>
 #include <Mib/Web/HttpClient>
@@ -16,6 +18,7 @@ using namespace NMib::NConcurrency;
 using namespace NMib::NContainer;
 using namespace NMib::NEncoding;
 using namespace NMib::NException;
+using namespace NMib::NFile;
 using namespace NMib::NStorage;
 using namespace NMib::NStr;
 using namespace NMib::NWeb;
@@ -28,6 +31,42 @@ namespace NGitHubPolicyTests
 {
 	using CGitHub = NMib::NGit::CGitHostingProvider_GitHub;
 	using CProvider = NMib::NGit::CGitHostingProvider;
+
+	/// The GitHub provider with the read of an App private key file held until f_ReleaseKey
+	struct CKeyGateGitHub : public CGitHub
+	{
+		TCFuture<void> f_WaitForKeyRead();
+		TCFuture<void> f_ReleaseKey(CSecureByteVector _Key);
+
+		TCFuture<CSecureByteVector> fp_ReadAppPrivateKeyFile(CStr _Path) override;
+
+		TCPromiseFuturePair<void> m_KeyReadStarted;
+		TCOptional<TCPromise<CSecureByteVector>> m_Key;
+	};
+
+	TCFuture<void> CKeyGateGitHub::f_WaitForKeyRead()
+	{
+		co_await fg_Move(m_KeyReadStarted.m_Future);
+		co_return {};
+	}
+
+	TCFuture<void> CKeyGateGitHub::f_ReleaseKey(CSecureByteVector _Key)
+	{
+		if (!m_Key)
+			co_return DMibErrorInstance("No key read is waiting");
+
+		m_Key->f_SetResult(fg_Move(_Key));
+		co_return {};
+	}
+
+	TCFuture<CSecureByteVector> CKeyGateGitHub::fp_ReadAppPrivateKeyFile(CStr _Path)
+	{
+		TCPromiseFuturePair<CSecureByteVector> Key;
+		m_Key = fg_Move(Key.m_Promise);
+		m_KeyReadStarted.m_Promise.f_SetResult();
+
+		co_return co_await fg_Move(Key.m_Future);
+	}
 
 	struct CMockGitHubState
 	{
@@ -1041,6 +1080,18 @@ namespace
 			Rules[Rule["type"].f_String()] = Rule;
 
 		return Rules;
+	}
+
+	/// GitHub hands out App private keys as PKCS #1 PEM, which is the DER in base64 lines between the RSA markers
+	CStr fg_RsaPrivateKeyPem(NContainer::CSecureByteVector const &_PrivateKey)
+	{
+		CStr Base64 = fg_Base64Encode(_PrivateKey);
+		CStr Pem = "-----BEGIN RSA PRIVATE KEY-----\n";
+		for (umint iStart = 0; iStart < Base64.f_GetLen(); iStart += 64)
+			Pem += "{}\n"_f << Base64.f_Slice(iStart, fg_Min(iStart + 64, Base64.f_GetLen()));
+		Pem += "-----END RSA PRIVATE KEY-----\n";
+
+		return Pem;
 	}
 
 	struct CHostingProviderGitHub_Tests : public NMib::NTest::CTest
@@ -2649,18 +2700,130 @@ namespace
 
 			DMibTestCategory("PemPrivateKey")
 			{
-				// GitHub hands out App private keys as PKCS #1 PEM, which is the DER above in base64 lines between the RSA markers
-				CStr Base64 = fg_Base64Encode(PrivateKey);
-				CStr Pem = "-----BEGIN RSA PRIVATE KEY-----\n";
-				for (umint iStart = 0; iStart < Base64.f_GetLen(); iStart += 64)
-					Pem += "{}\n"_f << Base64.f_Slice(iStart, fg_Min(iStart + 64, Base64.f_GetLen()));
-				Pem += "-----END RSA PRIVATE KEY-----\n";
+				CStr Pem = fg_RsaPrivateKeyPem(PrivateKey);
 
 				NContainer::CSecureByteVector PemData;
 				PemData.f_Insert((uint8 const *)Pem.f_GetStr(), Pem.f_GetLen());
 
 				DMibExpectTrue(NCryptography::CPublicCrypto::fs_ConvertToDer_PrivateKey(PemData) == PrivateKey);
 			};
+		};
+
+		DMibTestSuite("AppLogin") -> TCFuture<void>
+		{
+			NContainer::CSecureByteVector PrivateKey;
+			NContainer::CSecureByteVector PublicKey;
+			NCryptography::CPublicCrypto::fs_GenerateKeys(PrivateKey, PublicKey, NCryptography::CPublicKeySettings_RSA(2048));
+
+			CStr Directory = CFile::fs_GetProgramDirectory() / "GitHubAppLoginTests";
+			if (CFile::fs_FileExists(Directory))
+				CFile::fs_DeleteDirectoryRecursive(Directory);
+			CFile::fs_CreateDirectory(Directory);
+
+			auto Cleanup = g_OnScopeExitCatch / [Directory]
+				{
+					CFile::fs_DeleteDirectoryRecursive(Directory);
+				}
+			;
+
+			CStr KeyFile = Directory / "GitHubApp.pem";
+			CFile::fs_WriteStringToFile(KeyFile, fg_RsaPrivateKeyPem(PrivateKey), false);
+
+			CStr InvalidKeyFile = Directory / "Invalid.pem";
+			CFile::fs_WriteStringToFile(InvalidKeyFile, "Not a key", false);
+
+			TCActor<CGitHub> Provider = fg_Construct();
+			auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+			auto fLoginDetails = [](CStr const &_PrivateKey, CStr const &_PrivateKeyFile)
+				{
+					CEJsonSorted Details;
+					auto &App = Details["App"];
+					App["AppID"] = "123456";
+					App["InstallationID"] = "78901234";
+					if (_PrivateKey)
+						App["PrivateKey"] = _PrivateKey;
+					if (_PrivateKeyFile)
+						App["PrivateKeyFile"] = _PrivateKeyFile;
+
+					return Details;
+				}
+			;
+
+			DMibTestCategory("KeyFile") -> TCFuture<void>
+			{
+				auto Result = co_await Provider(&CGitHub::f_Login, fLoginDetails({}, KeyFile)).f_Wrap();
+				DMibExpectTrue(bool(Result));
+				co_return {};
+			};
+
+			DMibTestCategory("InvalidKeyFile") -> TCFuture<void>
+			{
+				auto Result = co_await Provider(&CGitHub::f_Login, fLoginDetails({}, InvalidKeyFile)).f_Wrap();
+				DMibAssertFalse(bool(Result));
+				DMibExpectTrue(Result.f_GetExceptionStr().f_StartsWith("The GitHub App private key is not a valid unencrypted PEM private key"));
+				co_return {};
+			};
+
+			DMibTestCategory("MissingKeyFile") -> TCFuture<void>
+			{
+				CStr MissingKeyFile = Directory / "Missing.pem";
+				auto Result = co_await Provider(&CGitHub::f_Login, fLoginDetails({}, MissingKeyFile)).f_Wrap();
+				DMibAssertFalse(bool(Result));
+				DMibExpectTrue(Result.f_GetExceptionStr().f_StartsWith(CStr("Could not read the GitHub App private key file '{}'"_f << MissingKeyFile)));
+				co_return {};
+			};
+
+			DMibTestCategory("KeyAndKeyFile") -> TCFuture<void>
+			{
+				auto Result = co_await Provider(&CGitHub::f_Login, fLoginDetails(fg_RsaPrivateKeyPem(PrivateKey), KeyFile)).f_Wrap();
+				DMibAssertFalse(bool(Result));
+				DMibExpect(Result.f_GetExceptionStr(), ==, "The GitHub App login has both PrivateKey and PrivateKeyFile");
+				co_return {};
+			};
+
+			DMibTestCategory("OverlappingCall") -> TCFuture<void>
+			{
+				TCActor<CKeyGateGitHub> GateProvider = fg_Construct();
+				auto DestroyGateProvider = co_await fg_AsyncDestroy(GateProvider);
+
+				CEJsonSorted OldLogin;
+				OldLogin["Token"] = "OldToken";
+				co_await GateProvider(&CGitHub::f_Login, fg_Move(OldLogin));
+
+				auto NewLogin = fLoginDetails({}, "GitHubApp.pem");
+				NewLogin["Token"] = "NewToken";
+				NewLogin["TokenExpires"] = NTime::CTime::fs_NowUTC() + NTime::CTimeSpanConvert::fs_CreateSpanFromSeconds(3600.0);
+				auto Login = GateProvider(&CGitHub::f_Login, fg_Move(NewLogin)).f_Call();
+
+				co_await GateProvider(&CKeyGateGitHub::f_WaitForKeyRead);
+
+				auto DuringLogin = co_await GateProvider(&CGitHub::f_GetAccessToken);
+				DMibExpect(DuringLogin.m_Token, ==, "OldToken");
+				DMibExpectFalse(DuringLogin.m_Expires.f_IsValid());
+
+				CStr Pem = fg_RsaPrivateKeyPem(PrivateKey);
+				CSecureByteVector PemData;
+				PemData.f_Insert((uint8 const *)Pem.f_GetStr(), Pem.f_GetLen());
+				co_await GateProvider(&CKeyGateGitHub::f_ReleaseKey, fg_Move(PemData));
+				co_await fg_Move(Login);
+
+				auto AfterLogin = co_await GateProvider(&CGitHub::f_GetAccessToken);
+				DMibExpect(AfterLogin.m_Token, ==, "NewToken");
+				DMibExpectTrue(AfterLogin.m_Expires.f_IsValid());
+
+				co_return {};
+			};
+
+			DMibTestCategory("NoKey") -> TCFuture<void>
+			{
+				auto Result = co_await Provider(&CGitHub::f_Login, fLoginDetails({}, {})).f_Wrap();
+				DMibAssertFalse(bool(Result));
+				DMibExpect(Result.f_GetExceptionStr(), ==, "The GitHub App login has no PrivateKey or PrivateKeyFile");
+				co_return {};
+			};
+
+			co_return {};
 		};
 	}
 }
