@@ -304,6 +304,33 @@ namespace NGitHubPolicyTests
 		return {};
 	}
 
+	struct CGraphQlRequest
+	{
+		CStr m_Query;
+		CJsonSorted m_Variables;
+	};
+
+	/// The GitHub provider with its GraphQL requests recorded instead of sent, each answered with an empty data object
+	struct CGraphQlCaptureGitHub : public CGitHub
+	{
+		TCFuture<TCVector<CGraphQlRequest>> f_GetRequests();
+
+		TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables) override;
+
+		TCVector<CGraphQlRequest> m_Requests;
+	};
+
+	TCFuture<TCVector<CGraphQlRequest>> CGraphQlCaptureGitHub::f_GetRequests()
+	{
+		co_return m_Requests;
+	}
+
+	TCFuture<CJsonSorted> CGraphQlCaptureGitHub::fp_GraphQlApi(CStr _Query, CJsonSorted _Variables)
+	{
+		m_Requests.f_Insert(CGraphQlRequest{.m_Query = fg_Move(_Query), .m_Variables = fg_Move(_Variables)});
+		co_return CJsonSorted::fs_FromString(R"-----({"data": {}})-----");
+	}
+
 	struct CRestRequest
 	{
 		CStr m_Path;
@@ -2707,6 +2734,29 @@ namespace
 
 				DMibExpectTrue(NCryptography::CPublicCrypto::fs_ConvertToDer_PrivateKey(PemData) == PrivateKey);
 			};
+		};
+
+		DMibTestSuite("GraphQl") -> TCFuture<void>
+		{
+			DMibTestCategory("DeleteBranchProtectionRule") -> TCFuture<void>
+			{
+				TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+				auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+				co_await Provider(&CGitHub::f_DeleteBranchProtectionRule, "octo-org/octo-repo", "BPR_kwDOG2ONas4ABCDE");
+
+				auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+				DMibAssert(Requests.f_GetLen(), ==, 1);
+
+				// DeleteBranchProtectionRuleInput.branchProtectionRuleId is an ID!, and GitHub rejects a variable declared as anything else
+				DMibExpect(Requests[0].m_Query.f_Find("($branchProtectionRuleId: ID!)"), >=, 0);
+				DMibExpect(Requests[0].m_Query.f_Find("deleteBranchProtectionRule(input: {branchProtectionRuleId: $branchProtectionRuleId})"), >=, 0);
+				DMibExpect(Requests[0].m_Variables, ==, CJsonSorted::fs_FromString(R"-----({"branchProtectionRuleId": "BPR_kwDOG2ONas4ABCDE"})-----"));
+
+				co_return {};
+			};
+
+			co_return {};
 		};
 
 		DMibTestSuite("AppLogin") -> TCFuture<void>

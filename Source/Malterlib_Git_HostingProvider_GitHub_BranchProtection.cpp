@@ -506,7 +506,7 @@ namespace NMib::NGit
 				fp_GraphQlApi
 				(
 					R"-----(
-					mutation DeleteBranchProtectionRule($branchProtectionRuleId: String!)
+					mutation DeleteBranchProtectionRule($branchProtectionRuleId: ID!)
 					{
 						deleteBranchProtectionRule(input: {branchProtectionRuleId: $branchProtectionRuleId})
 						{

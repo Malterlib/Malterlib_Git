@@ -169,6 +169,7 @@ namespace NMib::NGit
 			)
 			-> TCFuture<CJsonSorted>
 		;
+		virtual TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables);
 		virtual TCFuture<CSecureByteVector> fp_ReadAppPrivateKeyFile(CStr _Path);
 
 	private:
@@ -213,8 +214,6 @@ namespace NMib::NGit
 		template <TCFieldTranslations tf_Fields>
 		static CFieldTranslations fsp_FieldTranslations();
 #endif
-
-		TCFuture<CJsonSorted> fp_GraphQlApi(CStr _Query, CJsonSorted _Variables);
 
 		TCFuture<CJsonSorted> fp_RestApiPost(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 201);
 		TCFuture<CJsonSorted> fp_RestApiPatch(CStr _Path, CJsonSorted _Value, CStr _ErrorDescription, CFieldTranslations _FieldTranslation, uint32 _ExpectedStatus = 200);
