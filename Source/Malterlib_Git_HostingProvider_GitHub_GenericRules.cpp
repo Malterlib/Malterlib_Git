@@ -360,11 +360,18 @@ namespace NMib::NGit
 		{
 			if (auto *pRefName = pConditions->f_GetMember("ref_name"))
 			{
+				// Their order means nothing, and the policy sorts them, so sort them to compare
 				if (auto *pInclude = pRefName->f_GetMember("include"))
+				{
 					OutRuleset.m_IncludeRefNames = pInclude->f_StringArray();
+					OutRuleset.m_IncludeRefNames->f_Sort();
+				}
 
 				if (auto *pExclude = pRefName->f_GetMember("exclude"))
+				{
 					OutRuleset.m_ExcludeRefNames = pExclude->f_StringArray();
+					OutRuleset.m_ExcludeRefNames->f_Sort();
+				}
 			}
 		}
 
@@ -402,7 +409,10 @@ namespace NMib::NGit
 				{
 					CGenericRule_Deployments Deployments;
 					if (pParameters)
+					{
 						Deployments.m_RequiredDeploymentEnvironments = (*pParameters)["required_deployment_environments"].f_StringArray();
+						Deployments.m_RequiredDeploymentEnvironments.f_Sort();
+					}
 					Rules.f_Insert(fg_Move(Deployments));
 					ModelledParameters = {"required_deployment_environments"};
 				}

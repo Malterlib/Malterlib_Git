@@ -143,6 +143,9 @@ namespace NMib::NGit
 		static CStr fs_ReactionPath(CStr const &_Owner, CStr const &_Name, EReactionSubject _Subject, uint64 _ID);
 		static CStr fs_FileContentsPath(CStr const &_Owner, CStr const &_Name, CStr const &_Path, CStr const &_Ref);
 		static CGenericRuleset fs_ParseGenericRuleset(CJsonSorted const &_Json);
+		static auto fs_ParseActionsSettings(CJsonSorted const &_Permissions, CJsonSorted const &_SelectedActions, CJsonSorted const &_LevelOfAccess, CJsonSorted const &_WorkflowPermissions)
+			-> CActionsSettings
+		;
 		static CJsonSorted fs_GenericRulesetJson(CGenericRuleset const &_Ruleset);
 		static auto fs_ParsePullRequestFeedback(CJsonSorted const &_Reviews, CJsonSorted const &_ReviewComments, CJsonSorted const &_IssueComments, NTime::CTime const &_Since)
 			-> TCVector<CPullRequestFeedback>

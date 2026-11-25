@@ -1099,6 +1099,35 @@ namespace
 	}
 	)-----";
 
+	constexpr ch8 const gc_RulesetListOrderJson[] = R"-----(
+	{
+		"id": 4215,
+		"name": "Release branches",
+		"target": "branch",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["refs/heads/release/*", "refs/heads/hotfix/*"], "exclude": ["refs/heads/release/old", "refs/heads/hotfix/old"]}},
+		"bypass_actors": [{"actor_id": 1, "actor_type": "OrganizationAdmin", "bypass_mode": "always"}],
+		"rules":
+		[
+			{"type": "required_deployments", "parameters": {"required_deployment_environments": ["staging", "production"]}},
+			{
+				"type": "pull_request",
+				"parameters":
+				{
+					"allowed_merge_methods": ["squash", "merge"],
+					"dismiss_stale_reviews_on_push": false,
+					"require_code_owner_review": false,
+					"require_last_push_approval": false,
+					"required_approving_review_count": 1,
+					"required_review_thread_resolution": false
+				}
+			}
+		]
+	}
+	)-----";
+
 	/// The rules of a ruleset body by type, since the order GitHub lists them in isn't kept
 	TCMap<CStr, CJsonSorted> fg_RulesByType(CJsonSorted const &_Rules)
 	{
@@ -1535,6 +1564,28 @@ namespace
 				DMibExpect(Events[1].m_Event, ==, "reopened");
 				DMibExpect(Events[1].m_Actor, ==, "octocat");
 				DMibExpect(Events[1].m_CreatedAt, ==, NTime::CTimeConvert::fs_CreateTime(2026, 10, 25, 10, 0, 0));
+			};
+
+			DMibTestCategory("ActionsSettingsPatternOrder")
+			{
+				auto Settings = CGitHub::fs_ParseActionsSettings
+					(
+						CJsonSorted::fs_FromString(R"-----({"enabled": true, "allowed_actions": "selected"})-----")
+						, CJsonSorted::fs_FromString(R"-----({"github_owned_allowed": true, "verified_allowed": false, "patterns_allowed": ["octo-org/*", "actions/checkout@*"]})-----")
+						, CJsonSorted()
+						, CJsonSorted()
+					)
+				;
+
+				DMibAssertTrue(bool(Settings.m_AllowedActions));
+				DMibAssertTrue(Settings.m_AllowedActions->f_IsOfType<NMib::NGit::CGitHostingProvider::CAllowedAction_Selected>());
+				DMibExpect
+					(
+						Settings.m_AllowedActions->f_GetAsType<NMib::NGit::CGitHostingProvider::CAllowedAction_Selected>().m_PatternsAllowed
+						, ==
+						, (TCVector<CStr>{"actions/checkout@*", "octo-org/*"})
+					)
+				;
 			};
 
 			DMibTestCategory("TeamMembership")
@@ -2338,6 +2389,51 @@ namespace
 					DMibExpect(Result.m_State.m_Changes, ==, (TCVector<CStr>{"Create ruleset Linear history", "Delete ruleset 4212"}));
 					co_return {};
 				};
+
+				co_return {};
+			};
+
+			DMibTestCategory("ListOrder") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetListOrderJson};
+
+				auto Result = co_await fg_ApplyPolicy
+					(
+						fg_Move(State)
+						, "GenericRules"
+						, R"-----(
+						{
+							"Release branches":
+							{
+								"Target": "Branch",
+								"IncludeRefNames": ["refs/heads/release/*", "refs/heads/hotfix/*"],
+								"ExcludeRefNames": ["refs/heads/release/old", "refs/heads/hotfix/old"],
+								"BypassActors": [{"Actor": {"Type": "OrganizationAdmin"}, "Mode": "Always"}],
+								"Rules":
+								[
+									{"Type": "Deployments", "RequiredDeploymentEnvironments": ["staging", "production"]},
+									{
+										"Type": "PullRequest",
+										"RequiredApprovingReviewCount": 1,
+										"DismissStaleReviewsOnPush": false,
+										"RequireCodeOwnerReview": false,
+										"RequireLastPushApproval": false,
+										"RequireReviewThreadResolution": false,
+										"AllowedMergeMethods": ["Squash", "Merge"]
+									}
+								],
+								"Enforcement": "Active"
+							}
+						}
+						)-----"
+						, {}
+					)
+				;
+
+				DMibExpect(Result.m_Error, ==, "");
+				DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
+				DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
 
 				co_return {};
 			};
