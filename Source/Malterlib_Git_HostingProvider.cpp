@@ -368,6 +368,27 @@ namespace NMib::NGit
 		return bRet;
 	}
 
+	bool CGitHostingProvider::CGenericRulesetUnmodelled::f_IsEmpty() const
+	{
+		return m_Rules.f_IsEmpty() && m_RuleParameters.f_IsEmpty();
+	}
+
+	NStr::CStr CGitHostingProvider::CGenericRulesetUnmodelled::f_GetDescription() const
+	{
+		CStr Description;
+
+		for (auto &Rule : m_Rules)
+			fg_AddStrSep(Description, "{} rule"_f << m_Rules.fs_GetKey(Rule), ", ");
+
+		for (auto &Parameters : m_RuleParameters)
+		{
+			for (auto &Parameter : Parameters.f_Object())
+				fg_AddStrSep(Description, "{} parameter {}"_f << m_RuleParameters.fs_GetKey(Parameters) << Parameter.f_Name(), ", ");
+		}
+
+		return Description;
+	}
+
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value)
 	{
 		switch (_Value)
@@ -410,6 +431,18 @@ namespace NMib::NGit
 		case CGitHostingProvider::EStringMatchOperator::mc_EndsWith: return gc_Str<"EndsWith">;
 		case CGitHostingProvider::EStringMatchOperator::mc_Contains: return gc_Str<"Contains">;
 		case CGitHostingProvider::EStringMatchOperator::mc_Regex: return gc_Str<"Regex">;
+		}
+
+		return {};
+	}
+
+	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleMergeMethod _Value)
+	{
+		switch (_Value)
+		{
+		case CGitHostingProvider::EGenericRuleMergeMethod::mc_Merge: return gc_Str<"Merge">;
+		case CGitHostingProvider::EGenericRuleMergeMethod::mc_Squash: return gc_Str<"Squash">;
+		case CGitHostingProvider::EGenericRuleMergeMethod::mc_Rebase: return gc_Str<"Rebase">;
 		}
 
 		return {};

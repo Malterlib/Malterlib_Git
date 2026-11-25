@@ -227,6 +227,13 @@ namespace NMib::NGit
 			, mc_PullRequest
 		};
 
+		enum class EGenericRuleMergeMethod : uint8
+		{
+			mc_Merge
+			, mc_Squash
+			, mc_Rebase
+		};
+
 		enum class EStringMatchOperator : uint8
 		{
 			mc_StartsWith
@@ -325,6 +332,7 @@ namespace NMib::NGit
 			template <typename tf_CStr>
 			void f_Format(tf_CStr &o_Str) const;
 
+			NStorage::TCOptional<NContainer::TCVector<EGenericRuleMergeMethod>> m_AllowedMergeMethods; // Unset: GitHub's default for a new rule, the current ones on update
 			uint8 m_RequiredApprovingReviewCount = 0;
 			bool m_bDismissStaleReviewsOnPush = false;
 			bool m_bRequireCodeOwnerReview = false;
@@ -467,6 +475,19 @@ namespace NMib::NGit
 			>
 		;
 
+		/// What a provider's ruleset has that the model doesn't. An update that lists the ruleset's rules writes the unknown rules back
+		/// unchanged, and the unknown parameters of the rules it keeps.
+		struct CGenericRulesetUnmodelled
+		{
+			auto operator <=> (CGenericRulesetUnmodelled const &_Right) const noexcept = default;
+
+			bool f_IsEmpty() const;
+			NStr::CStr f_GetDescription() const;
+
+			NContainer::TCMap<NStr::CStr, NEncoding::CJsonSorted> m_Rules;          // By the provider's rule type: rules of types the model doesn't know
+			NContainer::TCMap<NStr::CStr, NEncoding::CJsonSorted> m_RuleParameters; // By the provider's rule type: parameters the model doesn't know
+		};
+
 		struct CGenericRuleset
 		{
 			auto operator <=> (CGenericRuleset const &_Right) const noexcept = default;
@@ -479,6 +500,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<TCVector<CGenericRule>> m_Rules;
 			NStorage::TCOptional<EGenericRuleTarget> m_Target;
 			NStorage::TCOptional<EGenericRuleEnforcement> m_Enforcement;
+			CGenericRulesetUnmodelled m_Unmodelled;
 			NContainer::TCVector<NStr::CStr> m_UnmanageableReasons; // What the provider's ruleset has that the model can't express, which an update would lose
 		};
 

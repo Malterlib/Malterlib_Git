@@ -48,6 +48,7 @@ namespace NMib::NGit
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleEnforcement _Value);
 	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleBypassMode _Value);
 	CStr fg_EnumToString(CGitHostingProvider::EStringMatchOperator _Value);
+	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleMergeMethod _Value);
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CUser::f_Format(tf_CStr &o_Str) const
@@ -143,6 +144,23 @@ namespace NMib::NGit
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_PullRequest::f_Format(tf_CStr &o_Str) const
 	{
+		NStr::CStr AllowedMergeMethods = "Default";
+		if (m_AllowedMergeMethods)
+		{
+			AllowedMergeMethods = NStr::CStr::fs_Join
+				(
+					m_AllowedMergeMethods->f_Map
+					(
+						[](EGenericRuleMergeMethod _Method)
+						{
+							return fg_EnumToString(_Method);
+						}
+					)
+					, ", "
+				)
+			;
+		}
+
 		o_Str += "PullRequest\n";
 		o_Str += typename tf_CStr::CFormat
 			(
@@ -150,13 +168,15 @@ namespace NMib::NGit
 				"    DismissStaleReviewsOnPush: {}\n"
 				"    RequireCodeOwnerReview: {}\n"
 				"    RequireLastPushApproval: {}\n"
-				"    RequireReviewThreadResolution: {}"
+				"    RequireReviewThreadResolution: {}\n"
+				"    AllowedMergeMethods: {}"
 			)
 			<< CStr::fs_ToStr(m_RequiredApprovingReviewCount).f_Indent("        ", false)
 			<< CStr::fs_ToStr(m_bDismissStaleReviewsOnPush).f_Indent("        ", false)
 			<< CStr::fs_ToStr(m_bRequireCodeOwnerReview).f_Indent("        ", false)
 			<< CStr::fs_ToStr(m_bRequireLastPushApproval).f_Indent("        ", false)
 			<< CStr::fs_ToStr(m_bRequireReviewThreadResolution).f_Indent("        ", false)
+			<< AllowedMergeMethods
 		;
 	}
 

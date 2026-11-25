@@ -72,11 +72,56 @@ namespace NMib::NGit
 					continue;
 				}
 
+				// The policy can't express these, so it can't mean to remove them. Populating drops those that belong to rules the policy
+				// removes, since an update can't write them without their rules.
+				pWantedRuleset->m_Unmodelled = Ruleset.m_Unmodelled;
+
 				*pWantedRuleset = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_PopulateGenericRulesetIDs, _Context.m_Repository, fg_Move(*pWantedRuleset));
+
+				// A pull request rule that doesn't say which merge methods it allows keeps the ones it has
+				if (pWantedRuleset->m_Rules && Ruleset.m_Rules)
+				{
+					for (auto &WantedRule : *pWantedRuleset->m_Rules)
+					{
+						if (!WantedRule.f_IsOfType<CGitHostingProvider::CGenericRule_PullRequest>())
+							continue;
+
+						auto &WantedPullRequest = WantedRule.f_GetAsType<CGitHostingProvider::CGenericRule_PullRequest>();
+						if (WantedPullRequest.m_AllowedMergeMethods)
+							continue;
+
+						for (auto &CurrentRule : *Ruleset.m_Rules)
+						{
+							if (CurrentRule.f_IsOfType<CGitHostingProvider::CGenericRule_PullRequest>())
+								WantedPullRequest.m_AllowedMergeMethods = CurrentRule.f_GetAsType<CGitHostingProvider::CGenericRule_PullRequest>().m_AllowedMergeMethods;
+						}
+					}
+
+					pWantedRuleset->m_Rules->f_Sort();
+				}
 
 				CStr UpdatedValues;
 				if (Ruleset.f_IsUpdated(*pWantedRuleset, UpdatedValues))
 				{
+					// Without a rule list the update leaves every rule as it is, so it neither keeps nor removes any
+					if (pWantedRuleset->m_Rules)
+					{
+						auto &Kept = pWantedRuleset->m_Unmodelled;
+						if (!Kept.f_IsEmpty())
+							fg_AddStrSep(UpdatedValues, "Kept, since the policy can't express them: {}"_f << Kept.f_GetDescription(), "\n");
+
+						CGitHostingProvider::CGenericRulesetUnmodelled Removed;
+						for (auto &Parameters : Ruleset.m_Unmodelled.m_RuleParameters)
+						{
+							auto &RuleType = Ruleset.m_Unmodelled.m_RuleParameters.fs_GetKey(Parameters);
+							if (!Kept.m_RuleParameters.f_FindEqual(RuleType))
+								Removed.m_RuleParameters[RuleType] = Parameters;
+						}
+
+						if (!Removed.f_IsEmpty())
+							fg_AddStrSep(UpdatedValues, "Removed with their rules: {}"_f << Removed.f_GetDescription(), "\n");
+					}
+
 					if (!_Context.m_bPretend)
 						co_await _Context.m_HostingProvider(&CGitHostingProvider::f_UpdateGenericRuleset, _Context.m_Repository, RuleID, *pWantedRuleset);
 

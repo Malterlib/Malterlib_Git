@@ -121,6 +121,18 @@ namespace NMib::NGit
 				else
 					co_return DMibErrorInstance("Invalid rule enforcement in '{}': {}"_f << _Name << Value);
 			}
+			else if constexpr (cIsSame<CType, CGitHostingProvider::EGenericRuleMergeMethod>)
+			{
+				auto &Value = _JsonValue.f_String();
+				if (Value == "Merge")
+					OutValue = CGitHostingProvider::EGenericRuleMergeMethod::mc_Merge;
+				else if (Value == "Squash")
+					OutValue = CGitHostingProvider::EGenericRuleMergeMethod::mc_Squash;
+				else if (Value == "Rebase")
+					OutValue = CGitHostingProvider::EGenericRuleMergeMethod::mc_Rebase;
+				else
+					co_return DMibErrorInstance("Invalid merge method in '{}': {}"_f << _Name << Value);
+			}
 			else if constexpr (cIsSame<CType, CGitHostingProvider::EStringMatchOperator>)
 			{
 				auto &Value = _JsonValue.f_String();
@@ -278,6 +290,8 @@ namespace NMib::NGit
 					co_await fg_ParseRuleSetting(_JsonValue, "RequireCodeOwnerReview", Rule.m_bRequireCodeOwnerReview);
 					co_await fg_ParseRuleSetting(_JsonValue, "RequireLastPushApproval", Rule.m_bRequireLastPushApproval);
 					co_await fg_ParseRuleSetting(_JsonValue, "RequireReviewThreadResolution", Rule.m_bRequireReviewThreadResolution);
+					co_await fg_ParseRuleSetting(_JsonValue, "AllowedMergeMethods", Rule.m_AllowedMergeMethods);
+
 					OutValue = fg_Move(Rule);
 				}
 				else if (Type == "StatusChecks")

@@ -757,6 +757,97 @@ namespace
 	}
 	)-----";
 
+	constexpr ch8 const gc_RulesetSquashOnlyJson[] = R"-----(
+	{
+		"id": 4216,
+		"name": "Squash only",
+		"target": "branch",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+		"bypass_actors": [],
+		"rules":
+		[
+			{
+				"type": "pull_request",
+				"parameters":
+				{
+					"allowed_merge_methods": ["squash"],
+					"dismiss_stale_reviews_on_push": false,
+					"require_code_owner_review": false,
+					"require_last_push_approval": false,
+					"required_approving_review_count": 1,
+					"required_review_thread_resolution": false
+				}
+			}
+		]
+	}
+	)-----";
+
+	constexpr ch8 const gc_RulesetUnknownRulesJson[] = R"-----(
+	{
+		"id": 4214,
+		"name": "Protected branches",
+		"target": "branch",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+		"bypass_actors": [{"actor_id": 4, "actor_type": "RepositoryRole", "bypass_mode": "always"}],
+		"rules":
+		[
+			{"type": "deletion"},
+			{
+				"type": "merge_queue",
+				"parameters":
+				{
+					"check_response_timeout_minutes": 60,
+					"grouping_strategy": "ALLGREEN",
+					"max_entries_to_build": 5,
+					"max_entries_to_merge": 5,
+					"merge_method": "REBASE",
+					"min_entries_to_merge": 1,
+					"min_entries_to_merge_wait_minutes": 5
+				}
+			},
+			{"type": "copilot_code_review", "parameters": {"review_draft_pull_requests": false, "review_on_push": true}},
+			{
+				"type": "pull_request",
+				"parameters":
+				{
+					"allowed_merge_methods": ["rebase"],
+					"dismiss_stale_reviews_on_push": true,
+					"require_code_owner_review": false,
+					"require_last_push_approval": false,
+					"required_approving_review_count": 1,
+					"required_review_thread_resolution": true,
+					"required_reviewers": [{"file_patterns": ["*.md"], "minimum_approvals": 1, "reviewer": {"id": 7, "type": "Team"}}]
+				}
+			},
+			{
+				"type": "required_status_checks",
+				"parameters":
+				{
+					"do_not_enforce_on_create": true,
+					"required_status_checks": [{"context": "Build Linux", "integration_id": 15368}],
+					"strict_required_status_checks_policy": false
+				}
+			}
+		]
+	}
+	)-----";
+
+	/// The rules of a ruleset body by type, since the order GitHub lists them in isn't kept
+	TCMap<CStr, CJsonSorted> fg_RulesByType(CJsonSorted const &_Rules)
+	{
+		TCMap<CStr, CJsonSorted> Rules;
+		for (auto &Rule : _Rules.f_Array())
+			Rules[Rule["type"].f_String()] = Rule;
+
+		return Rules;
+	}
+
 	struct CHostingProviderGitHub_Tests : public NMib::NTest::CTest
 	{
 		void f_DoTests();
@@ -1354,6 +1445,62 @@ namespace
 				DMibExpectException(CGitHub::fs_GenericRulesetJson(Unresolved), DMibErrorInstance("Bypass user 'octocat' has no ID"));
 			};
 
+			DMibTestCategory("UnknownRules")
+			{
+				auto Input = CJsonSorted::fs_FromString(gc_RulesetUnknownRulesJson);
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset(Input);
+
+				DMibExpectTrue(Ruleset.m_UnmanageableReasons.f_IsEmpty());
+				DMibAssertTrue(bool(Ruleset.m_Rules));
+				DMibExpect(Ruleset.m_Rules->f_GetLen(), ==, 3);
+				DMibExpect
+					(
+						Ruleset.m_Unmodelled.f_GetDescription()
+						, ==
+						, "copilot_code_review rule, merge_queue rule, pull_request parameter required_reviewers, required_status_checks parameter do_not_enforce_on_create"
+					)
+				;
+
+				for (auto &Rule : *Ruleset.m_Rules)
+				{
+					if (Rule.f_IsOfType<CProvider::CGenericRule_PullRequest>())
+					{
+						DMibExpect
+							(
+								Rule.f_GetAsType<CProvider::CGenericRule_PullRequest>().m_AllowedMergeMethods
+								, ==
+								, TCOptional<TCVector<CProvider::EGenericRuleMergeMethod>>(TCVector<CProvider::EGenericRuleMergeMethod>{CProvider::EGenericRuleMergeMethod::mc_Rebase})
+							)
+						;
+					}
+				}
+
+				auto Json = CGitHub::fs_GenericRulesetJson(Ruleset);
+				DMibExpect(fg_RulesByType(Json["rules"]), ==, fg_RulesByType(Input["rules"]));
+
+				DMibTestCategory("RulesNotListed")
+				{
+					auto WithoutRules = Ruleset;
+					WithoutRules.m_Rules.f_Clear();
+					DMibExpectFalse(bool(CGitHub::fs_GenericRulesetJson(WithoutRules).f_GetMember("rules")));
+				};
+
+				DMibTestCategory("DefaultMergeMethods")
+				{
+					auto WithoutMergeMethods = Input;
+					for (auto &Rule : WithoutMergeMethods["rules"].f_Array())
+					{
+						if (Rule["type"].f_String() == "pull_request")
+							Rule["parameters"].f_RemoveMember("allowed_merge_methods");
+					}
+
+					// A rule that doesn't say which merge methods it allows has GitHub's default, which an update or create leaves to GitHub
+					auto Parsed = CGitHub::fs_ParseGenericRuleset(WithoutMergeMethods);
+					auto ParsedJson = CGitHub::fs_GenericRulesetJson(Parsed);
+					DMibExpectFalse(bool(fg_RulesByType(ParsedJson["rules"])["pull_request"]["parameters"].f_GetMember("allowed_merge_methods")));
+				};
+			};
+
 			DMibTestCategory("UnknownBypassActors")
 			{
 				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetUnknownActorsJson));
@@ -1390,6 +1537,46 @@ namespace
 
 				// Taken as the default operator, it would read as contains and look applied to a policy that asks for that
 				DMibExpect(Ruleset.m_UnmanageableReasons, ==, TCVector<CStr>{"String match operator 'glob'"});
+			};
+
+			DMibTestCategory("UnknownRuleEntryFields")
+			{
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset
+					(
+						CJsonSorted::fs_FromString
+						(
+							R"-----(
+							{
+								"id": 4216,
+								"name": "Checks",
+								"target": "branch",
+								"enforcement": "active",
+								"rules":
+								[
+									{
+										"type": "required_status_checks",
+										"parameters":
+										{
+											"strict_required_status_checks_policy": true,
+											"required_status_checks": [{"context": "Lint"}, {"context": "Tests", "integration_id": 15368, "enforcement": "required"}]
+										}
+									},
+									{
+										"type": "workflows",
+										"parameters":
+										{
+											"workflows": [{"path": ".github/workflows/ci.yml", "repository_id": 42, "ref": "refs/heads/main", "sha": "0c1d9b7f", "name": "CI"}]
+										}
+									}
+								]
+							}
+							)-----"
+						)
+					)
+				;
+
+				// An update writes these entries from the model, so it would drop the fields the model doesn't know
+				DMibExpect(Ruleset.m_UnmanageableReasons, ==, (TCVector<CStr>{"Required status check field 'enforcement'", "Workflow field 'name'"}));
 			};
 		};
 
@@ -1458,6 +1645,164 @@ namespace
 				DMibExpect(Result.m_State.m_UpdatedRulesets.f_GetLen(), ==, 1);
 				DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_FindEqual("4212"));
 				DMibExpectFalse(Result.m_State.m_UpdatedRulesets.f_FindEqual("4211"));
+
+				co_return {};
+			};
+
+			DMibTestCategory("RepeatedRuleTypes") -> TCFuture<void>
+			{
+				auto Ruleset = CJsonSorted::fs_FromString(gc_RulesetUnknownRulesJson);
+				auto &Rules = Ruleset["rules"].f_Array();
+				Rules.f_Insert(CJsonSorted::fs_FromString(R"-----({"type": "merge_queue", "parameters": {"merge_method": "SQUASH"}})-----"));
+
+				auto Parsed = CGitHub::fs_ParseGenericRuleset(Ruleset);
+				DMibExpect(Parsed.m_UnmanageableReasons, ==, TCVector<CStr>{"Rule type 'merge_queue' more than once"});
+
+				CMockGitHubState State;
+				State.m_Rulesets = {Ruleset.f_ToString()};
+
+				auto Result = co_await fg_ApplyPolicy
+					(
+						fg_Move(State)
+						, "GenericRules"
+						, R"-----({"Protected branches": {"Enforcement": "Evaluate", "Rules": [{"Type": "Deletion"}]}})-----"
+						, {}
+					)
+				;
+				DMibExpect(Result.m_Unmanageable, ==, TCVector<CStr>{"Protected branches: Rule type 'merge_queue' more than once"});
+				DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
+				co_return {};
+			};
+
+			DMibTestCategory("UnknownRulesKept") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetUnknownRulesJson};
+
+				auto Result = co_await fg_ApplyPolicy
+					(
+						fg_Move(State)
+						, "GenericRules"
+						, R"-----(
+						{
+							"Protected branches":
+							{
+								"Target": "Branch",
+								"IncludeRefNames": ["~DEFAULT_BRANCH"],
+								"ExcludeRefNames": [],
+								"BypassActors": [{"Actor": {"Type": "RepositoryRole", "Value": "Write"}, "Mode": "Always"}],
+								"Rules":
+								[
+									{"Type": "Deletion"},
+									{
+										"Type": "PullRequest",
+										"RequiredApprovingReviewCount": 2,
+										"DismissStaleReviewsOnPush": true,
+										"RequireCodeOwnerReview": false,
+										"RequireLastPushApproval": false,
+										"RequireReviewThreadResolution": true,
+										"AllowedMergeMethods": ["Rebase"]
+									}
+								],
+								"Enforcement": "Active"
+							}
+						}
+						)-----"
+						, {}
+					)
+				;
+
+				DMibExpectTrue(Result.m_bApplied);
+				DMibAssert(Result.m_Updated.f_GetLen(), ==, 1);
+				auto UpdatedLines = Result.m_Updated[0].f_Split("\n");
+				DMibExpect
+					(
+						UpdatedLines.f_Contains("Kept, since the policy can't express them: copilot_code_review rule, merge_queue rule, pull_request parameter required_reviewers")
+						, >=
+						, 0
+					)
+				;
+				DMibExpect(UpdatedLines.f_Contains("Removed with their rules: required_status_checks parameter do_not_enforce_on_create"), >=, 0);
+
+				auto *pUpdated = Result.m_State.m_UpdatedRulesets.f_FindEqual("4214");
+				DMibAssertTrue(pUpdated);
+
+				auto Expected = fg_RulesByType(CJsonSorted::fs_FromString(gc_RulesetUnknownRulesJson)["rules"]);
+				Expected.f_Remove("required_status_checks");
+				Expected["pull_request"]["parameters"]["required_approving_review_count"] = 2;
+
+				DMibExpect(fg_RulesByType((*pUpdated)["rules"]), ==, Expected);
+
+				co_return {};
+			};
+
+			DMibTestCategory("MergeMethodsNotStated") -> TCFuture<void>
+			{
+				auto fPolicy = [](uint32 _RequiredApprovingReviewCount) -> CStr
+					{
+						return CStr(R"-----(
+							{
+								"Squash only":
+								{
+									"Rules":
+									[
+										{
+											"Type": "PullRequest",
+											"RequiredApprovingReviewCount": COUNT,
+											"DismissStaleReviewsOnPush": false,
+											"RequireCodeOwnerReview": false,
+											"RequireLastPushApproval": false,
+											"RequireReviewThreadResolution": false
+										}
+									]
+								}
+							}
+							)-----").f_Replace("COUNT", CStr::fs_ToStr(_RequiredApprovingReviewCount))
+						;
+					}
+				;
+
+				DMibTestCategory("Unchanged") -> TCFuture<void>
+				{
+					CMockGitHubState State;
+					State.m_Rulesets = {gc_RulesetSquashOnlyJson};
+
+					auto Result = co_await fg_ApplyPolicy(fg_Move(State), "GenericRules", fPolicy(1), {});
+					DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
+					DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("Kept") -> TCFuture<void>
+				{
+					CMockGitHubState State;
+					State.m_Rulesets = {gc_RulesetSquashOnlyJson};
+
+					auto Result = co_await fg_ApplyPolicy(fg_Move(State), "GenericRules", fPolicy(2), {});
+					auto *pUpdated = Result.m_State.m_UpdatedRulesets.f_FindEqual("4216");
+					DMibAssertTrue(pUpdated);
+
+					auto Parameters = fg_RulesByType((*pUpdated)["rules"])["pull_request"]["parameters"];
+					DMibExpect(Parameters["required_approving_review_count"].f_Integer(), ==, 2);
+					DMibExpect(Parameters["allowed_merge_methods"], ==, CJsonSorted::fs_FromString(R"-----(["squash"])-----"));
+					co_return {};
+				};
+
+				co_return {};
+			};
+
+			DMibTestCategory("UnknownRulesWithoutRuleList") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetUnknownRulesJson};
+
+				auto Result = co_await fg_ApplyPolicy(fg_Move(State), "GenericRules", R"-----({"Protected branches": {"Enforcement": "Evaluate"}})-----", {});
+
+				DMibExpect(Result.m_Updated, ==, TCVector<CStr>{"Protected branches: Enforcement (Active -> Evaluate)"});
+
+				auto *pUpdated = Result.m_State.m_UpdatedRulesets.f_FindEqual("4214");
+				DMibAssertTrue(pUpdated);
+				DMibExpectFalse(bool(pUpdated->f_GetMember("rules")));
 
 				co_return {};
 			};

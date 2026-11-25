@@ -120,42 +120,77 @@ namespace NMib::NGit
 			return Output;
 		}
 
-		CJsonSorted fg_RuleJson(CProvider::CGenericRule const &_Rule)
+		CStr fg_RuleType(CProvider::CGenericRule const &_Rule)
 		{
-			CStr RuleType;
+			if (_Rule.f_IsOfType<CProvider::CGenericRule_Creation>())
+				return gc_Str<"creation">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Update>())
+				return gc_Str<"update">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deletion>())
+				return gc_Str<"deletion">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_LinearHistory>())
+				return gc_Str<"required_linear_history">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deployments>())
+				return gc_Str<"required_deployments">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Signatures>())
+				return gc_Str<"required_signatures">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_PullRequest>())
+				return gc_Str<"pull_request">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_StatusChecks>())
+				return gc_Str<"required_status_checks">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_FastForwardOnly>())
+				return gc_Str<"non_fast_forward">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitMessage>())
+				return gc_Str<"commit_message_pattern">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitAuthorEmail>())
+				return gc_Str<"commit_author_email_pattern">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitterEmail>())
+				return gc_Str<"committer_email_pattern">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_BranchName>())
+				return gc_Str<"branch_name_pattern">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_TagName>())
+				return gc_Str<"tag_name_pattern">;
+			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Workflow>())
+				return gc_Str<"workflows">;
+
+			return {};
+		}
+
+		CJsonSorted fg_RuleJson(CProvider::CGenericRule const &_Rule, CProvider::CGenericRulesetUnmodelled const &_Unmodelled)
+		{
+			CStr RuleType = fg_RuleType(_Rule);
 			CJsonSorted Parameters;
 
-			if (_Rule.f_IsOfType<CProvider::CGenericRule_Creation>())
-				RuleType = "creation";
-			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Update>())
-			{
-				RuleType = "update";
+			if (_Rule.f_IsOfType<CProvider::CGenericRule_Update>())
 				Parameters["update_allows_fetch_and_merge"] = _Rule.f_GetAsType<CProvider::CGenericRule_Update>().m_bAllowFetchAndMerge;
-			}
-			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deletion>())
-				RuleType = "deletion";
-			else if (_Rule.f_IsOfType<CProvider::CGenericRule_LinearHistory>())
-				RuleType = "required_linear_history";
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Deployments>())
-			{
-				RuleType = "required_deployments";
 				Parameters["required_deployment_environments"] = _Rule.f_GetAsType<CProvider::CGenericRule_Deployments>().m_RequiredDeploymentEnvironments;
-			}
-			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Signatures>())
-				RuleType = "required_signatures";
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_PullRequest>())
 			{
-				RuleType = "pull_request";
 				auto &PullRequest = _Rule.f_GetAsType<CProvider::CGenericRule_PullRequest>();
 				Parameters["dismiss_stale_reviews_on_push"] = PullRequest.m_bDismissStaleReviewsOnPush;
 				Parameters["require_code_owner_review"] = PullRequest.m_bRequireCodeOwnerReview;
 				Parameters["require_last_push_approval"] = PullRequest.m_bRequireLastPushApproval;
 				Parameters["required_approving_review_count"] = PullRequest.m_RequiredApprovingReviewCount;
 				Parameters["required_review_thread_resolution"] = PullRequest.m_bRequireReviewThreadResolution;
+
+				if (PullRequest.m_AllowedMergeMethods)
+				{
+					auto &AllowedMergeMethods = Parameters["allowed_merge_methods"];
+					AllowedMergeMethods = EJsonType_Array;
+					for (auto &Method : *PullRequest.m_AllowedMergeMethods)
+					{
+						switch (Method)
+						{
+						case CProvider::EGenericRuleMergeMethod::mc_Merge: AllowedMergeMethods.f_Array().f_Insert("merge"); break;
+						case CProvider::EGenericRuleMergeMethod::mc_Squash: AllowedMergeMethods.f_Array().f_Insert("squash"); break;
+						case CProvider::EGenericRuleMergeMethod::mc_Rebase: AllowedMergeMethods.f_Array().f_Insert("rebase"); break;
+						}
+					}
+				}
 			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_StatusChecks>())
 			{
-				RuleType = "required_status_checks";
 				auto &StatusChecks = _Rule.f_GetAsType<CProvider::CGenericRule_StatusChecks>();
 				Parameters["strict_required_status_checks_policy"] = StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode;
 
@@ -169,37 +204,18 @@ namespace NMib::NGit
 						OutCheck["integration_id"] = fg_JsonID(Check.m_App->m_ID, "App '{}' of status check '{}'"_f << Check.m_App->m_Slug << Check.m_Context);
 				}
 			}
-			else if (_Rule.f_IsOfType<CProvider::CGenericRule_FastForwardOnly>())
-				RuleType = "non_fast_forward";
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitMessage>())
-			{
-				RuleType = "commit_message_pattern";
 				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitMessage>().m_StringMatch, Parameters);
-			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitAuthorEmail>())
-			{
-				RuleType = "commit_author_email_pattern";
 				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitAuthorEmail>().m_StringMatch, Parameters);
-			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_CommitterEmail>())
-			{
-				RuleType = "committer_email_pattern";
 				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_CommitterEmail>().m_StringMatch, Parameters);
-			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_BranchName>())
-			{
-				RuleType = "branch_name_pattern";
 				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_BranchName>().m_StringMatch, Parameters);
-			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_TagName>())
-			{
-				RuleType = "tag_name_pattern";
 				fg_StringMatchJson(_Rule.f_GetAsType<CProvider::CGenericRule_TagName>().m_StringMatch, Parameters);
-			}
 			else if (_Rule.f_IsOfType<CProvider::CGenericRule_Workflow>())
 			{
-				RuleType = "workflows";
-
 				auto &Workflows = Parameters["workflows"];
 				Workflows = EJsonType_Array;
 				for (auto &Workflow : _Rule.f_GetAsType<CProvider::CGenericRule_Workflow>().m_Workflows)
@@ -221,6 +237,15 @@ namespace NMib::NGit
 				}
 			}
 
+			if (auto *pUnmodelledParameters = _Unmodelled.m_RuleParameters.f_FindEqual(RuleType))
+			{
+				for (auto &Parameter : pUnmodelledParameters->f_Object())
+				{
+					if (!Parameters.f_IsValid() || !Parameters.f_GetMember(Parameter.f_Name()))
+						Parameters[Parameter.f_Name()] = Parameter.f_Value();
+				}
+			}
+
 			CJsonSorted Output;
 			Output["type"] = RuleType;
 			if (Parameters.f_IsValid())
@@ -230,8 +255,8 @@ namespace NMib::NGit
 		}
 	}
 
-	/// The ruleset GitHub returns for rulesets/{id}. Values the model can't express, such as a bypass actor of a type it doesn't know, are
-	/// left out and listed in m_UnmanageableReasons.
+	/// The ruleset GitHub returns for rulesets/{id}. Rules and parameters the model doesn't know are kept in m_Unmodelled. Values it
+	/// can't keep through an update, such as a bypass actor of a type it doesn't know, are listed in m_UnmanageableReasons.
 	auto CGitHostingProvider_GitHub::fs_ParseGenericRuleset(CJsonSorted const &_Json) -> CGenericRuleset
 	{
 		CGenericRuleset OutRuleset;
@@ -239,6 +264,20 @@ namespace NMib::NGit
 		auto fUnmanageable = [&](CStr const &_Reason)
 			{
 				OutRuleset.m_UnmanageableReasons.f_Insert(_Reason);
+			}
+		;
+
+		// An update writes the entries of an array parameter from the model, so it would drop the fields the model doesn't know
+		auto fUnmodelledFields = [&](CJsonSorted const &_Entry, TCVector<CStr> const &_ModelledFields, CStr const &_Description)
+			{
+				if (!_Entry.f_IsObject())
+					return;
+
+				for (auto &Field : _Entry.f_Object())
+				{
+					if (_ModelledFields.f_Contains(Field.f_Name()) < 0)
+						fUnmanageable("{} field '{}'"_f << _Description << Field.f_Name());
+				}
 			}
 		;
 
@@ -332,10 +371,19 @@ namespace NMib::NGit
 		if (auto *pRules = _Json.f_GetMember("rules"))
 		{
 			TCVector<CGenericRule> Rules;
+			TCSet<CStr> RuleTypes;
 			for (auto &Rule : pRules->f_Array())
 			{
 				auto &RuleType = Rule["type"].f_String();
 				auto *pParameters = Rule.f_GetMember("parameters");
+
+				// m_Unmodelled keeps unknown rules and parameters by rule type, so it can't keep two rules of one type through an update
+				if (!RuleTypes(RuleType).f_WasCreated())
+					fUnmanageable("Rule type '{}' more than once"_f << RuleType);
+
+				TCVector<CStr> ModelledParameters;
+				auto const StringMatchParameters = TCVector<CStr>{"name", "negate", "operator", "pattern"};
+
 				if (RuleType == "creation")
 					Rules.f_Insert(CGenericRule_Creation{});
 				else if (RuleType == "update")
@@ -344,6 +392,7 @@ namespace NMib::NGit
 					if (pParameters)
 						Update.m_bAllowFetchAndMerge = (*pParameters)["update_allows_fetch_and_merge"].f_Boolean();
 					Rules.f_Insert(fg_Move(Update));
+					ModelledParameters = {"update_allows_fetch_and_merge"};
 				}
 				else if (RuleType == "deletion")
 					Rules.f_Insert(CGenericRule_Deletion{});
@@ -355,6 +404,7 @@ namespace NMib::NGit
 					if (pParameters)
 						Deployments.m_RequiredDeploymentEnvironments = (*pParameters)["required_deployment_environments"].f_StringArray();
 					Rules.f_Insert(fg_Move(Deployments));
+					ModelledParameters = {"required_deployment_environments"};
 				}
 				else if (RuleType == "required_signatures")
 					Rules.f_Insert(CGenericRule_Signatures{});
@@ -368,8 +418,35 @@ namespace NMib::NGit
 						PullRequest.m_bRequireCodeOwnerReview = (*pParameters)["require_code_owner_review"].f_Boolean();
 						PullRequest.m_bRequireLastPushApproval = (*pParameters)["require_last_push_approval"].f_Boolean();
 						PullRequest.m_bRequireReviewThreadResolution = (*pParameters)["required_review_thread_resolution"].f_Boolean();
+
+						if (auto *pAllowedMergeMethods = pParameters->f_GetMember("allowed_merge_methods"))
+						{
+							auto &AllowedMergeMethods = PullRequest.m_AllowedMergeMethods.f_CreateNew();
+							for (auto &Method : pAllowedMergeMethods->f_StringArray())
+							{
+								if (Method == "merge")
+									AllowedMergeMethods.f_Insert(EGenericRuleMergeMethod::mc_Merge);
+								else if (Method == "squash")
+									AllowedMergeMethods.f_Insert(EGenericRuleMergeMethod::mc_Squash);
+								else if (Method == "rebase")
+									AllowedMergeMethods.f_Insert(EGenericRuleMergeMethod::mc_Rebase);
+								else
+									fUnmanageable("Allowed merge method '{}'"_f << Method);
+							}
+							AllowedMergeMethods.f_Sort();
+						}
 					}
 					Rules.f_Insert(fg_Move(PullRequest));
+					ModelledParameters =
+						{
+							"allowed_merge_methods"
+							, "dismiss_stale_reviews_on_push"
+							, "require_code_owner_review"
+							, "require_last_push_approval"
+							, "required_approving_review_count"
+							, "required_review_thread_resolution"
+						}
+					;
 				}
 				else if (RuleType == "required_status_checks")
 				{
@@ -379,6 +456,8 @@ namespace NMib::NGit
 						StatusChecks.m_bPullRequestsMustBeTestedWithLatestCode = (*pParameters)["strict_required_status_checks_policy"].f_Boolean();
 						for (auto &Check : (*pParameters)["required_status_checks"].f_Array())
 						{
+							fUnmodelledFields(Check, {"context", "integration_id"}, "Required status check");
+
 							auto &OutCheck = StatusChecks.m_RequiredStatusChecks.f_Insert();
 							OutCheck.m_Context = Check["context"].f_String();
 							if (auto *pIntegrationID = Check.f_GetMember("integration_id"))
@@ -387,19 +466,35 @@ namespace NMib::NGit
 						StatusChecks.m_RequiredStatusChecks.f_Sort();
 					}
 					Rules.f_Insert(fg_Move(StatusChecks));
+					ModelledParameters = {"required_status_checks", "strict_required_status_checks_policy"};
 				}
 				else if (RuleType == "non_fast_forward")
 					Rules.f_Insert(CGenericRule_FastForwardOnly{});
 				else if (RuleType == "commit_message_pattern")
+				{
 					Rules.f_Insert(CGenericRule_CommitMessage{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
+					ModelledParameters = StringMatchParameters;
+				}
 				else if (RuleType == "commit_author_email_pattern")
+				{
 					Rules.f_Insert(CGenericRule_CommitAuthorEmail{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
+					ModelledParameters = StringMatchParameters;
+				}
 				else if (RuleType == "committer_email_pattern")
+				{
 					Rules.f_Insert(CGenericRule_CommitterEmail{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
+					ModelledParameters = StringMatchParameters;
+				}
 				else if (RuleType == "branch_name_pattern")
+				{
 					Rules.f_Insert(CGenericRule_BranchName{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
+					ModelledParameters = StringMatchParameters;
+				}
 				else if (RuleType == "tag_name_pattern")
+				{
 					Rules.f_Insert(CGenericRule_TagName{.m_StringMatch = fg_ParseStringMatch(pParameters, OutRuleset.m_UnmanageableReasons)});
+					ModelledParameters = StringMatchParameters;
+				}
 				else if (RuleType == "workflows")
 				{
 					CGenericRule_Workflow Workflow;
@@ -407,6 +502,8 @@ namespace NMib::NGit
 					{
 						for (auto &WorkflowObj : (*pParameters)["workflows"].f_Array())
 						{
+							fUnmodelledFields(WorkflowObj, {"path", "ref", "repository_id", "sha"}, "Workflow");
+
 							auto &OutWorkflow = Workflow.m_Workflows.f_Insert();
 							OutWorkflow.m_Path = WorkflowObj["path"].f_String();
 							OutWorkflow.m_WorkflowRepository.m_ID = CStr::fs_ToStr(WorkflowObj["repository_id"].f_Integer());
@@ -420,7 +517,26 @@ namespace NMib::NGit
 						Workflow.m_Workflows.f_Sort();
 					}
 					Rules.f_Insert(fg_Move(Workflow));
+					ModelledParameters = {"workflows"};
 				}
+				else
+				{
+					OutRuleset.m_Unmodelled.m_Rules[RuleType] = Rule;
+					continue;
+				}
+
+				if (!pParameters || !pParameters->f_IsObject())
+					continue;
+
+				CJsonSorted UnmodelledParameters;
+				for (auto &Parameter : pParameters->f_Object())
+				{
+					if (ModelledParameters.f_Contains(Parameter.f_Name()) < 0)
+						UnmodelledParameters[Parameter.f_Name()] = Parameter.f_Value();
+				}
+
+				if (UnmodelledParameters.f_IsValid())
+					OutRuleset.m_Unmodelled.m_RuleParameters[RuleType] = fg_Move(UnmodelledParameters);
 			}
 
 			Rules.f_Sort();
@@ -432,7 +548,8 @@ namespace NMib::NGit
 	}
 
 	/// The body of a ruleset create or update. Its teams, apps, roles and users, status check apps and workflow repositories must have their
-	/// IDs, which fp_ResolveGenericRulesetIDs looks up.
+	/// IDs, which fp_ResolveGenericRulesetIDs looks up. Unknown rules go in unchanged when the ruleset lists its rules, and unknown
+	/// parameters with the rules they belong to.
 	CJsonSorted CGitHostingProvider_GitHub::fs_GenericRulesetJson(CGenericRuleset const &_Ruleset)
 	{
 		CJsonSorted Output;
@@ -466,7 +583,10 @@ namespace NMib::NGit
 			auto &Rules = Output["rules"];
 			Rules = EJsonType_Array;
 			for (auto &Rule : *_Ruleset.m_Rules)
-				Rules.f_Array().f_Insert(fg_RuleJson(Rule));
+				Rules.f_Array().f_Insert(fg_RuleJson(Rule, _Ruleset.m_Unmodelled));
+
+			for (auto &Rule : _Ruleset.m_Unmodelled.m_Rules)
+				Rules.f_Array().f_Insert(Rule);
 		}
 
 		if (_Ruleset.m_Target)
@@ -491,6 +611,7 @@ namespace NMib::NGit
 		return Output;
 	}
 
+	/// Also drops the unmodelled parameters of the rules _Ruleset doesn't list, since an update can only write them with their rules.
 	auto CGitHostingProvider_GitHub::fp_ResolveGenericRulesetIDs(CStr _Organization, CGenericRuleset _Ruleset) -> TCFuture<CGenericRuleset>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
@@ -586,6 +707,21 @@ namespace NMib::NGit
 			}
 
 			Ruleset.m_Rules->f_Sort();
+
+			TCSet<CStr> RuleTypes;
+			for (auto &Rule : *Ruleset.m_Rules)
+				RuleTypes[fg_RuleType(Rule)];
+
+			TCVector<CStr> RemovedRuleTypes;
+			for (auto &Parameters : Ruleset.m_Unmodelled.m_RuleParameters)
+			{
+				auto &RuleType = Ruleset.m_Unmodelled.m_RuleParameters.fs_GetKey(Parameters);
+				if (!RuleTypes.f_FindEqual(RuleType))
+					RemovedRuleTypes.f_Insert(RuleType);
+			}
+
+			for (auto &RuleType : RemovedRuleTypes)
+				Ruleset.m_Unmodelled.m_RuleParameters.f_Remove(RuleType);
 		}
 
 		co_return fg_Move(Ruleset);
