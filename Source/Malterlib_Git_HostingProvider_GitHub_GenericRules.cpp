@@ -11,6 +11,20 @@ namespace NMib::NGit
 	{
 		using CProvider = CGitHostingProvider;
 
+		/// Whether _Ruleset says it's the repository _Repository's own: its source, when it has one, names the repository, and its source
+		/// type, which GitHub documents as optional, is Repository. GitHub compares the names of owners and repositories without case.
+		bool fg_IsRepositoryRuleset(CJsonSorted const &_Ruleset, CStr const &_Repository)
+		{
+			auto *pSource = _Ruleset.f_GetMember("source", EJsonType_String);
+			if (pSource && pSource->f_String().f_CmpNoCase(_Repository) != 0)
+				return false;
+
+			if (auto *pSourceType = _Ruleset.f_GetMember("source_type", EJsonType_String))
+				return pSourceType->f_String() == "Repository";
+
+			return pSource != nullptr;
+		}
+
 		/// An operator the model doesn't know goes to o_UnmanageableReasons: the default it leaves would read as contains
 		CProvider::CStringMatch fg_ParseStringMatch(CJsonSorted const *_pParameters, TCVector<CStr> &o_UnmanageableReasons)
 		{
@@ -767,29 +781,28 @@ namespace NMib::NGit
 		co_return co_await fp_ResolveGenericRulesetIDs(RepositorySlug.m_Owner, fg_Move(_Ruleset));
 	}
 
+	/// Only the repository's own rulesets: GitHub lists those it inherits from its organization as well unless told not to. A ruleset
+	/// whose details don't say whose it is can't safely be updated, so it is unmanageable.
 	auto CGitHostingProvider_GitHub::f_GetGenericRulesets(NStr::CStr _Repository) -> NConcurrency::TCFuture<NContainer::TCMap<NStr::CStr, CGenericRuleset>>
 	{
 		co_await ECoroutineFlag_CaptureMalterlibExceptions;
 
+		auto RulesetNames = co_await f_GetGenericRulesetNames(_Repository);
+
 		auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing rulesets for repository '{}'"_f << _Repository));
 
 		auto RepositorySlug = co_await fp_SplitRepositorySlug(_Repository);
-
-		auto const RuleSetEnum = co_await
-			(
-				fp_RestApi("repos/{}/{}/rulesets"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name, "Failed to get rulesets from repository '{}'"_f << _Repository)
-			)
-		;
+		CStr RepositoryName = "{}/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name;
 
 		NContainer::TCMap<NStr::CStr, CGenericRuleset> OutRulesets;
 
 		TCFutureVector<CJsonSorted> Results;
 
-		for (auto &Rule : RuleSetEnum.f_Array())
+		for (auto &Name : RulesetNames)
 		{
 			fp_RestApi
 				(
-					"repos/{}/{}/rulesets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << Rule["id"].f_Integer()
+					"repos/{}/{}/rulesets/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name << RulesetNames.fs_GetKey(Name)
 					, "Failed to get ruleset from repository '{}'"_f << _Repository
 				)
 				> Results
@@ -800,13 +813,15 @@ namespace NMib::NGit
 
 		for (auto &Ruleset : Rulesets)
 		{
-			if (auto *pSourceType = Ruleset.f_GetMember("source_type"))
-			{
-				if (*pSourceType != "Repository")
-					continue;
-			}
+			auto SourceType = fsp_GetJsonString(Ruleset, "source_type");
+			if (!SourceType.f_IsEmpty() && SourceType != "Repository")
+				continue;
 
-			OutRulesets[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = fs_ParseGenericRuleset(Ruleset);
+			auto &OutRuleset = OutRulesets[CStr::fs_ToStr(Ruleset["id"].f_Integer())];
+			OutRuleset = fs_ParseGenericRuleset(Ruleset);
+
+			if (!fg_IsRepositoryRuleset(Ruleset, RepositoryName))
+				OutRuleset.m_UnmanageableReasons.f_Insert("Details that don't say whose ruleset it is");
 		}
 
 		co_return fg_Move(OutRulesets);
@@ -903,10 +918,12 @@ namespace NMib::NGit
 
 		auto CaptureScope = co_await (g_CaptureExceptions % ("Error parsing rulesets for repository '{}'"_f << _Repository));
 
+		CStr RepositoryName = "{}/{}"_f << RepositorySlug.m_Owner << RepositorySlug.m_Name;
+
 		TCMap<CStr, CStr> Names;
 		for (auto &Ruleset : Rulesets.f_Array())
 		{
-			if (fsp_GetJsonString(Ruleset, "source_type") == "Repository")
+			if (fg_IsRepositoryRuleset(Ruleset, RepositoryName))
 				Names[CStr::fs_ToStr(Ruleset["id"].f_Integer())] = Ruleset["name"].f_String();
 		}
 

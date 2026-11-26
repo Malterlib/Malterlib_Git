@@ -406,23 +406,23 @@ namespace NGitHubPolicyTests
 		TCMap<CStr, CStr> m_QueryParams;
 	};
 
-	/// The GitHub provider with its REST reads recorded instead of sent, each answered with the response f_SetResponse gave
+	/// The GitHub provider with its REST reads recorded instead of sent, each answered with the response f_SetResponse gave its path
 	struct CRestCaptureGitHub : public CGitHub
 	{
-		TCFuture<void> f_SetResponse(CJsonSorted _Response);
+		TCFuture<void> f_SetResponse(CStr _Path, CJsonSorted _Response);
 		TCFuture<TCVector<CRestRequest>> f_GetRequests();
 
 		auto fp_RestApi(CStr _Path, CStr _ErrorDescription, TCMap<CStr, CStr> _QueryParams, uint32 _EmptyStatus, uint32 _ExpectedStatus, CStr _PagedArrayMember, umint _MaxItems)
 			-> TCFuture<CJsonSorted> override
 		;
 
-		CJsonSorted m_Response;
+		TCMap<CStr, CJsonSorted> m_Responses; // By path
 		TCVector<CRestRequest> m_Requests;
 	};
 
-	TCFuture<void> CRestCaptureGitHub::f_SetResponse(CJsonSorted _Response)
+	TCFuture<void> CRestCaptureGitHub::f_SetResponse(CStr _Path, CJsonSorted _Response)
 	{
-		m_Response = fg_Move(_Response);
+		m_Responses[_Path] = fg_Move(_Response);
 		co_return {};
 	}
 
@@ -443,8 +443,12 @@ namespace NGitHubPolicyTests
 		)
 		-> TCFuture<CJsonSorted>
 	{
+		auto *pResponse = m_Responses.f_FindEqual(_Path);
 		m_Requests.f_Insert(CRestRequest{.m_Path = fg_Move(_Path), .m_QueryParams = fg_Move(_QueryParams)});
-		co_return m_Response;
+		if (!pResponse)
+			co_return DMibErrorInstance("No response for '{}'"_f << m_Requests.f_GetLast().m_Path);
+
+		co_return *pResponse;
 	}
 
 	struct CPolicyOptions
@@ -2254,6 +2258,7 @@ namespace
 				co_await Provider
 					(
 						&CRestCaptureGitHub::f_SetResponse
+						, "repos/octo-org/octo-repo/rulesets"
 						, CJsonSorted::fs_FromString
 						(
 							R"-----(
@@ -2274,6 +2279,90 @@ namespace
 				DMibAssert(Requests.f_GetLen(), ==, 1);
 				DMibExpect(Requests[0].m_Path, ==, "repos/octo-org/octo-repo/rulesets");
 				DMibExpect(Requests[0].m_QueryParams, ==, (TCMap<CStr, CStr>{{"includes_parents", "false"}}));
+				co_return {};
+			};
+
+			DMibTestCategory("OwnRulesets") -> TCFuture<void>
+			{
+				TCActor<CRestCaptureGitHub> Provider = fg_Construct();
+				auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+				co_await Provider
+					(
+						&CRestCaptureGitHub::f_SetResponse
+						, "repos/octo-org/octo-repo/rulesets"
+						, CJsonSorted::fs_FromString
+						(
+							R"-----(
+							[
+								{"id": 4212, "name": "LFS NoDelete", "source_type": "Repository", "source": "octo-org/octo-repo"},
+								{"id": 4213, "name": "Organization", "source_type": "Organization", "source": "octo-org"},
+								{"id": 4214, "name": "Other repository", "source_type": "Repository", "source": "octo-org/other-repo"},
+								{"id": 4218, "name": "Unknown source"},
+								{"id": 4219, "name": "No source in details", "source_type": "Repository", "source": "octo-org/octo-repo"}
+							]
+							)-----"
+						)
+					)
+				;
+				co_await Provider(&CRestCaptureGitHub::f_SetResponse, "repos/octo-org/octo-repo/rulesets/4212", CJsonSorted::fs_FromString(gc_RulesetLfsNoDeleteJson));
+
+				auto NoSource = CJsonSorted::fs_FromString(gc_RulesetLfsNoDeleteJson);
+				NoSource["id"] = 4219;
+				NoSource["name"] = "No source in details";
+				NoSource.f_RemoveMember("source_type");
+				NoSource.f_RemoveMember("source");
+				co_await Provider(&CRestCaptureGitHub::f_SetResponse, "repos/octo-org/octo-repo/rulesets/4219", fg_Move(NoSource));
+
+				// Only the repository's own rulesets are read, and one whose details don't say whose it is can't be updated
+				auto Rulesets = co_await Provider(&CGitHub::f_GetGenericRulesets, "octo-org/octo-repo");
+				DMibAssert(Rulesets.f_GetLen(), ==, 2);
+				DMibAssertTrue(Rulesets.f_FindEqual("4212"));
+				DMibExpectTrue(Rulesets["4212"].m_UnmanageableReasons.f_IsEmpty());
+				DMibAssertTrue(Rulesets.f_FindEqual("4219"));
+				DMibExpect(Rulesets["4219"].m_UnmanageableReasons, ==, TCVector<CStr>{"Details that don't say whose ruleset it is"});
+
+				auto Requests = co_await Provider(&CRestCaptureGitHub::f_GetRequests);
+				DMibAssert(Requests.f_GetLen(), ==, 3);
+				DMibExpect(Requests[0].m_QueryParams, ==, (TCMap<CStr, CStr>{{"includes_parents", "false"}}));
+				co_return {};
+			};
+
+			DMibTestCategory("OwnRulesetsWithoutSourceType") -> TCFuture<void>
+			{
+				TCActor<CRestCaptureGitHub> Provider = fg_Construct();
+				auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+
+				// GitHub documents source_type as optional, and compares the names of owners and repositories without case
+				co_await Provider
+					(
+						&CRestCaptureGitHub::f_SetResponse
+						, "repos/octo-org/octo-repo/rulesets"
+						, CJsonSorted::fs_FromString
+						(
+							R"-----(
+							[
+								{"id": 4212, "name": "LFS NoDelete", "source": "Octo-Org/Octo-Repo"},
+								{"id": 4213, "name": "Organization", "source": "octo-org"},
+								{"id": 4214, "name": "Other repository", "source": "octo-org/other-repo"}
+							]
+							)-----"
+						)
+					)
+				;
+
+				auto Names = co_await Provider(&CGitHub::f_GetGenericRulesetNames, "octo-org/octo-repo");
+				DMibExpect(Names, ==, (TCMap<CStr, CStr>{{"4212", "LFS NoDelete"}}));
+
+				auto Details = CJsonSorted::fs_FromString(gc_RulesetLfsNoDeleteJson);
+				Details.f_RemoveMember("source_type");
+				Details["source"] = "OCTO-ORG/octo-repo";
+				co_await Provider(&CRestCaptureGitHub::f_SetResponse, "repos/octo-org/octo-repo/rulesets/4212", fg_Move(Details));
+
+				auto Rulesets = co_await Provider(&CGitHub::f_GetGenericRulesets, "octo-org/octo-repo");
+				DMibAssert(Rulesets.f_GetLen(), ==, 1);
+				DMibAssertTrue(Rulesets.f_FindEqual("4212"));
+				DMibExpectTrue(Rulesets["4212"].m_UnmanageableReasons.f_IsEmpty());
 				co_return {};
 			};
 
