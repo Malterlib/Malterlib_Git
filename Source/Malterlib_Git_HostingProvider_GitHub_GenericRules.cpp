@@ -310,26 +310,37 @@ namespace NMib::NGit
 			TCVector<CGenericRuleBypassActor> Actors;
 			for (auto &BypassActor : pBypassActors->f_Array())
 			{
+				// A null entry is an actor that is gone. Anything else that isn't an object could grant anything.
+				if (BypassActor.f_IsNull())
+					continue;
+
+				if (!BypassActor.f_IsObject())
+				{
+					fUnmanageable("Bypass actor that isn't an object: {}"_f << BypassActor);
+					continue;
+				}
+
 				CGenericRuleBypassActor OutActor;
 
-				auto &ActorType = BypassActor["actor_type"].f_String();
+				auto ActorType = fsp_GetJsonString(BypassActor, "actor_type");
 
-				auto fGetActorID = [&]() -> CStr
-					{
-						return CStr::fs_ToStr(BypassActor["actor_id"].f_Integer());
-					}
-				;
+				// Only an absent or null ID means the actor is gone. One of another type mustn't be taken for that, so it makes the ruleset unmanageable.
+				CStr ActorID;
+				auto *pActorID = BypassActor.f_GetMember("actor_id");
+				if (pActorID && pActorID->f_IsInteger())
+					ActorID = CStr::fs_ToStr(pActorID->f_Integer());
+				bool bInvalidActorID = pActorID && !pActorID->f_IsNull() && !pActorID->f_IsInteger();
 
 				if (ActorType == "RepositoryRole")
-					OutActor.m_Actor = CRepositoryRole{.m_ID = fGetActorID()};
+					OutActor.m_Actor = CRepositoryRole{.m_ID = ActorID};
 				else if (ActorType == "Team")
-					OutActor.m_Actor = CTeam{.m_ID = fGetActorID()};
+					OutActor.m_Actor = CTeam{.m_ID = ActorID};
 				else if (ActorType == "Integration")
-					OutActor.m_Actor = CApp{.m_ID = fGetActorID()};
+					OutActor.m_Actor = CApp{.m_ID = ActorID};
 				else if (ActorType == "OrganizationAdmin")
 					OutActor.m_Actor = COrganizationAdmin{};
 				else if (ActorType == "User")
-					OutActor.m_Actor = CUser{.m_ID = fGetActorID()};
+					OutActor.m_Actor = CUser{.m_ID = ActorID};
 				else if (ActorType == "DeployKey")
 					OutActor.m_Actor = CDeployKey{};
 				else
@@ -338,7 +349,7 @@ namespace NMib::NGit
 					continue;
 				}
 
-				auto &BypassMode = BypassActor["bypass_mode"].f_String();
+				auto BypassMode = fsp_GetJsonString(BypassActor, "bypass_mode");
 				if (BypassMode == "always")
 					OutActor.m_BypassMode = EGenericRuleBypassMode::mc_Always;
 				else if (BypassMode == "pull_request")
@@ -348,6 +359,18 @@ namespace NMib::NGit
 					fUnmanageable("Bypass mode '{}' of {}"_f << BypassMode << OutActor.m_Actor);
 					continue;
 				}
+
+				// GitHub returns no ID for an actor that is gone. A policy can't name it, so leaving it out keeps the comparison from reporting a
+				// difference that no update removes.
+				bool bNeedsID = ActorType == "RepositoryRole" || ActorType == "Team" || ActorType == "Integration" || ActorType == "User";
+				if (bInvalidActorID)
+				{
+					fUnmanageable("Bypass actor of type '{}' with an actor_id that isn't an integer: {}"_f << ActorType << *pActorID);
+					continue;
+				}
+
+				if (bNeedsID && ActorID.f_IsEmpty())
+					continue;
 
 				Actors.f_Insert(fg_Move(OutActor));
 			}

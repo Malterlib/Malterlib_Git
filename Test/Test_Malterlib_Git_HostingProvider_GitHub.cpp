@@ -1207,6 +1207,27 @@ namespace
 	}
 	)-----";
 
+	constexpr ch8 const gc_RulesetGoneActorsJson[] = R"-----(
+	{
+		"id": 4217,
+		"name": "Gone actors",
+		"target": "branch",
+		"source_type": "Repository",
+		"source": "octo-org/octo-repo",
+		"enforcement": "active",
+		"conditions": {"ref_name": {"include": ["~DEFAULT_BRANCH"], "exclude": []}},
+		"rules": [{"type": "deletion"}],
+		"bypass_actors":
+		[
+			null,
+			{"actor_id": null, "actor_type": "Team", "bypass_mode": "always"},
+			{"actor_type": "User", "bypass_mode": "pull_request"},
+			{"actor_id": null, "actor_type": "Integration", "bypass_mode": "always"},
+			{"actor_id": 4, "actor_type": "RepositoryRole", "bypass_mode": "always"}
+		]
+	}
+	)-----";
+
 	/// The rules of a ruleset body by type, since the order GitHub lists them in isn't kept
 	TCMap<CStr, CJsonSorted> fg_RulesByType(CJsonSorted const &_Rules)
 	{
@@ -1904,6 +1925,65 @@ namespace
 				};
 			};
 
+			DMibTestCategory("GoneBypassActors")
+			{
+				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetGoneActorsJson));
+				DMibExpectTrue(Ruleset.m_UnmanageableReasons.f_IsEmpty());
+				DMibAssertTrue(bool(Ruleset.m_BypassActors));
+				DMibAssert(Ruleset.m_BypassActors->f_GetLen(), ==, 1);
+				DMibExpect(CStr("{}"_f << (*Ruleset.m_BypassActors)[0]), ==, "Actor: RepositoryRole: 4 () Mode: Always");
+
+				// An entry without a type or mode could grant anything, so the ruleset can't be updated, also when its actor is gone. So could an
+				// entry that is neither an object nor null.
+				auto Incomplete = CGitHub::fs_ParseGenericRuleset
+					(
+						CJsonSorted::fs_FromString
+						(
+							R"-----(
+							{
+								"name": "Incomplete",
+								"enforcement": "active",
+								"bypass_actors":
+								[
+									{"actor_id": 7},
+									{"actor_id": 1, "actor_type": "OrganizationAdmin"},
+									{"actor_id": null, "actor_type": "Team"},
+									{"actor_id": null, "bypass_mode": "always"},
+									{"actor_id": "42", "actor_type": "Team", "bypass_mode": "always"},
+									{"actor_id": "1", "actor_type": "OrganizationAdmin", "bypass_mode": "always"},
+									{"actor_id": true, "actor_type": "DeployKey", "bypass_mode": "always"},
+									5,
+									null
+								]
+							}
+							)-----"
+						)
+					)
+				;
+				DMibExpect
+					(
+						Incomplete.m_UnmanageableReasons
+						, ==
+						,
+						(
+							TCVector<CStr>
+							{
+								"Bypass actor of type ''"
+								, "Bypass mode '' of OrganizationAdmin"
+								, "Bypass mode '' of Team:  ()"
+								, "Bypass actor of type ''"
+								, "Bypass actor of type 'Team' with an actor_id that isn't an integer: \"42\""
+								, "Bypass actor of type 'OrganizationAdmin' with an actor_id that isn't an integer: \"1\""
+								, "Bypass actor of type 'DeployKey' with an actor_id that isn't an integer: true"
+								, "Bypass actor that isn't an object: 5"
+							}
+						)
+					)
+				;
+				DMibExpectTrue(bool(Incomplete.m_BypassActors));
+				DMibExpectTrue(Incomplete.m_BypassActors->f_IsEmpty());
+			};
+
 			DMibTestCategory("UnknownBypassActors")
 			{
 				auto Ruleset = CGitHub::fs_ParseGenericRuleset(CJsonSorted::fs_FromString(gc_RulesetUnknownActorsJson));
@@ -1985,6 +2065,40 @@ namespace
 
 		DMibTestSuite("Policy") -> TCFuture<void>
 		{
+			DMibTestCategory("GoneBypassActors") -> TCFuture<void>
+			{
+				CMockGitHubState State;
+				State.m_Rulesets = {gc_RulesetGoneActorsJson};
+
+				auto Result = co_await fg_ApplyPolicy
+					(
+						fg_Move(State)
+						, "GenericRules"
+						, R"-----(
+						{
+							"Gone actors":
+							{
+								"Target": "Branch",
+								"IncludeRefNames": ["~DEFAULT_BRANCH"],
+								"ExcludeRefNames": [],
+								"BypassActors": [{"Actor": {"Type": "RepositoryRole", "Value": "Write"}, "Mode": "Always"}],
+								"Rules": [{"Type": "Deletion"}],
+								"Enforcement": "Active"
+							}
+						}
+						)-----"
+						, {}
+					)
+				;
+
+				DMibExpect(Result.m_Error, ==, "");
+				DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
+				DMibExpect(Result.m_Unmanageable, ==, TCVector<CStr>{});
+				DMibExpectTrue(Result.m_State.m_UpdatedRulesets.f_IsEmpty());
+
+				co_return {};
+			};
+
 			DMibTestCategory("UpdateUnmanageableRuleset") -> TCFuture<void>
 			{
 				TCActor<CGitHub> Provider = fg_Construct();
@@ -3027,6 +3141,241 @@ namespace
 					auto Result = co_await fg_ApplyPolicyRulesTo(Provider, R"-----({"RemoveOther": {"BranchProtection": true}})-----", false);
 					DMibExpect(Result.m_Error, ==, "");
 					DMibExpect(Result.m_Deleted, ==, (TCVector<CStr>{"*", "master", "release/*"}));
+					co_return {};
+				};
+
+				DMibTestCategory("NoCreator") -> TCFuture<void>
+				{
+					// GitHub returns a null creator, or none, when the account that created a rule is gone
+					auto NoCreatorPages = Pages;
+					NoCreatorPages[0]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[1].f_RemoveMember("creator");
+					NoCreatorPages[1]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[0]["creator"] = nullptr;
+
+					DMibTestCategory("Read") -> TCFuture<void>
+					{
+						TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+						auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+						co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, NoCreatorPages);
+
+						auto Rules = co_await Provider(&CGitHub::f_GetBranchProtectionRules, "octo-org/octo-repo");
+						DMibAssert(Rules.f_GetLen(), ==, 3);
+						DMibExpect(Rules["BPR_1"].m_Creator, ==, TCOptional<CStr>(CStr("octocat")));
+						DMibExpectFalse(bool(Rules["BPR_2"].m_Creator));
+						DMibExpectFalse(bool(Rules["BPR_3"].m_Creator));
+						DMibExpect(*Rules["BPR_3"].m_Pattern, ==, "release/*");
+						co_return {};
+					};
+
+					DMibTestCategory("Apply") -> TCFuture<void>
+					{
+						TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+						auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+						co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, NoCreatorPages);
+
+						auto Result = co_await fg_ApplyPolicyRulesTo
+							(
+								Provider
+								, R"-----({"BranchProtection": {"master": {"RequiresLinearHistory": true}, "release/*": {"RequiresLinearHistory": true}}})-----"
+								, false
+							)
+						;
+						DMibExpect(Result.m_Error, ==, "");
+						DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
+						DMibExpect(Result.m_Created, ==, TCVector<CStr>{});
+
+						auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+						DMibExpect(Requests.f_GetLen(), ==, 2);
+						co_return {};
+					};
+
+					co_return {};
+				};
+
+				DMibTestCategory("GoneActors") -> TCFuture<void>
+				{
+					// GitHub returns no actor, or one without the field that names it, for a user, team or app that is gone
+					auto GoneActorPages = Pages;
+					auto &Master = GoneActorPages[0]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[1];
+					Master["pushAllowances"] = CJsonSorted::fs_FromString
+						(
+							R"-----(
+							{
+								"nodes":
+								[
+									{"actor": null},
+									{"actor": {"__typename": "Team", "id": "T_1"}},
+									{"actor": {"__typename": "Team", "id": "T_2", "slug": "pushers", "name": "Pushers"}}
+								]
+							}
+							)-----"
+						)
+					;
+					Master["bypassForcePushAllowances"] = CJsonSorted::fs_FromString
+						(
+							R"-----({"nodes": [{"actor": null}, {"actor": {"__typename": "User", "id": "U_1"}}, {"actor": {"__typename": "User", "id": "U_2", "login": "octocat"}}]})-----"
+						)
+					;
+					Master["bypassPullRequestAllowances"] = CJsonSorted::fs_FromString
+						(
+							R"-----(
+							{
+								"nodes":
+								[
+									{"actor": null},
+									{"actor": {"__typename": "App", "id": "A_1"}},
+									{"actor": {"__typename": "App", "id": "A_2", "slug": "malterlib-review-bot"}}
+								]
+							}
+							)-----"
+						)
+					;
+					Master["reviewDismissalAllowances"] = CJsonSorted::fs_FromString
+						(
+							R"-----({"nodes": [null, {"actor": {}}, {"actor": null}, {"actor": {"__typename": "User", "id": "U_2", "login": "octocat", "name": null}}]})-----"
+						)
+					;
+
+					DMibTestCategory("Read") -> TCFuture<void>
+					{
+						TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+						auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+						co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, GoneActorPages);
+
+						auto Rules = co_await Provider(&CGitHub::f_GetBranchProtectionRules, "octo-org/octo-repo");
+						auto *pMaster = Rules.f_FindEqual("BPR_2");
+						DMibAssertTrue(pMaster);
+
+						auto fFormat = [](TCOptional<TCVector<CProvider::CGitActor>> const &_Actors) -> CStr
+							{
+								if (!_Actors)
+									return "unset";
+
+								CStr Actors;
+								for (auto &Actor : *_Actors)
+									fg_AddStrSep(Actors, CStr("{}"_f << Actor), ", ");
+
+								return Actors;
+							}
+						;
+						DMibExpect(fFormat(pMaster->m_PushAllowances), ==, "Team: T_2 (pushers)");
+						DMibExpect(fFormat(pMaster->m_BypassForcePushAllowances), ==, "User: U_2 (octocat)");
+						DMibExpect(fFormat(pMaster->m_BypassPullRequestAllowances), ==, "App: A_2 (malterlib-review-bot)");
+						DMibExpect(fFormat(pMaster->m_ReviewDismissalAllowances), ==, "User: U_2 (octocat)");
+						co_return {};
+					};
+
+					DMibTestCategory("Apply") -> TCFuture<void>
+					{
+						TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+						auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+						co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, GoneActorPages);
+
+						auto Result = co_await fg_ApplyPolicyRulesTo
+							(
+								Provider
+								, R"-----(
+								{
+									"BranchProtection":
+									{
+										"master":
+										{
+											"RequiresLinearHistory": true,
+											"PushAllowances": [{"Type": "Team", "Value": "pushers"}],
+											"BypassForcePushAllowances": [{"Type": "User", "Value": "octocat"}],
+											"BypassPullRequestAllowances": [{"Type": "App", "Value": "malterlib-review-bot"}],
+											"ReviewDismissalAllowances": [{"Type": "User", "Value": "octocat"}]
+										}
+									}
+								}
+								)-----"
+								, false
+							)
+						;
+						DMibExpect(Result.m_Error, ==, "");
+						DMibExpect(Result.m_Updated, ==, TCVector<CStr>{});
+
+						auto Requests = co_await Provider(&CGraphQlCaptureGitHub::f_GetRequests);
+						DMibExpect(Requests.f_GetLen(), ==, 2);
+						co_return {};
+					};
+
+					co_return {};
+				};
+
+				DMibTestCategory("NullLists") -> TCFuture<void>
+				{
+					auto NullListPages = Pages;
+					auto &Master = NullListPages[0]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[1];
+					Master["pushAllowances"] = nullptr;
+					Master["reviewDismissalAllowances"]["nodes"] = nullptr;
+					Master.f_RemoveMember("bypassForcePushAllowances");
+
+					TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+					auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+					co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, NullListPages);
+
+					auto Rules = co_await Provider(&CGitHub::f_GetBranchProtectionRules, "octo-org/octo-repo");
+					auto *pMaster = Rules.f_FindEqual("BPR_2");
+					DMibAssertTrue(pMaster);
+					DMibExpectTrue(pMaster->m_PushAllowances && pMaster->m_PushAllowances->f_IsEmpty());
+					DMibExpectTrue(pMaster->m_ReviewDismissalAllowances && pMaster->m_ReviewDismissalAllowances->f_IsEmpty());
+					DMibExpectTrue(pMaster->m_BypassForcePushAllowances && pMaster->m_BypassForcePushAllowances->f_IsEmpty());
+					co_return {};
+				};
+
+				DMibTestCategory("WrongTypedActors") -> TCFuture<void>
+				{
+					// Only an absent or null field means an actor is gone. Anything else fails the read rather than drop an actor that may exist.
+					struct CCase
+					{
+						CStr m_Name;
+						CStr m_List;
+						CStr m_Nodes;
+						CStr m_Error;
+						bool m_bWholeList = false; // m_Nodes replaces the whole list rather than its nodes
+					};
+
+					TCVector<CCase> Cases =
+						{
+							{"TeamSlug", "pushAllowances", R"-----([{"actor": {"__typename": "Team", "id": "T_1", "slug": 5}}])-----", "'slug' isn't a string"}
+							, {"UserLogin", "bypassForcePushAllowances", R"-----([{"actor": {"__typename": "User", "id": "U_1", "login": 7}}])-----", "'login' isn't a string"}
+							, {"AppSlug", "bypassPullRequestAllowances", R"-----([{"actor": {"__typename": "App", "id": "A_1", "slug": true}}])-----", "'slug' isn't a string"}
+							, {"TypeName", "pushAllowances", R"-----([{"actor": {"__typename": 3, "id": "T_1", "slug": "pushers"}}])-----", "'__typename' isn't a string"}
+							, {"Actor", "bypassPullRequestAllowances", R"-----([{"actor": "malterlib-review-bot"}])-----", "actor that isn't an object"}
+							, {"Node", "reviewDismissalAllowances", R"-----([5])-----", "node that isn't an object"}
+							, {"List", "pushAllowances", R"-----(5)-----", "list that isn't an object", true}
+							, {"Nodes", "pushAllowances", R"-----({"nodes": {"actor": null}})-----", "nodes that aren't an array", true}
+							, {"UserID", "bypassForcePushAllowances", R"-----([{"actor": {"__typename": "User", "id": 5, "login": "octocat"}}])-----", "'id' isn't a string"}
+							, {"TeamName", "pushAllowances", R"-----([{"actor": {"__typename": "Team", "id": "T_1", "slug": "pushers", "name": 7}}])-----", "'name' isn't a string"}
+							, {"EmptyLogin", "bypassForcePushAllowances", R"-----([{"actor": {"__typename": "User", "id": "U_1", "login": ""}}])-----", "'login' is empty"}
+							, {"EmptySlug", "pushAllowances", R"-----([{"actor": {"__typename": "Team", "id": "T_1", "slug": ""}}])-----", "'slug' is empty"}
+							, {"EmptyTypeName", "pushAllowances", R"-----([{"actor": {"__typename": "", "id": "T_1", "slug": "pushers"}}])-----", "'__typename' is empty"}
+							, {"UnnamedUserID", "bypassForcePushAllowances", R"-----([{"actor": {"__typename": "User", "login": null, "id": 5}}])-----", "'id' isn't a string"}
+							, {"UntypedSlug", "pushAllowances", R"-----([{"actor": {"__typename": null, "slug": 7}}])-----", "'slug' isn't a string"}
+						}
+					;
+
+					for (auto &Case : Cases)
+					{
+						DMibTestPath(Case.m_Name);
+
+						auto CasePages = Pages;
+						auto &Master = CasePages[0]["data"]["repository"]["branchProtectionRules"]["nodes"].f_Array()[1];
+						if (Case.m_bWholeList)
+							Master[Case.m_List] = CJsonSorted::fs_FromString(Case.m_Nodes);
+						else
+							Master[Case.m_List]["nodes"] = CJsonSorted::fs_FromString(Case.m_Nodes);
+
+						TCActor<CGraphQlCaptureGitHub> Provider = fg_Construct();
+						auto DestroyProvider = co_await fg_AsyncDestroy(Provider);
+						co_await Provider(&CGraphQlCaptureGitHub::f_AddResponses, CasePages);
+
+						auto Rules = co_await Provider(&CGitHub::f_GetBranchProtectionRules, "octo-org/octo-repo").f_Wrap();
+						DMibExpectFalse(bool(Rules));
+						if (!Rules)
+							DMibExpect(Rules.f_GetExceptionStr().f_Find(Case.m_Error), >=, 0);
+					}
+
 					co_return {};
 				};
 

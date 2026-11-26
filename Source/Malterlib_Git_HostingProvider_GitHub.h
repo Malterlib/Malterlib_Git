@@ -257,6 +257,7 @@ namespace NMib::NGit
 		static bool fsp_GetJsonBool(CJsonSorted const &_Json, CStr const &_Member);
 		static NTime::CTime fsp_GetJsonTime(CJsonSorted const &_Json, CStr const &_Member);
 		static CStr fsp_GetJsonUserLogin(CJsonSorted const &_Json);
+		static TCOptional<TCVector<CGitActor>> fsp_ParseActorList(CJsonSorted const *_pJson);
 		static CJsonSorted::CArray const &fsp_GetJsonArray(CJsonSorted const &_Json, CStr const &_Member);
 
 		static CWorkflowRun fsp_ParseWorkflowRun(CJsonSorted const &_Json);

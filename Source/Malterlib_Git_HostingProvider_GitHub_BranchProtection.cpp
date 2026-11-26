@@ -172,48 +172,104 @@ namespace NMib::NGit
 			}
 			)-----"
 		;
+	}
 
-		TCOptional<TCVector<CGitHostingProvider::CGitActor>> fg_ParseActorList(CJsonSorted const &_Json)
-		{
-			TCVector<CGitHostingProvider::CGitActor> OutActors;
-			for (auto &ActorNode : _Json["nodes"].f_Array())
+	/// The actors of an allowance list. GitHub returns no actor, or one without the field that names it, for a user, team or app that
+	/// is gone. A policy can't name those, so leaving them out keeps the comparison from reporting a difference no update removes. Only
+	/// an absent or null field counts as missing, and only once the actor's other fields are valid: anything else fails the read rather
+	/// than drop an actor that may exist.
+	auto CGitHostingProvider_GitHub::fsp_ParseActorList(CJsonSorted const *_pJson) -> TCOptional<TCVector<CGitActor>>
+	{
+		TCVector<CGitActor> OutActors;
+
+		auto fGetObject = [](CJsonSorted const *_pJson, CStr const &_Description) -> CJsonSorted const *
 			{
-				auto &Actor = ActorNode["actor"];
-				auto &Type = Actor["__typename"].f_String();
+				if (!_pJson || !_pJson->f_IsValid() || _pJson->f_IsNull())
+					return nullptr;
 
-				if (Type == "User")
-				{
-					CGitHostingProvider::CUser User;
-					User.m_ID = Actor["id"].f_String();
-					User.m_Login = Actor["login"].f_String();
-					if (auto pName = Actor.f_GetMember("name", EJsonType_String))
-						User.m_Name = pName->f_String();
-					OutActors.f_Insert(fg_Move(User));
-				}
-				else if (Type == "Team")
-				{
-					CGitHostingProvider::CTeam Team;
-					Team.m_ID = Actor["id"].f_String();
-					Team.m_Slug = Actor["slug"].f_String();
-					Team.m_Name = Actor["name"].f_String();
-					OutActors.f_Insert(fg_Move(Team));
-				}
-				else if (Type == "App")
-				{
-					CGitHostingProvider::CApp App;
-					App.m_ID = Actor["id"].f_String();
-					App.m_Slug = Actor["slug"].f_String();
-					App.m_Name = Actor["name"].f_String();
-					OutActors.f_Insert(fg_Move(App));
-				}
-				else
-					DMibError("Unknown actor type: {}"_f << Type);
+				if (!_pJson->f_IsObject())
+					DMibError("GitHub returned an allowance {} that isn't an object: {}"_f << _Description << *_pJson);
+
+				return _pJson;
 			}
+		;
 
-			OutActors.f_Sort();
+		// GitHub never sends an empty type, login or slug
+		auto fGetString = [](CJsonSorted const &_Actor, CStr const &_Member, bool _bName) -> TCOptional<CStr>
+			{
+				auto *pValue = _Actor.f_GetMember(_Member);
+				if (!pValue || pValue->f_IsNull())
+					return {};
 
+				if (!pValue->f_IsString())
+					DMibError("GitHub returned an allowance actor whose '{}' isn't a string: {}"_f << _Member << *pValue);
+
+				if (_bName && pValue->f_String().f_IsEmpty())
+					DMibError("GitHub returned an allowance actor whose '{}' is empty"_f << _Member);
+
+				return pValue->f_String();
+			}
+		;
+
+		auto fValue = [](TCOptional<CStr> const &_Value) -> CStr
+			{
+				return _Value ? *_Value : CStr();
+			}
+		;
+
+		auto *pConnection = fGetObject(_pJson, "list");
+		if (!pConnection)
 			return OutActors;
+
+		auto *pNodes = pConnection->f_GetMember("nodes");
+		if (!pNodes || pNodes->f_IsNull())
+			return OutActors;
+
+		if (!pNodes->f_IsArray())
+			DMibError("GitHub returned allowance nodes that aren't an array: {}"_f << *pNodes);
+
+		for (auto &ActorNode : pNodes->f_Array())
+		{
+			auto *pActorNode = fGetObject(&ActorNode, "node");
+			if (!pActorNode)
+				continue;
+
+			auto *pActor = fGetObject(pActorNode->f_GetMember("actor"), "actor");
+			if (!pActor)
+				continue;
+
+			auto &Actor = *pActor;
+			auto Type = fGetString(Actor, "__typename", true);
+			auto Login = fGetString(Actor, "login", true);
+			auto Slug = fGetString(Actor, "slug", true);
+			auto ID = fValue(fGetString(Actor, "id", false));
+			auto Name = fValue(fGetString(Actor, "name", false));
+
+			if (!Type)
+				continue;
+
+			if (*Type == "User")
+			{
+				if (Login)
+					OutActors.f_Insert(CUser{.m_Login = *Login, .m_ID = ID, .m_Name = Name});
+			}
+			else if (*Type == "Team")
+			{
+				if (Slug)
+					OutActors.f_Insert(CTeam{.m_Slug = *Slug, .m_ID = ID, .m_Name = Name});
+			}
+			else if (*Type == "App")
+			{
+				if (Slug)
+					OutActors.f_Insert(CApp{.m_Slug = *Slug, .m_ID = ID, .m_Name = Name});
+			}
+			else
+				DMibError("Unknown actor type: {}"_f << *Type);
 		}
+
+		OutActors.f_Sort();
+
+		return OutActors;
 	}
 
 	/// The nodes of every page of _Repository's branch protection rules. _Query selects their fields, and must take the variables $owner,
@@ -264,12 +320,17 @@ namespace NMib::NGit
 			auto &OutRule = OutRules[Rule["id"].f_String()];
 
 			OutRule.m_Pattern = Rule["pattern"].f_String();
-			OutRule.m_Creator = Rule["creator"]["login"].f_String();
+			// GitHub returns no creator when the account that created the rule is gone
+			if (auto *pCreator = Rule.f_GetMember("creator", EJsonType_Object))
+			{
+				if (auto *pLogin = pCreator->f_GetMember("login", EJsonType_String))
+					OutRule.m_Creator = pLogin->f_String();
+			}
 
-			OutRule.m_PushAllowances = fg_ParseActorList(Rule["pushAllowances"]);
-			OutRule.m_ReviewDismissalAllowances = fg_ParseActorList(Rule["reviewDismissalAllowances"]);
-			OutRule.m_BypassForcePushAllowances = fg_ParseActorList(Rule["bypassForcePushAllowances"]);
-			OutRule.m_BypassPullRequestAllowances = fg_ParseActorList(Rule["bypassPullRequestAllowances"]);
+			OutRule.m_PushAllowances = fsp_ParseActorList(Rule.f_GetMember("pushAllowances"));
+			OutRule.m_ReviewDismissalAllowances = fsp_ParseActorList(Rule.f_GetMember("reviewDismissalAllowances"));
+			OutRule.m_BypassForcePushAllowances = fsp_ParseActorList(Rule.f_GetMember("bypassForcePushAllowances"));
+			OutRule.m_BypassPullRequestAllowances = fsp_ParseActorList(Rule.f_GetMember("bypassPullRequestAllowances"));
 
 			{
 				auto Value = Rule["requiredStatusCheckContexts"].f_StringArray();
