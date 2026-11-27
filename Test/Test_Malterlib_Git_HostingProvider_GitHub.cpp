@@ -2126,6 +2126,52 @@ namespace
 				co_return {};
 			};
 
+			DMibTestCategory("OmittedRefNameFilter") -> TCFuture<void>
+			{
+				TCMap<CStr, CStr> Policies =
+					{
+						{"OmitExclude", R"-----({"LFS NoDelete": {"IncludeRefNames": ["refs/tags/lfs/*"], "Enforcement": "Evaluate"}})-----"}
+						, {"OmitInclude", R"-----({"LFS NoDelete": {"ExcludeRefNames": ["refs/tags/lfs/keep/*"], "Enforcement": "Evaluate"}})-----"}
+						, {"OmitBoth", R"-----({"LFS NoDelete": {"Enforcement": "Evaluate"}})-----"}
+					}
+				;
+
+				for (auto &Policy : Policies)
+				{
+					auto &Case = Policies.fs_GetKey(Policy);
+					DMibTestPath(Case);
+
+					auto Current = CJsonSorted::fs_FromString(gc_RulesetLfsNoDeleteJson);
+					Current["conditions"]["ref_name"]["exclude"] = CJsonSorted::fs_FromString(R"-----(["refs/tags/lfs/keep/*"])-----");
+
+					CMockGitHubState State;
+					State.m_Rulesets = {Current.f_ToString()};
+
+					auto Result = co_await fg_ApplyPolicy(fg_Move(State), "GenericRules", Policy, {});
+
+					DMibExpect(Result.m_Error, ==, "");
+					auto *pUpdated = Result.m_State.m_UpdatedRulesets.f_FindEqual("4212");
+					DMibAssertTrue(pUpdated);
+
+					// An update with one filter sends both, so the other must keep what it has. One with neither must not send what it read,
+					// which could restore filters changed since.
+					if (Case == "OmitBoth")
+						DMibExpectFalse(bool(pUpdated->f_GetMember("conditions")));
+					else
+					{
+						DMibExpect
+							(
+								(*pUpdated)["conditions"]["ref_name"]
+								, ==
+								, CJsonSorted::fs_FromString(R"-----({"include": ["refs/tags/lfs/*"], "exclude": ["refs/tags/lfs/keep/*"]})-----")
+							)
+						;
+					}
+				}
+
+				co_return {};
+			};
+
 			DMibTestCategory("UnmanageableRuleset") -> TCFuture<void>
 			{
 				CMockGitHubState State;

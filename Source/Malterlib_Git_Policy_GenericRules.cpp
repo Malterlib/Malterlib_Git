@@ -81,6 +81,13 @@ namespace NMib::NGit
 				// removes, since an update can't write them without their rules.
 				pWantedRuleset->m_Unmodelled = Ruleset.m_Unmodelled;
 
+				// An update that sends one ref name filter sends both, so one the policy leaves out keeps what the ruleset has. With neither the
+				// update leaves the conditions out, so that it doesn't restore filters changed since they were read.
+				if (pWantedRuleset->m_IncludeRefNames && !pWantedRuleset->m_ExcludeRefNames)
+					pWantedRuleset->m_ExcludeRefNames = Ruleset.m_ExcludeRefNames;
+				else if (pWantedRuleset->m_ExcludeRefNames && !pWantedRuleset->m_IncludeRefNames)
+					pWantedRuleset->m_IncludeRefNames = Ruleset.m_IncludeRefNames;
+
 				*pWantedRuleset = co_await _Context.m_HostingProvider(&CGitHostingProvider::f_PopulateGenericRulesetIDs, _Context.m_Repository, fg_Move(*pWantedRuleset));
 
 				// A pull request rule that doesn't say which merge methods it allows keeps the ones it has
