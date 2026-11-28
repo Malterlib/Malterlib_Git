@@ -30,9 +30,9 @@ namespace NMib::NGit
 		template <typename tf_CStr>
 		void f_Format(tf_CStr &o_String) const;
 
-		CStr m_Resource;
-		CStr m_Field;
-		CStr m_Message;
+		NStr::CStr m_Resource;
+		NStr::CStr m_Field;
+		NStr::CStr m_Message;
 		EGitHostingProviderErrorCode m_Code = EGitHostingProviderErrorCode::mc_None;
 	};
 
@@ -46,17 +46,17 @@ namespace NMib::NGit
 		NStorage::TCOptional<uint64> m_RetryAfterSeconds;
 	};
 
-	struct CGitHostingProviderExceptionData : public CHttpClientRequestExceptionData
+	struct CGitHostingProviderExceptionData : public NWeb::CHttpClientRequestExceptionData
 	{
 		template <typename tf_CStream>
 		void f_Stream(tf_CStream &_Stream);
 
-		bool f_HasError(CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, CStr const &_Resource = {}, CStr const &_Message = {}) const;
+		bool f_HasError(NStr::CStr const &_Field, EGitHostingProviderErrorCode _ErrorCode, NStr::CStr const &_Resource = {}, NStr::CStr const &_Message = {}) const;
 
 		static constexpr uint32 mc_StreamVersion = 1; // 1: m_RateLimit
 
-		CStr m_GitRawError;
-		TCVector<CGitHostingProviderError> m_GitErrors;
+		NStr::CStr m_GitRawError;
+		NContainer::TCVector<CGitHostingProviderError> m_GitErrors;
 		NStorage::TCOptional<CGitHostingProviderRateLimit> m_RateLimit; // Set when the provider rejected the request because a rate limit was exceeded
 	};
 
@@ -70,7 +70,7 @@ namespace NMib::NGit
 	struct ICGitHostingProviderFactory
 	{
 		virtual ~ICGitHostingProviderFactory() = default;
-		virtual TCActor<CGitHostingProvider> operator () () = 0;
+		virtual NConcurrency::TCActor<CGitHostingProvider> operator () () = 0;
 	};
 
 	struct CGitHostingProvider : public NConcurrency::CActor
@@ -455,7 +455,7 @@ namespace NMib::NGit
 			NContainer::TCVector<CRequiredWorkflow> m_Workflows;
 		};
 
-		using CGenericRule = TCVariant
+		using CGenericRule = NStorage::TCVariant
 			<
 				CGenericRule_Creation
 				, CGenericRule_Update
@@ -494,10 +494,10 @@ namespace NMib::NGit
 			bool f_IsUpdated(CGenericRuleset const &_Wanted, NStr::CStr &o_UpdateValues) const;
 
 			NStorage::TCOptional<NStr::CStr> m_Name;
-			NStorage::TCOptional<TCVector<CGenericRuleBypassActor>> m_BypassActors;
-			NStorage::TCOptional<TCVector<NStr::CStr>> m_IncludeRefNames;
-			NStorage::TCOptional<TCVector<NStr::CStr>> m_ExcludeRefNames;
-			NStorage::TCOptional<TCVector<CGenericRule>> m_Rules;
+			NStorage::TCOptional<NContainer::TCVector<CGenericRuleBypassActor>> m_BypassActors;
+			NStorage::TCOptional<NContainer::TCVector<NStr::CStr>> m_IncludeRefNames;
+			NStorage::TCOptional<NContainer::TCVector<NStr::CStr>> m_ExcludeRefNames;
+			NStorage::TCOptional<NContainer::TCVector<CGenericRule>> m_Rules;
 			NStorage::TCOptional<EGenericRuleTarget> m_Target;
 			NStorage::TCOptional<EGenericRuleEnforcement> m_Enforcement;
 			CGenericRulesetUnmodelled m_Unmodelled;
@@ -571,7 +571,7 @@ namespace NMib::NGit
 			NStorage::TCOptional<bool> m_Security_SecretScanning;
 			NStorage::TCOptional<bool> m_Security_SecretScanningPushProtection;
 
-			NStorage::TCOptional<TCMap<CStr, TCOptional<CStr>>> m_CustomProperties;
+			NStorage::TCOptional<NContainer::TCMap<NStr::CStr, NStorage::TCOptional<NStr::CStr>>> m_CustomProperties;
 		};
 
 		struct CRepositoryStats
@@ -691,7 +691,7 @@ namespace NMib::NGit
 
 			bool m_bGithubOwnedAllowed = true;
 			bool m_bVerifiedAllowed = true;
-			TCVector<CStr> m_PatternsAllowed;
+			NContainer::TCVector<NStr::CStr> m_PatternsAllowed;
 		};
 
 		using CAllowedActions = NStorage::TCStreamableVariant
@@ -1005,7 +1005,7 @@ namespace NMib::NGit
 
 		CGitHostingProvider();
 
-		virtual NConcurrency::TCFuture<void> f_Login(CEJsonSorted _LoginDetails) = 0;
+		virtual NConcurrency::TCFuture<void> f_Login(NEncoding::CEJsonSorted _LoginDetails) = 0;
 
 		// The token the provider authenticates with, renewed first when it is about to expire. Lets tools outside the provider,
 		// such as git and command line clients, act as the same identity.

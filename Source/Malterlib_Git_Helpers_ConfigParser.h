@@ -9,24 +9,24 @@ namespace NMib::NGit
 	{
 		struct CSubSection
 		{
-			TCMap<CStr, TCVector<CStr>> m_Values;
+			NContainer::TCMap<NStr::CStr, NContainer::TCVector<NStr::CStr>> m_Values;
 		};
 
 		struct CSection
 		{
-			TCMap<CStr, CSubSection> m_SubSections;
+			NContainer::TCMap<NStr::CStr, CSubSection> m_SubSections;
 		};
 
-		static CGitConfigParser fs_Parse(CStr const &_String);
-		static bool fs_ToBoolean(CStr const &_String);
+		static CGitConfigParser fs_Parse(NStr::CStr const &_String);
+		static bool fs_ToBoolean(NStr::CStr const &_String);
 
-		CStr const *f_GetValue(CStr const &_Section, CStr const &_SubSection, CStr const &_Key) const;
-		CStr const *f_GetValue(CStr const &_Section, CStr const &_Key) const;
+		NStr::CStr const *f_GetValue(NStr::CStr const &_Section, NStr::CStr const &_SubSection, NStr::CStr const &_Key) const;
+		NStr::CStr const *f_GetValue(NStr::CStr const &_Section, NStr::CStr const &_Key) const;
 
-		TCVector<CStr> const *f_GetValues(CStr const &_Section, CStr const &_SubSection, CStr const &_Key) const;
-		TCVector<CStr> const *f_GetValues(CStr const &_Section, CStr const &_Key) const;
+		NContainer::TCVector<NStr::CStr> const *f_GetValues(NStr::CStr const &_Section, NStr::CStr const &_SubSection, NStr::CStr const &_Key) const;
+		NContainer::TCVector<NStr::CStr> const *f_GetValues(NStr::CStr const &_Section, NStr::CStr const &_Key) const;
 
-		TCMap<CStr, CSection> m_Sections;
+		NContainer::TCMap<NStr::CStr, CSection> m_Sections;
 	};
 }
 

@@ -8,9 +8,11 @@
 
 namespace NMib::NGit
 {
-	TCFuture<CStr> fg_LaunchGit(TCVector<CStr> _Params, CStr _WorkingDirectory, CSystemEnvironment _Environment = {});
-	TCFuture<CProcessLaunchActor::CSimpleLaunchResult> fg_LaunchGitWithResult(TCVector<CStr> _Params, CStr _WorkingDirectory, CSystemEnvironment _Environment = {});
-	TCFuture<CStr> fg_LaunchGitSendStdIn(TCVector<CStr> _Params, CStr _StdIn, CStr _WorkingDirectory, CSystemEnvironment _Environment = {});
+	NConcurrency::TCFuture<NStr::CStr> fg_LaunchGit(NContainer::TCVector<NStr::CStr> _Params, NStr::CStr _WorkingDirectory, CSystemEnvironment _Environment = {});
+	auto fg_LaunchGitWithResult(NContainer::TCVector<NStr::CStr> _Params, NStr::CStr _WorkingDirectory, CSystemEnvironment _Environment = {})
+		-> NConcurrency::TCFuture<NProcess::CProcessLaunchActor::CSimpleLaunchResult>
+	;
+	NConcurrency::TCFuture<NStr::CStr> fg_LaunchGitSendStdIn(NContainer::TCVector<NStr::CStr> _Params, NStr::CStr _StdIn, NStr::CStr _WorkingDirectory, CSystemEnvironment _Environment = {});
 }
 
 #ifndef DMibPNoShortCuts

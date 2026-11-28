@@ -8,16 +8,17 @@
 
 namespace NMib::NGit
 {
-	struct CGitPolicyActor : public CActor
+	struct CGitPolicyActor : public NConcurrency::CActor
 	{
 		struct CApplyPolicyContext
 		{
 			NStr::CStr m_Repository;
 			NConcurrency::TCActor<CGitHostingProvider> m_HostingProvider;
-			NConcurrency::TCActorFunctor<TCFuture<void> (CStr _Name, CStr _CreatedValues)> m_fOnCreate;
-			NConcurrency::TCActorFunctor<TCFuture<void> (CStr _Name, CStr _UpdatedValues)> m_fOnUpdate;
-			NConcurrency::TCActorFunctor<TCFuture<void> (CStr _Name, CStr _DeletedValues)> m_fOnDelete;
-			NConcurrency::TCActorFunctor<TCFuture<void> (CStr _Name, CStr _Reasons)> m_fOnUnmanageable; // A listed ruleset left alone: an update would lose _Reasons
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Name, NStr::CStr _CreatedValues)> m_fOnCreate;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Name, NStr::CStr _UpdatedValues)> m_fOnUpdate;
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Name, NStr::CStr _DeletedValues)> m_fOnDelete;
+			// A listed ruleset left alone: an update would lose _Reasons
+			NConcurrency::TCActorFunctor<NConcurrency::TCFuture<void> (NStr::CStr _Name, NStr::CStr _Reasons)> m_fOnUnmanageable;
 			bool m_bPretend = true;
 			bool m_bCreateMissing = false;
 		};

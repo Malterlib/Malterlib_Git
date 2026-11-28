@@ -35,7 +35,7 @@ namespace NMib::NGit
 		{
 			// Every version of this data so far has version 0 of CHttpClientRequestExceptionData
 			DMibBinaryStreamVersion(_Stream, 0u);
-			CHttpClientRequestExceptionData::f_Stream(_Stream);
+			NWeb::CHttpClientRequestExceptionData::f_Stream(_Stream);
 		}
 
 		_Stream % m_GitRawError;
@@ -44,11 +44,11 @@ namespace NMib::NGit
 			_Stream % m_RateLimit;
 	}
 
-	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value);
-	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleEnforcement _Value);
-	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleBypassMode _Value);
-	CStr fg_EnumToString(CGitHostingProvider::EStringMatchOperator _Value);
-	CStr fg_EnumToString(CGitHostingProvider::EGenericRuleMergeMethod _Value);
+	NStr::CStr fg_EnumToString(CGitHostingProvider::EGenericRuleTarget _Value);
+	NStr::CStr fg_EnumToString(CGitHostingProvider::EGenericRuleEnforcement _Value);
+	NStr::CStr fg_EnumToString(CGitHostingProvider::EGenericRuleBypassMode _Value);
+	NStr::CStr fg_EnumToString(CGitHostingProvider::EStringMatchOperator _Value);
+	NStr::CStr fg_EnumToString(CGitHostingProvider::EGenericRuleMergeMethod _Value);
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CUser::f_Format(tf_CStr &o_Str) const
@@ -132,7 +132,7 @@ namespace NMib::NGit
 	void CGitHostingProvider::CGenericRule_Deployments::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "Deployments\n";
-		o_Str += typename tf_CStr::CFormat("    RequiredEnvironments: {}") << CStr::fs_ToStr(m_RequiredDeploymentEnvironments).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    RequiredEnvironments: {}") << NStr::CStr::fs_ToStr(m_RequiredDeploymentEnvironments).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
@@ -171,11 +171,11 @@ namespace NMib::NGit
 				"    RequireReviewThreadResolution: {}\n"
 				"    AllowedMergeMethods: {}"
 			)
-			<< CStr::fs_ToStr(m_RequiredApprovingReviewCount).f_Indent("        ", false)
-			<< CStr::fs_ToStr(m_bDismissStaleReviewsOnPush).f_Indent("        ", false)
-			<< CStr::fs_ToStr(m_bRequireCodeOwnerReview).f_Indent("        ", false)
-			<< CStr::fs_ToStr(m_bRequireLastPushApproval).f_Indent("        ", false)
-			<< CStr::fs_ToStr(m_bRequireReviewThreadResolution).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_RequiredApprovingReviewCount).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_bDismissStaleReviewsOnPush).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_bRequireCodeOwnerReview).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_bRequireLastPushApproval).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_bRequireReviewThreadResolution).f_Indent("        ", false)
 			<< AllowedMergeMethods
 		;
 	}
@@ -189,8 +189,8 @@ namespace NMib::NGit
 				"    RequiredStatusChecks: {}\n"
 				"    PullRequestsMustBeTestedWithLatestCode: {}"
 			)
-			<< CStr::fs_ToStr(m_RequiredStatusChecks).f_Indent("        ", false)
-			<< CStr::fs_ToStr(m_bPullRequestsMustBeTestedWithLatestCode).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_RequiredStatusChecks).f_Indent("        ", false)
+			<< NStr::CStr::fs_ToStr(m_bPullRequestsMustBeTestedWithLatestCode).f_Indent("        ", false)
 		;
 	}
 
@@ -216,42 +216,42 @@ namespace NMib::NGit
 	void CGitHostingProvider::CGenericRule_CommitMessage::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitMessage";
-		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << NStr::CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_CommitAuthorEmail::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitAuthorEmail";
-		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << NStr::CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_CommitterEmail::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "CommitterEmail";
-		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << NStr::CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_BranchName::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "BranchName";
-		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << NStr::CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_TagName::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "TagName";
-		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    StringMatch: {}") << NStr::CStr::fs_ToStr(m_StringMatch).f_Indent("        ", false);
 	}
 
 	template <typename tf_CStr>
 	void CGitHostingProvider::CGenericRule_Workflow::f_Format(tf_CStr &o_Str) const
 	{
 		o_Str += "Workflow";
-		o_Str += typename tf_CStr::CFormat("    Workflows: {}") << CStr::fs_ToStr(m_Workflows).f_Indent("        ", false);
+		o_Str += typename tf_CStr::CFormat("    Workflows: {}") << NStr::CStr::fs_ToStr(m_Workflows).f_Indent("        ", false);
 		o_Str += typename tf_CStr::CFormat("{}");
 	}
 
